@@ -1,0 +1,57 @@
+<Window x:Class="FUEngine.CreateFromTemplateDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Crear desde plantilla" Height="520" Width="480"
+        WindowStartupLocation="CenterOwner"
+        Background="#0d1117"
+        ResizeMode="NoResize">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" Text="Nombre del proyecto:" Foreground="#e6edf3" Margin="0,0,0,6"/>
+        <TextBox x:Name="TxtName" Grid.Row="1" Margin="0,0,0,12" Background="#161b22" Foreground="#e6edf3" BorderBrush="#30363d"/>
+        <TextBlock Grid.Row="2" Text="Carpeta:" Foreground="#e6edf3" Margin="0,0,0,6"/>
+        <Grid Grid.Row="3" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="TxtPath" IsReadOnly="True" Margin="0,0,8,0"
+                     Background="#161b22" Foreground="#8b949e" BorderBrush="#30363d"/>
+            <Button x:Name="BtnBrowse" Content="..." Width="36" Height="28" Padding="0" Click="BtnBrowse_OnClick"/>
+        </Grid>
+        <Expander Grid.Row="4" Header="Opciones de plantilla (tamaño, tile...)" Foreground="#e6edf3" Margin="0,0,0,8"
+                  IsExpanded="False" ExpandDirection="Down">
+            <StackPanel Margin="0,12,0,0">
+                <CheckBox x:Name="ChkInfinite" Content="Mapa infinito" Foreground="#e6edf3" Margin="0,0,0,8"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <TextBlock Text="Ancho (tiles):" Foreground="#8b949e" VerticalAlignment="Center" Width="100"/>
+                    <TextBox x:Name="TxtMapWidth" Width="70" Background="#161b22" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <TextBlock Text="Alto (tiles):" Foreground="#8b949e" VerticalAlignment="Center" Width="100"/>
+                    <TextBox x:Name="TxtMapHeight" Width="70" Background="#161b22" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Tile size (px):" Foreground="#8b949e" VerticalAlignment="Center" Width="100"/>
+                    <TextBox x:Name="TxtTileSize" Width="70" Background="#161b22" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                </StackPanel>
+            </StackPanel>
+        </Expander>
+        <TextBlock Grid.Row="5" Text="Los scripts de la plantilla se fusionan con módulos reutilizables (onCollision, onInteract...)." 
+                   Foreground="#8b949e" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
+        <StackPanel Grid.Row="6"/>
+        <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Cancelar" Width="88" IsCancel="True" Background="#21262d" BorderBrush="#30363d"/>
+            <Button x:Name="BtnCreate" Content="Crear" Width="88" Margin="12,0,0,0" Click="BtnCreate_OnClick" IsDefault="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

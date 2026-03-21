@@ -1,0 +1,2 @@
+Siempre que hagas modificaciones agregues algo, o lo que sea, ponerlo en **docs/AI-ONBOARDING.md** (convención del proyecto).
+Siempre al agregar cosas modificaciones, actualizar el menu de ayuda rapida y completado dentro del motor

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<SyntaxDefinition name="Lua" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+  <Color name="Comment" foreground="#6e7681" />
+  <Color name="String" foreground="#a5d6ff" />
+  <Color name="Keyword" foreground="#ff7b72" />
+  <Color name="Number" foreground="#79c0ff" />
+  <Color name="Function" foreground="#d2a8ff" />
+  <RuleSet>
+    <Span color="Comment" begin="--" end="$" />
+    <Span color="Comment" begin="--\[\[" end="\]\]" multiline="true" />
+    <Span color="String" begin="&quot;" end="&quot;" escape="\\" />
+    <Span color="String" begin="'" end="'" escape="\\" />
+    <Span color="String" begin="\[\[" end="\]\]" multiline="true" />
+    <Keywords color="Keyword" fontWeight="bold">
+      <Word>and</Word>
+      <Word>break</Word>
+      <Word>do</Word>
+      <Word>else</Word>
+      <Word>elseif</Word>
+      <Word>end</Word>
+      <Word>false</Word>
+      <Word>for</Word>
+      <Word>function</Word>
+      <Word>if</Word>
+      <Word>in</Word>
+      <Word>local</Word>
+      <Word>nil</Word>
+      <Word>not</Word>
+      <Word>or</Word>
+      <Word>repeat</Word>
+      <Word>return</Word>
+      <Word>then</Word>
+      <Word>true</Word>
+      <Word>until</Word>
+      <Word>while</Word>
+    </Keywords>
+    <Rule color="Number">\b0[xX][0-9a-fA-F]+|\b[0-9]+\.?[0-9]*([eE][+-]?[0-9]+)?</Rule>
+  </RuleSet>
+</SyntaxDefinition>

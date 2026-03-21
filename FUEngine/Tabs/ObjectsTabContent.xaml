@@ -1,0 +1,19 @@
+<UserControl x:Class="FUEngine.ObjectsTabContent"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#161b22">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Border Grid.Row="0" Background="#21262d" Padding="12,8" BorderBrush="#30363d" BorderThickness="0,0,0,1">
+            <TextBlock Text="Seeds · Arrastra al mapa para colocar (arrastra sobre el tab Mapa para cambiar y soltar)" 
+                       Foreground="#8b949e" FontSize="12" TextWrapping="Wrap"/>
+        </Border>
+        <ListBox x:Name="ObjectsList" Grid.Row="1" Background="Transparent" Foreground="#e6edf3" 
+                 DisplayMemberPath="Nombre" SelectionChanged="ObjectsList_OnSelectionChanged"
+                 PreviewMouseLeftButtonDown="ObjectsList_PreviewMouseLeftButtonDown"
+                 PreviewMouseMove="ObjectsList_PreviewMouseMove"/>
+    </Grid>
+</UserControl>

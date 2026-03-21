@@ -1,0 +1,35 @@
+<Window x:Class="FUEngine.ConfirmDeleteProjectDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Eliminar proyecto definitivamente" Height="320" Width="440"
+        WindowStartupLocation="CenterOwner"
+        Background="#161b22" Foreground="#e6edf3"
+        ResizeMode="NoResize">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" Text="Esta acción es irreversible. Se eliminará la carpeta del proyecto y todo su contenido."
+                   TextWrapping="Wrap" Foreground="#f85149" FontWeight="SemiBold" Margin="0,0,0,12"/>
+        <TextBlock Grid.Row="1" x:Name="TxtProjectNameLabel" Text="Proyecto:" Foreground="#8b949e" Margin="0,0,0,4"/>
+        <Border Grid.Row="2" Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,16">
+            <TextBlock x:Name="TxtProjectName" Foreground="#e6edf3" FontWeight="SemiBold" TextWrapping="Wrap"/>
+        </Border>
+        <StackPanel Grid.Row="3">
+            <TextBlock Text="Para confirmar, escribe el nombre del proyecto exactamente como se muestra arriba:" 
+                       Foreground="#e6edf3" TextWrapping="Wrap" Margin="0,0,0,8"/>
+            <TextBox x:Name="TxtConfirmName" Padding="10,8" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d"
+                     TextChanged="TxtConfirmName_TextChanged"/>
+        </StackPanel>
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="Cancelar" Padding="14,8" Margin="0,0,10,0" IsCancel="True" Click="BtnCancel_OnClick"
+                    Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+            <Button x:Name="BtnDelete" Content="Eliminar definitivamente" Padding="14,8" Click="BtnDelete_OnClick"
+                    Background="#da3633" Foreground="White" BorderThickness="0" IsEnabled="False"/>
+        </StackPanel>
+    </Grid>
+</Window>

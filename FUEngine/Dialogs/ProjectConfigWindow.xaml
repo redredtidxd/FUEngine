@@ -1,0 +1,534 @@
+<Window x:Class="FUEngine.ProjectConfigWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Configuración del proyecto" Height="520" Width="560"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize" MinHeight="440" MinWidth="480"
+        Background="#0d1117"
+        ToolTip="Metadatos y opciones del proyecto actual (project.json y archivos relacionados).">
+    <Window.Resources>
+        <!-- Lista desplegable: tema oscuro, texto visible, scroll fluido -->
+        <Style x:Key="DropdownListStyle" TargetType="ListBox">
+            <Setter Property="Background" Value="#21262d"/>
+            <Setter Property="Foreground" Value="#e6edf3"/>
+            <Setter Property="BorderBrush" Value="#30363d"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="MaxHeight" Value="220"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="ScrollViewer.CanContentScroll" Value="False"/>
+        </Style>
+        <Style TargetType="ListBoxItem" x:Key="DropdownItemStyle">
+            <Setter Property="Foreground" Value="#e6edf3"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#30363d"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#388bfd"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TabControl Grid.Row="0" ToolTip="Pestañas de configuración del proyecto; elige una categoría arriba.">
+            <TabItem Header="General" ToolTip="Nombre, metadatos, tamaño de tile y escena principal.">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8" ToolTip="Desplázate para ver todas las opciones de esta pestaña.">
+                    <StackPanel>
+                        <TextBlock Text="Nombre del proyecto" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,4"
+                                   ToolTip="Nombre visible del proyecto en el hub y metadatos."/>
+                        <TextBox x:Name="TxtNombre" Margin="0,0,0,12" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Nombre del proyecto; se guarda en el archivo .FUE / proyecto.json."/>
+                        <TextBlock Text="Descripción" Foreground="#e6edf3" Margin="0,0,0,4" ToolTip="Resumen corto del juego o herramienta."/>
+                        <TextBox x:Name="TxtDescripcion" Height="56" TextWrapping="Wrap" AcceptsReturn="True" Padding="8,6" Margin="0,0,0,12"
+                                 Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" VerticalContentAlignment="Top"
+                                 ToolTip="Texto libre; aparece en listados y exportación de metadatos."/>
+                        <TextBlock Text="Logo (archivos .ico del proyecto)" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Icono del ejecutable o ventana; debe ser un .ico dentro del proyecto."/>
+                        <ComboBox x:Name="CmbLogo" Margin="0,0,0,12" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                  IsEditable="True" ToolTip="Selecciona un .ico del proyecto o escribe ruta relativa. Se listan automáticamente los .ico del proyecto."/>
+                        <TextBlock Text="Tamaño de tiles" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Píxeles por lado de cada casilla del mapa; cambiar puede desalinear capas existentes."/>
+                        <Grid HorizontalAlignment="Left" Margin="0,0,0,4">
+                            <Border x:Name="TileSizeDropBorder" Width="140" Background="#21262d" BorderBrush="#30363d" BorderThickness="1" CornerRadius="2" Cursor="Hand" MouseLeftButtonDown="TileSizeDrop_Open"
+                                    ToolTip="Abre la lista de tamaños de tile predefinidos.">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="TxtTileSizeDisplay" Text="16×16 px" Foreground="#e6edf3" VerticalAlignment="Center" Margin="8,6"
+                                               ToolTip="Tamaño de tile actualmente seleccionado."/>
+                                    <TextBlock Grid.Column="1" Text="▼" Foreground="#8b949e" FontSize="9" VerticalAlignment="Center" Margin="6,0"
+                                               ToolTip="Abrir lista de tamaños."/>
+                                </Grid>
+                            </Border>
+                            <Popup x:Name="PopupTileSize" PlacementTarget="{Binding ElementName=TileSizeDropBorder}" Placement="Bottom" StaysOpen="False">
+                                <Border Background="#21262d" BorderBrush="#30363d" BorderThickness="1" Padding="0">
+                                    <ListBox x:Name="ListTileSize" Style="{StaticResource DropdownListStyle}" ItemContainerStyle="{StaticResource DropdownItemStyle}" DisplayMemberPath="Display" SelectionChanged="ListTileSize_SelectionChanged"/>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <TextBlock Text="Al cambiar el tamaño de tiles puede afectar a capas existentes." Foreground="#8b949e" FontSize="11" Margin="0,0,0,12"
+                                   ToolTip="Advertencia: redimensionar casillas puede desalinear sprites y colisiones ya colocados."/>
+                        <TextBlock Text="Autor" Foreground="#e6edf3" Margin="0,0,0,4" ToolTip="Nombre del creador o equipo."/>
+                        <TextBox x:Name="TxtAuthor" Margin="0,0,0,12" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Campo de metadatos; no afecta al juego en tiempo de ejecución."/>
+                        <TextBlock Text="Copyright" Foreground="#e6edf3" Margin="0,0,0,4" ToolTip="Aviso legal o año de copyright."/>
+                        <TextBox x:Name="TxtCopyright" Margin="0,0,0,12" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Texto de copyright para créditos o builds."/>
+                        <TextBlock Text="Versión" Foreground="#e6edf3" Margin="0,0,0,4" ToolTip="Versión semántica o número de build del proyecto."/>
+                        <TextBox x:Name="TxtVersion" Width="120" HorizontalAlignment="Left" Margin="0,0,0,12" Padding="8,6"
+                                 Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Ej.: 0.1, 1.0.0"/>
+                        <TextBlock Text="Escena Start (obligatoria para modo Play)" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,4"
+                                   ToolTip="Primera escena que carga el juego al pulsar Play."/>
+                        <ComboBox x:Name="CmbMainScene" Margin="0,0,0,4" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                  DisplayMemberPath="Display"
+                                  ToolTip="Selecciona la escena que se cargará al pulsar Play (escena principal)."/>
+                        <TextBlock Text="Sin escena Start configurada no se puede iniciar el juego en modo Play." Foreground="#8b949e" FontSize="11" Margin="0,0,0,8"
+                                   ToolTip="El motor necesita una escena principal para ejecutar Play; elige una del desplegable."/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Autoguardado" ToolTip="Copias automáticas del mapa y objetos en carpeta aparte; no sustituyen Guardar manual.">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8" ToolTip="Desplázate para ver todas las opciones de esta pestaña.">
+                    <StackPanel>
+                        <TextBlock Text="Los autoguardados se guardan en una carpeta separada (por defecto Autoguardados) y no sobrescriben tus archivos oficiales."
+                                  Foreground="#8b949e" TextWrapping="Wrap" Margin="0,0,0,12"
+                                  ToolTip="Útil ante cierres inesperados; revisa la carpeta Autoguardados del proyecto."/>
+                        <CheckBox x:Name="ChkAutoSaveEnabled" Content="Activar autoguardado"
+                                  Foreground="#e6edf3" Margin="0,0,0,12" Checked="ChkAutoSaveEnabled_Changed" Unchecked="ChkAutoSaveEnabled_Changed"
+                                  ToolTip="Activa el temporizador que guarda copias según el intervalo indicado."/>
+                        <TextBlock Text="Intervalo (minutos)" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Frecuencia del autoguardado mientras el editor está abierto."/>
+                        <TextBox x:Name="TxtIntervalMinutes" Width="80" HorizontalAlignment="Left" Margin="0,0,0,4" Padding="8,6"
+                                 Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" ToolTip="Cada cuántos minutos guardar automáticamente (1-120)."/>
+                        <TextBlock Text="Ej.: 5 = cada 5 minutos" Foreground="#8b949e" FontSize="11" Margin="0,0,0,12"
+                                   ToolTip="Ejemplo de lectura del intervalo en minutos."/>
+                        <TextBlock Text="Máximo de copias por tipo (mapa / objetos)" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Límite de archivos por categoría; al superarlo se borran los más viejos."/>
+                        <TextBox x:Name="TxtMaxBackups" Width="80" HorizontalAlignment="Left" Margin="0,0,0,4" Padding="8,6"
+                                 Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" ToolTip="Número de archivos de autoguardado a conservar (1-100). Los más antiguos se eliminan."/>
+                        <TextBlock Text="Ej.: 10 = conservar los 10 más recientes" Foreground="#8b949e" FontSize="11" Margin="0,0,0,12"
+                                   ToolTip="Ejemplo del límite de copias de autoguardado por categoría."/>
+                        <TextBlock Text="Carpeta de autoguardados" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Ruta relativa al proyecto o absoluta donde se escriben las copias automáticas."/>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="TxtAutoSaveFolder" Grid.Column="0" Margin="0,0,8,0" Padding="8,6"
+                                     Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                     ToolTip="Ruta relativa al proyecto (ej. Autoguardados) o ruta absoluta."
+                                     TextChanged="TxtAutoSaveFolder_OnTextChanged"/>
+                            <Button x:Name="BtnBrowseAutoSaveFolder" Grid.Column="1" Content="..." Width="36" Height="28" Padding="0" Click="BtnBrowseAutoSaveFolder_OnClick"
+                                    ToolTip="Elegir carpeta de autoguardados"/>
+                        </Grid>
+                        <TextBlock Text="Relativa al proyecto o ruta absoluta. Se crea automáticamente si no existe." Foreground="#8b949e" FontSize="11" Margin="0,0,0,6"
+                                   ToolTip="La carpeta de autoguardados puede ser relativa al .FUE o una ruta completa en disco."/>
+                        <TextBlock x:Name="TxtAutoSaveResolvedPath" Foreground="#8b949e" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,2" ToolTip="Ruta absoluta resuelta"/>
+                        <TextBlock x:Name="TxtAutoSaveInsideProject" Foreground="#58a6ff" FontSize="11" Margin="0,0,0,12" ToolTip="Indica si la carpeta de autoguardados queda dentro del directorio del proyecto."/>
+                        <CheckBox x:Name="ChkAutoSaveOnClose" Content="Autoguardar al cerrar la ventana si hay cambios pendientes"
+                                  Foreground="#e6edf3" Margin="0,0,0,8"
+                                  ToolTip="Al salir del editor, intenta una copia de seguridad si quedaron cambios sin guardar."/>
+                        <CheckBox x:Name="ChkGuardarSoloCambios" Content="Solo guardar si hay cambios (no autoguardar si no hubo edición)"
+                                  Foreground="#e6edf3" Margin="0,0,0,8"
+                                  ToolTip="Evita archivos de autoguardado cuando no se ha modificado nada desde el último guardado."/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Juego" ToolTip="Resolución, FPS, fuente y entrada por defecto en tiempo de ejecución.">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8" ToolTip="Desplázate para ver todas las opciones de esta pestaña.">
+                    <StackPanel>
+                        <TextBlock Text="Resolución del juego" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,6"
+                                   ToolTip="Tamaño interno de la ventana o buffer de render del juego."/>
+                        <Grid HorizontalAlignment="Left" Margin="0,0,0,4">
+                            <Border x:Name="ResolutionDropBorder" Width="260" Background="#21262d" BorderBrush="#30363d" BorderThickness="1" CornerRadius="2" Cursor="Hand" MouseLeftButtonDown="ResolutionDrop_Open"
+                                    ToolTip="Resolución interna del juego: píxeles de ancho×alto del viewport (p. ej. 1280×720).">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="TxtResolutionDisplay" Text="1280×720 → HD" Foreground="#e6edf3" VerticalAlignment="Center" Margin="8,6" TextTrimming="CharacterEllipsis"
+                                               ToolTip="Resolución interna del juego seleccionada."/>
+                                    <TextBlock Grid.Column="1" Text="▼" Foreground="#8b949e" FontSize="9" VerticalAlignment="Center" Margin="6,0"
+                                               ToolTip="Abrir lista de resoluciones."/>
+                                </Grid>
+                            </Border>
+                            <Popup x:Name="PopupResolution" PlacementTarget="{Binding ElementName=ResolutionDropBorder}" Placement="Bottom" StaysOpen="False">
+                                <Border Background="#21262d" BorderBrush="#30363d" BorderThickness="1" Padding="0">
+                                    <ListBox x:Name="ListResolution" Style="{StaticResource DropdownListStyle}" ItemContainerStyle="{StaticResource DropdownItemStyle}" DisplayMemberPath="Display" SelectionChanged="ListResolution_SelectionChanged"/>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <TextBlock Text="FPS del juego" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Fotogramas por segundo lógicos del bucle principal del juego."/>
+                        <Grid HorizontalAlignment="Left" Margin="0,0,0,4">
+                            <Border x:Name="FpsDropBorder" Width="260" Background="#21262d" BorderBrush="#30363d" BorderThickness="1" CornerRadius="2" Cursor="Hand" MouseLeftButtonDown="FpsDrop_Open"
+                                    ToolTip="Fotogramas por segundo del bucle lógico del juego: 60 es fluido; 30 ahorra CPU en hardware débil.">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="TxtFpsDisplay" Text="60 fps — estándar común" Foreground="#e6edf3" VerticalAlignment="Center" Margin="8,6" TextTrimming="CharacterEllipsis"
+                                               ToolTip="FPS del bucle de juego seleccionados."/>
+                                    <TextBlock Grid.Column="1" Text="▼" Foreground="#8b949e" FontSize="9" VerticalAlignment="Center" Margin="6,0"
+                                               ToolTip="Abrir lista de FPS."/>
+                                </Grid>
+                            </Border>
+                            <Popup x:Name="PopupFps" PlacementTarget="{Binding ElementName=FpsDropBorder}" Placement="Bottom" StaysOpen="False">
+                                <Border Background="#21262d" BorderBrush="#30363d" BorderThickness="1" Padding="0">
+                                    <ListBox x:Name="ListFps" Style="{StaticResource DropdownListStyle}" ItemContainerStyle="{StaticResource DropdownItemStyle}" DisplayMemberPath="Display" SelectionChanged="ListFps_SelectionChanged"/>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <TextBlock Text="Velocidad global de animaciones (1.0 = normal)" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Multiplicador de velocidad de todas las animaciones; 1,0 es el diseño original."/>
+                        <TextBox x:Name="TxtAnimationSpeed" Width="80" HorizontalAlignment="Left" Margin="0,0,0,12" Padding="6,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Número decimal; p. ej. 0,5 a la mitad, 2 el doble."/>
+                        <TextBlock Text="Fuente del juego" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Tipografía para texto de UI en runtime."/>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid Grid.Column="0">
+                                <Border x:Name="FontDropBorder" Background="#21262d" BorderBrush="#30363d" BorderThickness="1" CornerRadius="2" Cursor="Hand" MouseLeftButtonDown="FontDrop_Open"
+                                        ToolTip="Fuente TTF del sistema o del proyecto para texto de UI en runtime.">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="TxtFontDisplay" Text="Default" Foreground="#e6edf3" VerticalAlignment="Center" Margin="8,6" TextTrimming="CharacterEllipsis"
+                                                   ToolTip="Fuente de UI en juego seleccionada."/>
+                                        <TextBlock Grid.Column="1" Text="▼" Foreground="#8b949e" FontSize="9" VerticalAlignment="Center" Margin="6,0"
+                                                   ToolTip="Abrir lista de fuentes."/>
+                                    </Grid>
+                                </Border>
+                                <Popup x:Name="PopupFont" PlacementTarget="{Binding ElementName=FontDropBorder}" Placement="Bottom" StaysOpen="False">
+                                    <Border Background="#21262d" BorderBrush="#30363d" BorderThickness="1" Padding="0">
+                                        <ListBox x:Name="ListFont" Style="{StaticResource DropdownListStyle}" ItemContainerStyle="{StaticResource DropdownItemStyle}" DisplayMemberPath="Display" SelectionChanged="ListFont_SelectionChanged"/>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                            <Button x:Name="BtnBrowseFont" Grid.Column="1" Content="..." Width="36" Height="28" Margin="8,0,0,0" Padding="0" Click="BtnBrowseFont_OnClick" ToolTip="Fuente personalizada (archivo .ttf)"/>
+                        </Grid>
+                        <TextBlock Text="Tamaño de fuente" Foreground="#8b949e" Margin="0,0,0,4" ToolTip="Tamaño en puntos del texto de UI en juego."/>
+                        <TextBox x:Name="TxtGameFontSize" Width="60" HorizontalAlignment="Left" Margin="0,0,0,12" Padding="6,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Entero típico entre 8 y 72."/>
+                        <TextBlock Text="Controles por defecto" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Esquema de entrada (teclado, mando, etc.) sugerido al iniciar."/>
+                        <Grid HorizontalAlignment="Left" Margin="0,0,0,8">
+                            <Border x:Name="InputDropBorder" Width="150" Background="#21262d" BorderBrush="#30363d" BorderThickness="1" CornerRadius="2" Cursor="Hand" MouseLeftButtonDown="InputDrop_Open"
+                                    ToolTip="Esquema por defecto: teclado, mando u otros; los scripts siguen usando la API input.*.">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="TxtInputDisplay" Text="Keyboard" Foreground="#e6edf3" VerticalAlignment="Center" Margin="8,6"
+                                               ToolTip="Esquema de entrada seleccionado."/>
+                                    <TextBlock Grid.Column="1" Text="▼" Foreground="#8b949e" FontSize="9" VerticalAlignment="Center" Margin="6,0"
+                                               ToolTip="Abrir lista de esquemas de entrada."/>
+                                </Grid>
+                            </Border>
+                            <Popup x:Name="PopupInput" PlacementTarget="{Binding ElementName=InputDropBorder}" Placement="Bottom" StaysOpen="False">
+                                <Border Background="#21262d" BorderBrush="#30363d" BorderThickness="1" Padding="0">
+                                    <ListBox x:Name="ListInput" Style="{StaticResource DropdownListStyle}" ItemContainerStyle="{StaticResource DropdownItemStyle}" DisplayMemberPath="Display" SelectionChanged="ListInput_SelectionChanged"/>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Audio" ToolTip="Manifiesto audio.json y volúmenes del modo Play (0–1).">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8" ToolTip="Desplázate para ver todas las opciones de esta pestaña.">
+                    <StackPanel>
+                        <TextBlock Text="Manifiesto de sonidos" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,6"
+                                   ToolTip="JSON con la lista id → archivo (wav/mp3). Ruta relativa a la carpeta del proyecto."/>
+                        <TextBlock Text="Ruta del archivo (relativa al proyecto)" Foreground="#8b949e" FontSize="11" Margin="0,0,0,4"
+                                   ToolTip="Ubicación del JSON de catálogo de audio respecto a la raíz del proyecto."/>
+                        <TextBox x:Name="TxtAudioManifest" Margin="0,0,0,16" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Ej.: audio.json en la raíz del proyecto."/>
+                        <TextBlock Text="Maestro" Foreground="#e6edf3" Margin="0,0,0,4" ToolTip="Multiplica música y SFX."/>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="52"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider x:Name="SldMasterVolume" Grid.Column="0" Minimum="0" Maximum="1" TickFrequency="0.05" IsSnapToTickEnabled="True" ValueChanged="AudioVolumeSlider_ValueChanged"
+                                    ToolTip="Volumen maestro: multiplica música y SFX a la vez (0 silencio, 1 máximo)."/>
+                            <TextBlock x:Name="TxtAudioMasterVal" Grid.Column="1" Foreground="#8b949e" VerticalAlignment="Center" Margin="10,0,0,0" Text="1.00"
+                                       ToolTip="Valor numérico actual del volumen maestro (0–1)."/>
+                        </Grid>
+                        <TextBlock Text="Música" Foreground="#e6edf3" Margin="0,0,0,4" ToolTip="Volumen del bus de música respecto al maestro."/>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="52"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider x:Name="SldMusicVolume" Grid.Column="0" Minimum="0" Maximum="1" TickFrequency="0.05" IsSnapToTickEnabled="True" ValueChanged="AudioVolumeSlider_ValueChanged"
+                                    ToolTip="Volumen del bus de música (audio.playMusic)."/>
+                            <TextBlock x:Name="TxtAudioMusicVal" Grid.Column="1" Foreground="#8b949e" VerticalAlignment="Center" Margin="10,0,0,0" Text="0.70"
+                                       ToolTip="Valor numérico actual del volumen de música (0–1)."/>
+                        </Grid>
+                        <TextBlock Text="Efectos (SFX)" Foreground="#e6edf3" Margin="0,0,0,4" ToolTip="Volumen de efectos de sonido y UI."/>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="52"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider x:Name="SldSfxVolume" Grid.Column="0" Minimum="0" Maximum="1" TickFrequency="0.05" IsSnapToTickEnabled="True" ValueChanged="AudioVolumeSlider_ValueChanged"
+                                    ToolTip="Volumen de efectos (saltos, impactos, UI)."/>
+                            <TextBlock x:Name="TxtAudioSfxVal" Grid.Column="1" Foreground="#8b949e" VerticalAlignment="Center" Margin="10,0,0,0" Text="1.00"
+                                       ToolTip="Valor numérico actual del volumen de SFX (0–1)."/>
+                        </Grid>
+                        <TextBlock Text="Los valores deben estar entre 0 y 1. Los scripts pueden cambiar el volumen con audio.setVolume(&quot;master&quot;|&quot;music&quot;|&quot;sfx&quot;, x)." Foreground="#6e7681" FontSize="11" TextWrapping="Wrap"
+                                   ToolTip="Rango válido y API Lua para ajustar volumen en tiempo de ejecución."/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Chunks" ToolTip="Mapa infinito: tamaño de chunk, radio de carga y optimizaciones.">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8" ToolTip="Desplázate para ver todas las opciones de esta pestaña.">
+                    <StackPanel>
+                        <TextBlock Text="Configuración de chunks (mapa infinito)" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,8"
+                                   ToolTip="Fragmentación del mundo en bloques cargables y guardables por partes."/>
+                        <TextBlock Text="Tamaño del chunk (tiles)" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Lado del chunk en número de casillas; afecta archivos en disco y uso de memoria."/>
+                        <Grid HorizontalAlignment="Left" Margin="0,0,0,4">
+                            <Border x:Name="ChunkSizeDropBorder" Width="160" Background="#21262d" BorderBrush="#30363d" BorderThickness="1" CornerRadius="2" Cursor="Hand" MouseLeftButtonDown="ChunkSizeDrop_Open"
+                                    ToolTip="Lado del chunk en tiles (16–64). Chunks más pequeños = más archivos; más grandes = más RAM por bloque.">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="TxtChunkSizeDisplay" Text="32×32 (recomendado)" Foreground="#e6edf3" VerticalAlignment="Center" Margin="8,6"
+                                               ToolTip="Tamaño de chunk en tiles seleccionado."/>
+                                    <TextBlock Grid.Column="1" Text="▼" Foreground="#8b949e" FontSize="9" VerticalAlignment="Center" Margin="6,0"
+                                               ToolTip="Abrir lista de tamaños de chunk."/>
+                                </Grid>
+                            </Border>
+                            <Popup x:Name="PopupChunkSize" PlacementTarget="{Binding ElementName=ChunkSizeDropBorder}" Placement="Bottom" StaysOpen="False">
+                                <Border Background="#21262d" BorderBrush="#30363d" BorderThickness="1" Padding="0">
+                                    <ListBox x:Name="ListChunkSize" Style="{StaticResource DropdownListStyle}" ItemContainerStyle="{StaticResource DropdownItemStyle}" DisplayMemberPath="Display" SelectionChanged="ListChunkSize_SelectionChanged"/>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <TextBlock Text="Radio de carga (chunks alrededor de la cámara)" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Cuántos chunks mantener cargados alrededor del punto de vista (mayor = más área en RAM)."/>
+                        <Grid HorizontalAlignment="Left" Margin="0,0,0,12">
+                            <Border x:Name="ChunkRadiusDropBorder" Width="100" Background="#21262d" BorderBrush="#30363d" BorderThickness="1" CornerRadius="2" Cursor="Hand" MouseLeftButtonDown="ChunkRadiusDrop_Open"
+                                    ToolTip="Cuántos chunks alrededor del centro se mantienen cargados (mayor = más mapa en RAM).">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="TxtChunkRadiusDisplay" Text="2" Foreground="#e6edf3" VerticalAlignment="Center" Margin="8,6"
+                                               ToolTip="Radio de carga en chunks seleccionado."/>
+                                    <TextBlock Grid.Column="1" Text="▼" Foreground="#8b949e" FontSize="9" VerticalAlignment="Center" Margin="6,0"
+                                               ToolTip="Abrir lista de radios."/>
+                                </Grid>
+                            </Border>
+                            <Popup x:Name="PopupChunkRadius" PlacementTarget="{Binding ElementName=ChunkRadiusDropBorder}" Placement="Bottom" StaysOpen="False">
+                                <Border Background="#21262d" BorderBrush="#30363d" BorderThickness="1" Padding="0">
+                                    <ListBox x:Name="ListChunkRadius" Style="{StaticResource DropdownListStyle}" ItemContainerStyle="{StaticResource DropdownItemStyle}" DisplayMemberPath="Display" SelectionChanged="ListChunkRadius_SelectionChanged"/>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <CheckBox x:Name="ChkChunkUnloadFar" Content="Descargar chunks lejanos" Foreground="#e6edf3" Margin="0,0,0,4"
+                                  ToolTip="Libera memoria y disco vaciando chunks que ya no están cerca de la cámara."/>
+                        <CheckBox x:Name="ChkChunkSaveByChunk" Content="Guardar mapa por chunks" Foreground="#e6edf3" Margin="0,0,0,4"
+                                  ToolTip="Persiste cada fragmento del mapa en archivos separados en lugar de un solo JSON gigante."/>
+                        <CheckBox x:Name="ChkChunkEntitySleep" Content="Dormir entidades en chunks lejanos" Foreground="#e6edf3" Margin="0,0,0,4"
+                                  ToolTip="Reduce CPU: no ejecuta lógica de objetos en regiones que el jugador no ve."/>
+                        <CheckBox x:Name="ChkChunkStreaming" Content="Streaming de chunks (cargar en segundo plano)" Foreground="#e6edf3" Margin="0,0,0,4"
+                                  ToolTip="Carga y descarga chunks de forma asíncrona al moverse por el mundo."/>
+                        <CheckBox x:Name="ChkShowChunkBounds" Content="Mostrar límites de chunk (solo editor)" Foreground="#e6edf3" Margin="0,0,0,12"
+                                  ToolTip="Dibuja la cuadrícula de chunks en el editor para depurar streaming."/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Protagonista" ToolTip="Quién es el jugador, movimiento y cámara opcionales del motor (Lua puede sustituirlos).">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8" ToolTip="Desplázate para ver todas las opciones de esta pestaña.">
+                    <StackPanel>
+                        <TextBlock Text="Objeto protagonista" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="13" Margin="0,0,0,6"
+                                   ToolTip="Define qué instancia del mapa recibe input y cámara nativos del motor."/>
+                        <TextBlock Text="Lista de instancias de la escena abierta en el editor (objetos del mapa actual). El ID se guarda en el proyecto al pulsar Aceptar." Foreground="#8b949e" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"
+                                   ToolTip="Solo aparecen instancias de la escena cargada en el editor al abrir esta ventana."/>
+                        <TextBlock Text="Instancia" Foreground="#8b949e" FontSize="11" Margin="0,0,0,4"
+                                   ToolTip="Etiqueta legible de la instancia elegida como jugador."/>
+                        <ComboBox x:Name="CmbProtagonistInstance" MinHeight="28" Padding="6,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" DisplayMemberPath="Label"
+                                  ToolTip="Instancia del mapa que recibe input/cámara nativos; debe existir en la escena abierta al guardar."/>
+                        <TextBlock Text="Desde la pantalla de inicio no hay escena cargada: solo verás “(ninguno)” y entradas de ID huérfanas si ya había un protagonista guardado." Foreground="#6e7681" FontSize="10" TextWrapping="Wrap" Margin="0,6,0,0"
+                                   ToolTip="Abre un proyecto y una escena para ver instancias reales en el desplegable."/>
+                        <Button x:Name="BtnClearProtagonist" Content="Quitar protagonista del proyecto" Padding="8,6" Margin="0,12,0,12" Click="BtnClearProtagonist_OnClick" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" ToolTip="Deja el proyecto sin ProtagonistInstanceId (equivalente a elegir “(ninguno)” y guardar)."/>
+                        <CheckBox x:Name="ChkUseNativeInput" Content="Input nativo (WASD / flechas)" Foreground="#e6edf3" Margin="0,0,0,6"
+                                  ToolTip="El motor mueve al protagonista antes de Lua; desactívalo si tu script controla todo el movimiento."/>
+                        <CheckBox x:Name="ChkUseNativeCameraFollow" Content="Cámara nativa sigue al protagonista" Foreground="#e6edf3" Margin="0,0,0,6"
+                                  ToolTip="Centra la vista en el objeto protagonista automáticamente en Play."/>
+                        <CheckBox x:Name="ChkAutoFlipSprite" Content="Voltear sprite según dirección (horizontal)" Foreground="#e6edf3" Margin="0,0,0,6"
+                                  ToolTip="Espeja el sprite al cambiar de signo la velocidad horizontal (efecto mirar izq/der)."/>
+                        <CheckBox x:Name="ChkUseNativeAutoAnimation" Content="Auto-animación Idle / Walk (animaciones.json: Id o Nombre Idle y Walk)" Foreground="#e6edf3" Margin="0,0,0,10" ToolTip="Frames: «x,y,ancho,alto» en píxeles, o índices 0,1,2… en tira horizontal (ancho = DisplayTiles×TileSize)."/>
+                        <TextBlock Text="Suavizado cámara (0 = instantáneo; ~8 = suave)" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Interpola el movimiento de la cámara al seguir al protagonista; 0 es seguimiento rígido."/>
+                        <TextBox x:Name="TxtNativeCameraSmoothing" Width="80" HorizontalAlignment="Left" Margin="0,0,0,8" Padding="6,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="0 = cámara pegada al jugador; valores mayores suavizan el seguimiento."/>
+                        <TextBlock Text="Velocidad movimiento (casillas / segundo)" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Rapidez del movimiento nativo en unidades de tile del mundo."/>
+                        <TextBox x:Name="TxtNativeMoveSpeed" Width="80" HorizontalAlignment="Left" Margin="0,0,0,8" Padding="6,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Ej.: 4 = cuatro casillas por segundo con input nativo."/>
+                        <TextBlock Text="El movimiento nativo corre antes de Lua; los scripts pueden sobrescribir la posición. Desactiva las opciones si controlas todo en código." Foreground="#8b949e" FontSize="11" TextWrapping="Wrap"
+                                   ToolTip="Orden de ejecución: input nativo y cámara antes del tick de scripts; Lua puede anular posición."/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Avanzado" ToolTip="Debug, assets, exportación, plugins del proyecto y física.">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8" ToolTip="Desplázate para ver todas las opciones de esta pestaña.">
+                    <StackPanel>
+                        <CheckBox x:Name="ChkDebugMode" Content="Modo debug activado" Foreground="#e6edf3" Margin="0,0,0,12"
+                                  ToolTip="Activa trazas y comprobaciones extra en Play y en el editor (más lento pero más información)."/>
+                        <TextBlock Text="Carpeta principal de assets" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Raíz desde la que se resuelven rutas relativas de imágenes, audio y datos."/>
+                        <TextBox x:Name="TxtAssetsRoot" Margin="0,0,0,8" Padding="6,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Ruta relativa al proyecto o subcarpeta donde viven los recursos (ej. Assets)."/>
+                        <TextBlock Text="Grid / snap del proyecto (px, 0 = tile size)" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Paso de la rejilla al colocar objetos; 0 usa el tamaño de tile del proyecto."/>
+                        <TextBox x:Name="TxtProjectGridSnap" Width="60" HorizontalAlignment="Left" Margin="0,0,0,8" Padding="6,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Entero en píxeles; útil para alinear props a sub-tiles."/>
+                        <TextBlock Text="Fondo por defecto primera escena (hex)" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Color de borrado de pantalla al crear la primera escena (hex #RRGGBB)."/>
+                        <TextBox x:Name="TxtDefaultSceneBg" Width="100" HorizontalAlignment="Left" Margin="0,0,0,12" Padding="6,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Ej.: #1a1a2e — color de fondo del viewport en juego."/>
+                        <TextBlock Text="Formato exportación: imágenes / audio" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Formato de archivo al exportar o empaquetar texturas y sonidos de este proyecto."/>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="100"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid Grid.Column="0">
+                                <Border x:Name="ExportImageDropBorder" Width="100" Background="#21262d" BorderBrush="#30363d" BorderThickness="1" CornerRadius="2" Cursor="Hand" MouseLeftButtonDown="ExportImageDrop_Open"
+                                        ToolTip="PNG, WebP, etc. para builds de este proyecto.">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="TxtExportImageDisplay" Text="PNG" Foreground="#e6edf3" VerticalAlignment="Center" Margin="8,6"
+                                                   ToolTip="Formato de imagen para exportación seleccionado."/>
+                                        <TextBlock Grid.Column="1" Text="▼" Foreground="#8b949e" FontSize="9" VerticalAlignment="Center" Margin="4,0"
+                                                   ToolTip="Abrir lista de formatos de imagen."/>
+                                    </Grid>
+                                </Border>
+                                <Popup x:Name="PopupExportImage" PlacementTarget="{Binding ElementName=ExportImageDropBorder}" Placement="Bottom" StaysOpen="False">
+                                    <Border Background="#21262d" BorderBrush="#30363d" BorderThickness="1" Padding="0">
+                                        <ListBox x:Name="ListExportImage" Style="{StaticResource DropdownListStyle}" ItemContainerStyle="{StaticResource DropdownItemStyle}" DisplayMemberPath="Display" SelectionChanged="ListExportImage_SelectionChanged"/>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                            <Grid Grid.Column="1">
+                                <Border x:Name="ExportAudioDropBorder" Width="100" HorizontalAlignment="Left" Background="#21262d" BorderBrush="#30363d" BorderThickness="1" CornerRadius="2" Cursor="Hand" MouseLeftButtonDown="ExportAudioDrop_Open"
+                                        ToolTip="OGG, WAV, etc. para clips de este proyecto en exportación.">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="TxtExportAudioDisplay" Text="OGG" Foreground="#e6edf3" VerticalAlignment="Center" Margin="8,6"
+                                                   ToolTip="Formato de audio para exportación seleccionado."/>
+                                        <TextBlock Grid.Column="1" Text="▼" Foreground="#8b949e" FontSize="9" VerticalAlignment="Center" Margin="4,0"
+                                                   ToolTip="Abrir lista de formatos de audio."/>
+                                    </Grid>
+                                </Border>
+                                <Popup x:Name="PopupExportAudio" PlacementTarget="{Binding ElementName=ExportAudioDropBorder}" Placement="Bottom" StaysOpen="False">
+                                    <Border Background="#21262d" BorderBrush="#30363d" BorderThickness="1" Padding="0">
+                                        <ListBox x:Name="ListExportAudio" Style="{StaticResource DropdownListStyle}" ItemContainerStyle="{StaticResource DropdownItemStyle}" DisplayMemberPath="Display" SelectionChanged="ListExportAudio_SelectionChanged"/>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                        </Grid>
+                        <TextBlock Text="Reglas de naming: objetos / seeds (libre, snake_case, PascalCase)" Foreground="#8b949e" Margin="0,0,0,4"
+                                   ToolTip="Convención sugerida para nombres; ayuda a validación y a Lua world.find."/>
+                        <TextBox x:Name="TxtNamingObjects" Width="120" HorizontalAlignment="Left" Margin="0,0,0,4" Padding="6,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Estilo de nombres para instancias de objeto en escena."/>
+                        <TextBox x:Name="TxtNamingSeeds" Width="120" HorizontalAlignment="Left" Margin="0,0,0,12" Padding="6,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Estilo de nombres para archivos .seed / prefabs."/>
+                        <TextBlock Text="Cámara: tamaño (ancho × alto)" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Área visible en unidades de mundo (casillas o píxeles lógicos según proyecto)."/>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="60"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="TxtCameraW" Grid.Column="0" Padding="4,2" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                     ToolTip="Ancho visible de la cámara en unidades de mundo."/>
+                            <TextBlock Grid.Column="1" Text="×" Foreground="#8b949e" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                       ToolTip="Separador visual entre ancho y alto."/>
+                            <TextBox x:Name="TxtCameraH" Grid.Column="2" Padding="4,2" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                     ToolTip="Alto visible de la cámara en unidades de mundo."/>
+                        </Grid>
+                        <TextBlock Text="Límites y efectos de cámara (opcional)" Foreground="#8b949e" Margin="0,0,0,4"
+                                   ToolTip="Cadenas o JSON según motor: bordes del mundo, shake, etc."/>
+                        <TextBox x:Name="TxtCameraLimits" Margin="0,0,0,4" Padding="6,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Restringe hasta dónde puede moverse el centro de la cámara."/>
+                        <TextBox x:Name="TxtCameraEffects" Margin="0,0,0,12" Padding="6,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Efectos opcionales (flash, letterbox) si el runtime los interpreta."/>
+                        <TextBlock Text="Plugins activos (separados por coma)" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Módulos opcionales cargados solo para este proyecto."/>
+                        <TextBox x:Name="TxtProjectPlugins" Height="36" TextWrapping="Wrap" Margin="0,0,0,8" Padding="6,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="IDs de plugins, sin espacios extra entre comas."/>
+                        <TextBlock Text="FPS de animaciones por defecto" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Velocidad por defecto de clips al no especificar otro valor."/>
+                        <TextBox x:Name="TxtDefaultAnimFps" Width="60" HorizontalAlignment="Left" Margin="0,0,0,12" Padding="6,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Entero típico 8–24 para pixel art."/>
+                        <TextBlock Text="Colisiones y físicas" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Comportamiento por defecto de cuerpos y gravedad en este proyecto."/>
+                        <CheckBox x:Name="ChkDefaultCollision" Content="Colisión habilitada por defecto" Foreground="#e6edf3" Margin="0,0,0,4"
+                                  ToolTip="Los nuevos colliders u objetos empiezan con colisión activa."/>
+                        <CheckBox x:Name="ChkPhysicsEnabled" Content="Sistema de físicas activo" Foreground="#e6edf3" Margin="0,0,0,4"
+                                  ToolTip="Si está desactivado, no se ejecuta el paso de física en Play (solo movimiento manual/Lua)."/>
+                        <TextBlock Text="Gravedad (valor numérico)" Foreground="#8b949e" Margin="0,0,0,4"
+                                   ToolTip="Aceleración vertical del mundo de física (unidades del motor por segundo²)."/>
+                        <TextBox x:Name="TxtPhysicsGravity" Width="80" HorizontalAlignment="Left" Margin="0,0,0,12" Padding="6,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="0 = sin gravedad; positivo suele empujar hacia abajo."/>
+                        <TextBlock Text="Script de inicio (bootstrap) - ID del script seguro" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Identificador en scripts.json del script de arranque aislado (errores no tumban el runtime)."/>
+                        <TextBox x:Name="TxtBootstrapScript" Margin="0,0,0,8" Padding="6,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" ToolTip="Script que se ejecuta al iniciar y no puede romper el motor."/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0" ToolTip="Cierra el diálogo con o sin guardar cambios en el proyecto.">
+            <Button x:Name="BtnCancel" Content="Cancelar" Width="90" Height="28" Margin="0,0,8,0" Click="BtnCancel_OnClick"
+                    Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                    ToolTip="Descarta los cambios de esta ventana."/>
+            <Button x:Name="BtnOk" Content="Aceptar" Width="90" Height="28" IsDefault="True" Click="BtnOk_OnClick"
+                    Background="#238636" Foreground="White" BorderBrush="#2ea043"
+                    ToolTip="Guarda la configuración del proyecto en disco."/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,503 @@
+<Window x:Class="FUEngine.EditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:FUEngine"
+        Title="Editor - FUEngine" Height="620" Width="920"
+        WindowStartupLocation="CenterScreen" WindowState="Maximized"
+        Background="#0d1117"
+        KeyDown="Window_KeyDown"
+        KeyUp="Window_KeyUp">
+    <Window.Resources>
+        <!-- Barra mapa: botón de herramienta activo resaltado -->
+        <Style TargetType="RadioButton" x:Key="MapToolRadioStyle">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="bg" Background="Transparent" BorderBrush="#30363d" BorderThickness="1" Padding="4,2" MinWidth="22" MinHeight="20">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#21262d"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#388bfd"/>
+                                <Setter TargetName="bg" Property="BorderBrush" Value="#58a6ff"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- Botón "+" de pestañas: siempre visible (verde, texto blanco), sin heredar estilo global -->
+        <Style x:Key="TabAddButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#238636"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" BorderThickness="0" Padding="0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#2ea043"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <!-- Barra de menú principal -->
+        <Menu Grid.Row="0" Background="#161b22" Foreground="#e6edf3" BorderBrush="#30363d" BorderThickness="0,0,0,1"
+              ItemContainerStyle="{StaticResource TopLevelMenuItemStyle}">
+            <MenuItem Header="Archivo" Foreground="#e6edf3">
+                <MenuItem Header="Nuevo proyecto..." Click="MenuNuevoProyecto_OnClick"/>
+                <MenuItem Header="Abrir proyecto..." Click="MenuAbrirProyecto_OnClick"/>
+                <Separator/>
+                <MenuItem x:Name="MenuCrearScene" Header="Crear nueva escena" Click="MenuCrearScene_OnClick" ToolTip="Crear una nueva escena en el proyecto"/>
+                <MenuItem x:Name="MenuAbrirScene" Header="Abrir escena..." SubmenuOpened="MenuAbrirScene_SubmenuOpened" ToolTip="Abrir una escena del proyecto en una nueva pestaña"/>
+                <MenuItem x:Name="MenuDuplicarScene" Header="Duplicar escena actual" Click="MenuDuplicarScene_OnClick" ToolTip="Duplicar la escena actual"/>
+                <MenuItem x:Name="MenuEliminarScene" Header="Eliminar escena actual" Click="MenuEliminarScene_OnClick" ToolTip="Eliminar la escena actual y sus archivos"/>
+                <MenuItem x:Name="MenuImportarScene" Header="Importar escena de otro proyecto..." Click="MenuImportarScene_OnClick" ToolTip="Importar una escena desde otro proyecto"/>
+                <Separator/>
+                <MenuItem x:Name="MenuGuardarMapa" Header="Guardar" Click="MenuGuardarMapa_OnClick" InputGestureText="Ctrl+S"/>
+                <MenuItem x:Name="MenuGuardarTodo" Header="Guardar todo" Click="MenuGuardarTodo_OnClick" InputGestureText="Ctrl+Shift+S"/>
+                <Separator/>
+                <MenuItem Header="Exportar..." Click="MenuExportarParcial_OnClick"/>
+                <Separator/>
+                <MenuItem Header="Salir del proyecto" Click="MenuSalirProyecto_OnClick" ToolTip="Cierra el proyecto y vuelve a la pantalla de inicio"/>
+                <MenuItem Header="Salir del motor" Click="MenuSalirMotor_OnClick" ToolTip="Cierra completamente la aplicación"/>
+            </MenuItem>
+            <MenuItem Header="Editar" Foreground="#e6edf3">
+                <MenuItem x:Name="MenuDeshacer" Header="Deshacer" Click="MenuDeshacer_OnClick" InputGestureText="Ctrl+Z" IsEnabled="False"/>
+                <MenuItem x:Name="MenuRehacer" Header="Rehacer" Click="MenuRehacer_OnClick" InputGestureText="Ctrl+Y" IsEnabled="False"/>
+                <Separator/>
+                <MenuItem x:Name="MenuCopiarZona" Header="Copiar zona / selección" Click="MenuCopiarZona_OnClick" InputGestureText="Ctrl+C"/>
+                <MenuItem x:Name="MenuPegarZona" Header="Pegar zona" Click="MenuPegarZona_OnClick" InputGestureText="Ctrl+V"/>
+                <MenuItem x:Name="MenuDuplicarZona" Header="Duplicar zona (copiar y pegar al lado)" Click="MenuDuplicarZona_OnClick"/>
+                <Separator/>
+                <MenuItem x:Name="MenuSnapshot" Header="Crear snapshot del mapa" Click="MenuSnapshot_OnClick" ToolTip="Guardar estado actual para revertir después"/>
+                <MenuItem x:Name="MenuRevertSnapshot" Header="Revertir a snapshot" Click="MenuRevertSnapshot_OnClick" ToolTip="Restaurar último snapshot"/>
+                <Separator/>
+                <MenuItem Header="Borrar" x:Name="MenuBorrarObjeto" Click="MenuBorrarObjeto_OnClick" InputGestureText="Del"/>
+            </MenuItem>
+            <MenuItem Header="Proyecto" Foreground="#e6edf3">
+                <MenuItem Header="Guía rápida (motor y juegos)…" Click="MenuDocumentacion_OnClick" ToolTip="Primeros pasos: mapa, escenas, Play y scripts (misma ventana que Ayuda → Documentación rápida)"/>
+                <MenuItem Header="Manual completo del motor…" Click="MenuDocumentacionCompleta_OnClick" ToolTip="Índice de todos los temas (empieza en «Cómo hacer un juego»)"/>
+                <Separator/>
+                <MenuItem Header="Configuración del proyecto..." Click="MenuConfigProyecto_OnClick"/>
+                <MenuItem Header="Propiedades del mapa..." Click="MenuPropiedadesMapa_OnClick"/>
+                <MenuItem Header="Tamaño de tiles..." Click="MenuTamañoTiles_OnClick"/>
+                <Separator/>
+                <MenuItem Header="Verificar integridad" Click="MenuVerificarIntegridad_OnClick"/>
+                <MenuItem Header="Limpiar archivos huérfanos" Click="MenuLimpiarHuerfanos_OnClick" ToolTip="Elimina mapas y objetos que ya no pertenecen a ninguna escena del proyecto"/>
+                <Separator/>
+                <MenuItem Header="Guardar snapshot" Click="MenuGuardarSnapshot_OnClick"/>
+                <MenuItem Header="Cargar snapshot..." Click="MenuCargarSnapshot_OnClick"/>
+                <Separator/>
+                <MenuItem Header="Simular (vista previa)" Click="MenuSimular_OnClick"/>
+                <Separator/>
+                <MenuItem Header="Exportar build del juego…" Click="MenuExportBuild_OnClick" ToolTip="Genera ejecutable + carpeta Data para distribuir"/>
+                <Separator/>
+                <MenuItem x:Name="MenuIniciarJuego" Header="Iniciar juego (escena actual)" Click="MenuIniciarJuego_OnClick" ToolTip="Play con la escena cargada en el editor."/>
+                <MenuItem x:Name="MenuIniciarJuegoMain" Header="Iniciar juego (escena principal)" Click="MenuIniciarJuegoMain_OnClick" ToolTip="Play cargando objetos desde disco (configuración del proyecto)."/>
+                <MenuItem x:Name="MenuDetenerJuego" Header="Detener juego" Click="MenuDetenerJuego_OnClick" IsEnabled="False"/>
+                <MenuItem x:Name="MenuPausarJuego" Header="Pausar" Click="MenuPausarJuego_OnClick" IsEnabled="False"/>
+                <MenuItem x:Name="MenuReanudarJuego" Header="Reanudar" Click="MenuReanudarJuego_OnClick" IsEnabled="False"/>
+            </MenuItem>
+            <MenuItem Header="Assets" Foreground="#e6edf3">
+                <MenuItem Header="Explorar biblioteca…" Click="MenuAssetsLibrary_OnClick" ToolTip="Copia assets de la biblioteca global al proyecto abierto"/>
+            </MenuItem>
+            <MenuItem Header="Ver" Foreground="#e6edf3">
+                <MenuItem x:Name="MenuVerJerarquia" Header="Jerarquía / Explorador" IsCheckable="True" IsChecked="True" Click="MenuVerPanel_OnClick"/>
+                <MenuItem x:Name="MenuVerInspector" Header="Inspector" IsCheckable="True" IsChecked="True" Click="MenuVerPanel_OnClick"/>
+                <MenuItem x:Name="MenuVerConsola" Header="Consola" IsCheckable="True" IsChecked="False" Click="MenuVerPanel_OnClick"/>
+                <MenuItem x:Name="MenuVerJuego" Header="Juego (Play embebido)" IsCheckable="True" IsChecked="False" Click="MenuVerPanel_OnClick"/>
+                <Separator/>
+                <MenuItem x:Name="MenuAbrirEscena" Header="Abrir escena..." SubmenuOpened="MenuAbrirEscena_SubmenuOpened"/>
+            </MenuItem>
+            <MenuItem Header="Herramientas" Foreground="#e6edf3">
+                <MenuItem Header="Pincel" Click="MenuHerramienta_OnClick" Tag="Pintar"/>
+                <MenuItem Header="Rectángulo" Click="MenuHerramienta_OnClick" Tag="Rectangulo"/>
+                <MenuItem Header="Línea" Click="MenuHerramienta_OnClick" Tag="Linea"/>
+                <MenuItem Header="Relleno (Shift+clic)" Click="MenuHerramienta_OnClick" Tag="Relleno"/>
+                <MenuItem Header="Goma" Click="MenuHerramienta_OnClick" Tag="Goma"/>
+                <MenuItem Header="Cuentagotas" Click="MenuHerramienta_OnClick" Tag="Picker"/>
+                <MenuItem Header="Stamp (pegar zona)" Click="MenuHerramienta_OnClick" Tag="Stamp"/>
+                <MenuItem Header="Seleccionar" Click="MenuHerramienta_OnClick" Tag="Seleccionar"/>
+                <MenuItem Header="Colocar objeto" Click="MenuHerramienta_OnClick" Tag="Colocar"/>
+                <MenuItem Header="Zona (copiar/pegar)" Click="MenuHerramienta_OnClick" Tag="Zona"/>
+                    <MenuItem Header="Medir" Click="MenuHerramienta_OnClick" Tag="Medir"/>
+                    <MenuItem Header="Pixel (edición píxel a píxel)" Click="MenuHerramienta_OnClick" Tag="PixelEdit"/>
+            </MenuItem>
+            <MenuItem Header="Ayuda" Foreground="#e6edf3">
+                <MenuItem Header="Documentación rápida" Click="MenuDocumentacion_OnClick" ToolTip="Primeros pasos con el proyecto abierto: mapa, escenas, Play"/>
+                <MenuItem Header="Documentación completa" Click="MenuDocumentacionCompleta_OnClick" ToolTip="Índice de todos los temas; empieza en «Cómo hacer un juego»"/>
+                <MenuItem Header="Atajos de teclado" Click="MenuAtajos_OnClick"/>
+                <MenuItem Header="Acerca de FUEngine" Click="MenuAcercaDe_OnClick"/>
+            </MenuItem>
+            <MenuItem Header="Configuración" Foreground="#e6edf3">
+                <MenuItem Header="Configuración del motor..." Click="MenuConfiguracion_OnClick"/>
+            </MenuItem>
+        </Menu>
+        <!-- Barra de herramientas dinámica según tab activo -->
+        <Grid Grid.Row="1" Background="#161b22">
+            <!-- Toolbar Mapa: dibujo, selección, capas, zoom -->
+            <Border x:Name="ToolbarMapa" Background="#161b22" Padding="6,4" BorderBrush="#30363d" BorderThickness="0,0,0,1" Visibility="Visible">
+            <ToolBarTray Background="Transparent">
+                <ToolBar Background="Transparent" Foreground="#e6edf3" OverflowMode="AsNeeded" ToolBarTray.IsLocked="True">
+                    <Button x:Name="BtnStopPlay" Content="■ Detener" Width="80" Height="26" Margin="4,0,0,0" Padding="6,0" Background="#da3633" Foreground="White" BorderThickness="0"
+                            ToolTip="Detener el juego" Click="BtnStopPlay_OnClick" Visibility="Collapsed"/>
+                    <Button x:Name="BtnPausePlay" Content="⏸ Pausar" Width="70" Height="26" Margin="2,0,0,0" Padding="6,0" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                            ToolTip="Pausar el juego" Click="BtnPausePlay_OnClick" Visibility="Collapsed"/>
+                    <Separator/>
+                    <!-- Dibujo -->
+                    <TextBlock Text="Dibujo" VerticalAlignment="Center" Foreground="#6e7681" FontSize="10" Margin="0,0,6,0"/>
+                    <RadioButton x:Name="ToolPintar" Style="{StaticResource MapToolRadioStyle}" Content="P" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" Margin="0,0,2,0" ToolTip="Pincel (P) — Pintar tiles"/>
+                    <RadioButton x:Name="ToolRectangulo" Style="{StaticResource MapToolRadioStyle}" Content="R" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" Margin="0,0,2,0" ToolTip="Rectángulo (R) — Rellenar área"/>
+                    <RadioButton x:Name="ToolLinea" Style="{StaticResource MapToolRadioStyle}" Content="L" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" Margin="0,0,2,0" ToolTip="Línea (L) — Dos clics: inicio y fin"/>
+                    <RadioButton x:Name="ToolRelleno" Style="{StaticResource MapToolRadioStyle}" Content="B" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" Margin="0,0,2,0" ToolTip="Bucket (B) — Relleno por inundación (Shift+clic)"/>
+                    <RadioButton x:Name="ToolGoma" Style="{StaticResource MapToolRadioStyle}" Content="G" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" Margin="0,0,2,0" ToolTip="Goma (G) — Borrar tiles"/>
+                    <RadioButton x:Name="ToolPicker" Style="{StaticResource MapToolRadioStyle}" Content="I" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" Margin="0,0,2,0" ToolTip="Cuentagotas (I) — Copiar tipo de tile"/>
+                    <RadioButton x:Name="ToolStamp" Style="{StaticResource MapToolRadioStyle}" Content="S" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" Margin="0,0,8,0" ToolTip="Stamp (S) — Pegar zona copiada"/>
+                    <Separator/>
+                    <!-- Selección y colocación -->
+                    <TextBlock Text="Selección" VerticalAlignment="Center" Foreground="#6e7681" FontSize="10" Margin="0,0,6,0"/>
+                    <RadioButton x:Name="ToolSeleccionar" Style="{StaticResource MapToolRadioStyle}" Content="Sel" GroupName="Tool" IsChecked="True" Checked="Tool_OnChecked" Foreground="#e6edf3" Margin="0,0,2,0" ToolTip="Seleccionar — Clic+arrastrar rectángulo, Del=borrar"/>
+                    <RadioButton x:Name="ToolColocar" Style="{StaticResource MapToolRadioStyle}" Content="Obj" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" Margin="0,0,2,0" ToolTip="Colocar objeto — Poner objeto o invisible"/>
+                    <RadioButton x:Name="ToolZona" Style="{StaticResource MapToolRadioStyle}" Content="Zona" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" Margin="0,0,2,0" ToolTip="Zona — Triggers, copiar/pegar"/>
+                    <RadioButton x:Name="ToolMedir" Style="{StaticResource MapToolRadioStyle}" Content="M" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" Margin="0,0,2,0" ToolTip="Medir (M) — Distancia entre dos puntos"/>
+                    <RadioButton x:Name="ToolPixelEdit" Style="{StaticResource MapToolRadioStyle}" Content="Px" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" Margin="0,0,8,0" ToolTip="Pixel — Edición píxel a píxel del tile"/>
+                    <Separator/>
+                    <!-- Transformación: dropdown Tamaño + Rotación -->
+                    <TextBlock Text="Transform." VerticalAlignment="Center" Foreground="#6e7681" FontSize="10" Margin="0,0,4,0"/>
+                    <Button x:Name="BtnTransform" Content="1 · 0°" Width="52" Height="22" Padding="4,0" ToolTip="Tamaño y rotación del pincel" Click="BtnTransform_OnClick" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                    <Popup x:Name="PopupTransform" PlacementTarget="{Binding ElementName=BtnTransform}" Placement="Bottom" StaysOpen="False">
+                        <Border Background="#161b22" BorderBrush="#30363d" BorderThickness="1" Padding="10,8">
+                            <StackPanel>
+                                <TextBlock Text="Tamaño pincel" Foreground="#8b949e" FontSize="10" Margin="0,0,0,4"/>
+                                <ComboBox x:Name="CmbBrushSize" Width="80" SelectedIndex="0" SelectionChanged="CmbBrushSize_OnSelectionChanged"
+                                          Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,8">
+                                    <ComboBoxItem Content="1" Foreground="#e6edf3"/>
+                                    <ComboBoxItem Content="2" Foreground="#e6edf3"/>
+                                    <ComboBoxItem Content="3" Foreground="#e6edf3"/>
+                                </ComboBox>
+                                <TextBlock Text="Rotación" Foreground="#8b949e" FontSize="10" Margin="0,0,0,4"/>
+                                <ComboBox x:Name="CmbBrushRotation" Width="80" SelectedIndex="0" SelectionChanged="CmbBrushRotation_OnSelectionChanged"
+                                          Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d">
+                                    <ComboBoxItem Content="0°" Foreground="#e6edf3"/>
+                                    <ComboBoxItem Content="90°" Foreground="#e6edf3"/>
+                                    <ComboBoxItem Content="180°" Foreground="#e6edf3"/>
+                                    <ComboBoxItem Content="270°" Foreground="#e6edf3"/>
+                                </ComboBox>
+                            </StackPanel>
+                        </Border>
+                    </Popup>
+                    <Separator/>
+                    <!-- Visualización / máscaras: dropdown -->
+                    <TextBlock Text="Visual" VerticalAlignment="Center" Foreground="#6e7681" FontSize="10" Margin="0,0,4,0"/>
+                    <Button x:Name="BtnVisual" Content="▦" Width="28" Height="22" Padding="0" ToolTip="Visualización y máscaras" Click="BtnVisual_OnClick" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                    <Popup x:Name="PopupVisual" PlacementTarget="{Binding ElementName=BtnVisual}" Placement="Bottom" StaysOpen="False">
+                        <Border Background="#161b22" BorderBrush="#30363d" BorderThickness="1" Padding="10,8">
+                            <StackPanel MinWidth="180">
+                                <TextBlock Text="Visualización / máscaras" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="11" Margin="0,0,0,8"/>
+                                <CheckBox x:Name="ChkResaltarInteractivos" Content="Resaltar interactivos" IsChecked="True" Foreground="#e6edf3" Margin="0,2" ToolTip="Borde en tiles con script" Checked="ChkResaltar_OnChanged" Unchecked="ChkResaltar_OnChanged"/>
+                                <CheckBox x:Name="ChkMaskColision" Content="Máscara colisión" Foreground="#e6edf3" Margin="0,2" ToolTip="Solo tiles con colisión" Checked="ChkMask_OnChanged" Unchecked="ChkMask_OnChanged"/>
+                                <CheckBox x:Name="ChkMaskScripts" Content="Máscara scripts" Foreground="#e6edf3" Margin="0,2" ToolTip="Solo tiles con script" Checked="ChkMask_OnChanged" Unchecked="ChkMask_OnChanged"/>
+                                <CheckBox x:Name="ChkSnap" Content="Snap a grid" IsChecked="True" Foreground="#e6edf3" Margin="0,2" ToolTip="Alinear al grid" Checked="ChkSnap_OnChanged" Unchecked="ChkSnap_OnChanged"/>
+                                <CheckBox x:Name="ChkGridVisible" Content="Mostrar grid" IsChecked="True" Foreground="#e6edf3" Margin="0,2" ToolTip="Cuadrícula del mapa" Checked="ChkGridVisible_OnChanged" Unchecked="ChkGridVisible_OnChanged"/>
+                                <CheckBox x:Name="ChkShowVisibleArea" Content="Mostrar área visible" IsChecked="True" Foreground="#e6edf3" Margin="0,2" ToolTip="Marco del viewport desde el origen (0,0): resolución del proyecto o Auto (~12×10 casillas, igual que en Play)" Checked="ChkShowVisibleArea_OnChanged" Unchecked="ChkShowVisibleArea_OnChanged"/>
+                                <CheckBox x:Name="ChkShowStreamingGizmos" Content="Radios streaming (chunks)" Foreground="#e6edf3" Margin="0,2" ToolTip="Rectángulos Chebyshev: verde = ChunkLoadRadius; naranja = +ChunkStreamEvictMargin (centro en protagonista o 0,0)" Checked="ChkShowStreamingGizmos_OnChanged" Unchecked="ChkShowStreamingGizmos_OnChanged"/>
+                                <CheckBox x:Name="ChkShowColliders" Content="Mostrar colisiones" Foreground="#e6edf3" Margin="0,2" ToolTip="Overlay de formas de colisión (verde=sólido, naranja=trigger, azul=one-way)" Checked="ChkShowColliders_OnChanged" Unchecked="ChkShowColliders_OnChanged"/>
+                                <CheckBox x:Name="ChkShowCoords" Content="Coordenadas en tiles" IsChecked="True" Foreground="#e6edf3" Margin="0,2" ToolTip="Mostrar x,y en cada tile" Checked="ChkShowCoords_OnChanged" Unchecked="ChkShowCoords_OnChanged"/>
+                                <TextBlock Text="Color grid" Foreground="#8b949e" FontSize="10" Margin="0,6,0,2"/>
+                                <ComboBox x:Name="CmbGridColor" Width="120" SelectedIndex="0" SelectionChanged="CmbGridColor_OnSelectionChanged"
+                                          Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d">
+                                    <ComboBoxItem Content="Gris" Foreground="#e6edf3" Tag="#30363d"/>
+                                    <ComboBoxItem Content="Azul suave" Foreground="#e6edf3" Tag="#384a6a"/>
+                                    <ComboBoxItem Content="Blanco suave" Foreground="#e6edf3" Tag="#6e7681"/>
+                                </ComboBox>
+                            </StackPanel>
+                        </Border>
+                    </Popup>
+                    <Separator/>
+                    <!-- Contenido: capa, tile + preview, objeto + preview -->
+                    <TextBlock Text="Contenido" VerticalAlignment="Center" Foreground="#6e7681" FontSize="10" Margin="0,0,6,0"/>
+                    <ComboBox x:Name="CmbCapaVisible" Width="88" SelectedIndex="0" SelectionChanged="CmbCapaVisible_OnSelectionChanged"
+                              Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" ToolTip="Capa activa"/>
+                    <Border x:Name="TilePreview" Width="24" Height="24" Margin="2,0" Background="#505050" BorderBrush="#30363d" BorderThickness="1" ToolTip="Vista previa tile"/>
+                    <ComboBox x:Name="CmbTileType" Width="72" SelectedIndex="0" SelectionChanged="CmbTileType_OnSelectionChanged"
+                              Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" ToolTip="Tile a colocar">
+                        <ComboBoxItem Content="Suelo" Foreground="#e6edf3"/>
+                        <ComboBoxItem Content="Pared" Foreground="#e6edf3"/>
+                        <ComboBoxItem Content="Objeto" Foreground="#e6edf3"/>
+                        <ComboBoxItem Content="Especial" Foreground="#e6edf3"/>
+                    </ComboBox>
+                    <Border x:Name="ObjectPreview" Width="24" Height="24" Margin="2,0" Background="#3d444d" BorderBrush="#30363d" BorderThickness="1" ToolTip="Vista previa objeto">
+                        <TextBlock x:Name="ObjectPreviewText" Text="?" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#8b949e" FontSize="12"/>
+                    </Border>
+                    <ComboBox x:Name="CmbObjectDef" Width="100" DisplayMemberPath="Nombre" SelectedValuePath="Id" SelectionChanged="CmbObjectDef_OnSelectionChanged"
+                              Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" ToolTip="Objeto a colocar"/>
+                    <StackPanel x:Name="PaletteTiles" Orientation="Horizontal" Margin="4,0,0,0">
+                        <Border x:Name="PaletteSuelo" Background="#505050" Width="20" Height="20" Margin="1" Cursor="Hand" MouseLeftButtonDown="PaletteTile_StartDrag" Tag="0" ToolTip="Suelo"/>
+                        <Border x:Name="PalettePared" Background="#78503c" Width="20" Height="20" Margin="1" Cursor="Hand" MouseLeftButtonDown="PaletteTile_StartDrag" Tag="1" ToolTip="Pared"/>
+                        <Border x:Name="PaletteObjeto" Background="#5a5a78" Width="20" Height="20" Margin="1" Cursor="Hand" MouseLeftButtonDown="PaletteTile_StartDrag" Tag="2" ToolTip="Objeto"/>
+                        <Border x:Name="PaletteEspecial" Background="#643c64" Width="20" Height="20" Margin="1" Cursor="Hand" MouseLeftButtonDown="PaletteTile_StartDrag" Tag="3" ToolTip="Especial"/>
+                    </StackPanel>
+                    <Separator/>
+                    <!-- Zoom -->
+                    <Button x:Name="BtnZoomOut" Content="−" Width="26" Height="22" Padding="0" Click="BtnZoom_OnClick" Tag="-" ToolTip="Zoom out"/>
+                    <TextBlock x:Name="TxtZoom" Text="100%" VerticalAlignment="Center" Margin="6,0" MinWidth="36" Foreground="#8b949e" FontSize="10"/>
+                    <Button x:Name="BtnZoomIn" Content="+" Width="26" Height="22" Padding="0" Click="BtnZoom_OnClick" Tag="+" ToolTip="Zoom in"/>
+                    <Button x:Name="BtnGoToOrigin" Content="Ir a 0,0" Width="70" Height="22" Margin="8,0,0,0" Padding="4,0" ToolTip="Centrar vista en el origen del mundo" Click="BtnGoToOrigin_OnClick" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                    <Separator/>
+                    <!-- Selección activa: rotar/flip/rellenar -->
+                    <TextBlock x:Name="LblSelection" Text="Sel:" VerticalAlignment="Center" Foreground="#8b949e" FontSize="10" Margin="0,0,4,0" Visibility="Collapsed"/>
+                    <Button x:Name="BtnRotate90" Content="90°" Width="28" Height="22" Margin="1,0" ToolTip="Rotar 90°" Click="BtnTransformSelection_OnClick" Tag="Rotate90" Visibility="Collapsed"/>
+                    <Button x:Name="BtnRotate180" Content="180°" Width="28" Height="22" Margin="1,0" ToolTip="Rotar 180°" Click="BtnTransformSelection_OnClick" Tag="Rotate180" Visibility="Collapsed"/>
+                    <Button x:Name="BtnFlipH" Content="↔" Width="26" Height="22" Margin="1,0" ToolTip="Voltear H" Click="BtnTransformSelection_OnClick" Tag="FlipH" Visibility="Collapsed"/>
+                    <Button x:Name="BtnFlipV" Content="↕" Width="26" Height="22" Margin="1,0" ToolTip="Voltear V" Click="BtnTransformSelection_OnClick" Tag="FlipV" Visibility="Collapsed"/>
+                    <Button x:Name="BtnFillSelection" Content="Rellenar" Width="52" Height="22" Margin="1,0" ToolTip="Rellenar con tile actual" Click="BtnFillSelection_OnClick" Visibility="Collapsed"/>
+                    <Button x:Name="BtnCopySelection" Content="C" Width="24" Height="22" Margin="1,0" ToolTip="Copiar (Ctrl+C)" Click="BtnCopySelection_OnClick" Visibility="Collapsed"/>
+                    <Button x:Name="BtnPasteSelection" Content="V" Width="24" Height="22" Margin="1,0" ToolTip="Pegar (Ctrl+V)" Click="BtnPasteSelection_OnClick" Visibility="Collapsed"/>
+                    <Button x:Name="BtnDuplicateZone" Content="Dup" Width="32" Height="22" Margin="1,0" ToolTip="Duplicar zona" Click="BtnDuplicateZone_OnClick" Visibility="Collapsed"/>
+                    <Separator/>
+                    <!-- Undo/Redo -->
+                    <Button x:Name="BtnUndo" Content="↶" Width="26" Height="22" Padding="0" ToolTip="Deshacer (Ctrl+Z)" Click="MenuDeshacer_OnClick"/>
+                    <Button x:Name="BtnRedo" Content="↷" Width="26" Height="22" Padding="0" ToolTip="Rehacer (Ctrl+Y)" Click="MenuRehacer_OnClick"/>
+                </ToolBar>
+            </ToolBarTray>
+            </Border>
+            <!-- Toolbar Scripts: run, debug, guardar -->
+            <Border x:Name="ToolbarScripts" Background="#161b22" Padding="8,6" BorderBrush="#30363d" BorderThickness="0,0,0,1" Visibility="Collapsed">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Scripts" VerticalAlignment="Center" Foreground="#6e7681" FontSize="10" Margin="0,0,12,0"/>
+                    <Button x:Name="ToolbarScriptRun" Content="Ejecutar" Width="80" Height="26" Padding="6,0" Background="#238636" Foreground="White" BorderThickness="0" ToolTip="Ejecutar script (F5)" Click="ToolbarScriptRun_OnClick"/>
+                    <Button x:Name="ToolbarScriptDebug" Content="Depurar" Width="70" Height="26" Margin="8,0,0,0" Padding="6,0" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" ToolTip="Depurar script"/>
+                    <Button x:Name="ToolbarScriptSave" Content="Guardar" Width="70" Height="26" Margin="4,0,0,0" Padding="6,0" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" ToolTip="Guardar (Ctrl+S)" Click="ToolbarScriptSave_OnClick"/>
+                </StackPanel>
+            </Border>
+            <!-- Toolbar Tiles / Animaciones: edición y preview -->
+            <Border x:Name="ToolbarTilesAnimaciones" Background="#161b22" Padding="8,6" BorderBrush="#30363d" BorderThickness="0,0,0,1" Visibility="Collapsed">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock x:Name="ToolbarTilesAnimacionesLabel" Text="Tiles" VerticalAlignment="Center" Foreground="#6e7681" FontSize="10" Margin="0,0,12,0"/>
+                    <Button Content="Vista miniaturas" Width="120" Height="26" Padding="6,0" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" ToolTip="Vista del tileset"/>
+                    <Button Content="Preview" Width="70" Height="26" Margin="8,0,0,0" Padding="6,0" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                </StackPanel>
+            </Border>
+            <!-- Toolbar mínimo para Explorador / Consola -->
+            <Border x:Name="ToolbarMinimal" Background="#161b22" Padding="8,6" BorderBrush="#30363d" BorderThickness="0,0,0,1" Visibility="Collapsed">
+                <TextBlock x:Name="ToolbarMinimalLabel" Text="Explorador · Favoritos, recientes y árbol del proyecto" Foreground="#8b949e" FontSize="11" VerticalAlignment="Center"/>
+            </Border>
+        </Grid>
+        <!-- Área: Jerarquía (izq) | Tabs + Mapa | Inspector (der) -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220" MinWidth="160"/>
+                <ColumnDefinition Width="4"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="4"/>
+                <ColumnDefinition Width="260" MinWidth="200"/>
+            </Grid.ColumnDefinitions>
+            <!-- Panel izquierdo: Tabs de Scene arriba, luego Jerarquía, Explorador abajo -->
+            <Border x:Name="PanelJerarquia" Grid.Column="0" Background="#161b22" BorderBrush="#30363d" BorderThickness="0,0,1,0" Padding="0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition x:Name="RowPlayHierarchy" Height="Auto" MaxHeight="140"/>
+                        <RowDefinition x:Name="RowHierarchy" Height="*" MinHeight="80"/>
+                        <RowDefinition Height="4"/>
+                        <RowDefinition x:Name="RowExplorer" Height="2*" MinHeight="120"/>
+                    </Grid.RowDefinitions>
+                    <Border x:Name="ScenesBar" Grid.Row="0" Background="#161b22" Padding="8,6" BorderBrush="#30363d" BorderThickness="0,0,0,1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="Escenas:" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <ItemsControl x:Name="ScenesStrip">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                                <Button x:Name="BtnPlay" ToolTip="Play con la escena actual del editor." Click="BtnPlay_OnClick"
+                                        Width="160" Height="32" Padding="10,4" FontSize="12" FontWeight="SemiBold"
+                                        Background="#238636" Foreground="White" BorderThickness="0" Cursor="Hand">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="▶" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <TextBlock Text="Play escena actual" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="BtnPlayMainScene" ToolTip="Play cargando la escena principal desde disco." Click="BtnPlayMainScene_OnClick"
+                                        Width="180" Height="32" Margin="8,0,0,0" Padding="10,4" FontSize="12" FontWeight="SemiBold"
+                                        Background="#1f6feb" Foreground="White" BorderThickness="0" Cursor="Hand">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="⏯" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <TextBlock Text="Play escena principal" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <local:PlayHierarchyPanel x:Name="PlayHierarchyPanel" Grid.Row="1" Visibility="Collapsed"/>
+                    <local:MapHierarchyPanel x:Name="MapHierarchy" Grid.Row="2"/>
+                    <GridSplitter x:Name="SplitterJerarquiaExplorer" Grid.Row="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="#30363d" ResizeDirection="Rows" ShowsPreview="False"/>
+                    <local:ProjectExplorerPanel x:Name="ProjectExplorer" Grid.Row="4"/>
+                </Grid>
+            </Border>
+            <GridSplitter x:Name="SplitterJerarquia" Grid.Column="1" Width="4" HorizontalAlignment="Stretch" Background="#30363d"/>
+            <!-- Centro: Tabs (Mapa, Consola, etc.) -->
+            <Grid Grid.Column="2">
+                <TabControl x:Name="MainTabs" Background="#0d1117" BorderThickness="0"
+                        AllowDrop="True" PreviewDragOver="MainTabs_PreviewDragOver"
+                        SelectionChanged="MainTabs_OnSelectionChanged">
+                <TabControl.Template>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <Border Grid.Row="0" Background="#21262d" BorderBrush="#30363d" BorderThickness="0,0,0,1" Padding="0,0,0,0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TabPanel x:Name="HeaderPanel" Grid.Column="0" IsItemsHost="True" Margin="2,4,2,4"/>
+                                    <Button x:Name="BtnAddTab" Grid.Column="1" Style="{StaticResource TabAddButtonStyle}"
+                                            Content="+" Width="36" Height="28" Margin="4,4,8,4" FontSize="18" FontWeight="Bold"
+                                            Click="BtnAddTab_OnClick" ToolTip="Nueva pestaña (contextual según área activa)"
+                                            Cursor="Hand"/>
+                                </Grid>
+                            </Border>
+                            <Border Grid.Row="1" Background="#0d1117" BorderThickness="0" Padding="0">
+                                <ContentPresenter ContentSource="SelectedContent"/>
+                            </Border>
+                        </Grid>
+                    </ControlTemplate>
+                </TabControl.Template>
+                <TabItem x:Name="TabMapa" Header="Mapa" Tag="Mapa">
+                    <Border Background="#0d1117" x:Name="MapViewport">
+                        <Grid>
+                            <ScrollViewer x:Name="ScrollViewer" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" CanContentScroll="False"
+                                          Background="#161b22"
+                                          PreviewMouseWheel="ScrollViewer_OnPreviewMouseWheel"
+                                          PreviewMouseDown="ScrollViewer_OnPreviewMouseDown"
+                                          PreviewMouseMove="ScrollViewer_OnPreviewMouseMove"
+                                          PreviewMouseUp="ScrollViewer_OnPreviewMouseUp">
+                                <Canvas x:Name="MapCanvas" Width="800" Height="600" Background="#21262d"
+                                    AllowDrop="True"
+                                    MouseLeftButtonDown="MapCanvas_OnMouseLeftButtonDown"
+                                    MouseRightButtonDown="MapCanvas_OnMouseRightButtonDown"
+                                    MouseMove="MapCanvas_OnMouseMove"
+                                    MouseLeftButtonUp="MapCanvas_OnMouseLeftButtonUp"
+                                    DragOver="MapCanvas_OnDragOver"
+                                    Drop="MapCanvas_OnDrop"
+                                    KeyDown="EditorWindow_OnKeyDown"
+                                    Focusable="True"/>
+                            </ScrollViewer>
+                            <Border x:Name="CanvasWelcomeOverlay" Background="#1a2332" Cursor="Hand" MouseLeftButtonDown="CanvasWelcomeOverlay_OnMouseDown">
+                                <Grid>
+                                    <Rectangle Fill="{StaticResource PixelGridBrush}" Opacity="0.4"/>
+                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="40">
+                                        <TextBlock Text="Bienvenido a FUEngine" FontSize="20" FontWeight="SemiBold" Foreground="#e6edf3" HorizontalAlignment="Center" Margin="0,0,0,12"/>
+                                        <TextBlock Text="Clic aquí o en el mapa para empezar. Herramienta Seleccionar por defecto." Foreground="#8b949e" FontSize="13" HorizontalAlignment="Center" TextAlignment="Center" Margin="0,0,0,8"/>
+                                        <TextBlock Text="Pincel · Rect · Línea · Relleno · Goma · Cuentagotas · Stamp · Seleccionar · Del=Borrar  Ctrl+Z/Y" Foreground="#6e7681" FontSize="11" HorizontalAlignment="Center" Margin="0,0,0,16"/>
+                                        <TextBlock Text="↓ Clic para acceder al mapa" Foreground="#58a6ff" FontSize="12" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Border>
+                </TabItem>
+                <TabItem x:Name="TabConsola" Header="Consola" Tag="Consola">
+                    <local:ConsoleTabContent/>
+                </TabItem>
+            </TabControl>
+            </Grid>
+            <GridSplitter x:Name="SplitterInspector" Grid.Column="3" Width="4" HorizontalAlignment="Stretch" Background="#30363d"/>
+            <Border x:Name="PanelInspector" Grid.Column="4" Background="#161b22" Padding="0" BorderBrush="#30363d" BorderThickness="1,0,0,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition x:Name="RowLayersPanel" Height="200" MinHeight="100"/>
+                        <RowDefinition Height="4"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0" Background="#21262d" Padding="10,8" BorderBrush="#30363d" BorderThickness="0,0,0,1">
+                        <TextBlock Text="Capas · Inspector" FontWeight="SemiBold" FontSize="13" Foreground="#e6edf3"/>
+                    </Border>
+                    <local:LayersPanel x:Name="LayersPanel" Grid.Row="1"/>
+                    <GridSplitter x:Name="SplitterLayersInspector" Grid.Row="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="#30363d" ResizeDirection="Rows" ShowsPreview="False"/>
+                    <Grid Grid.Row="3">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Border Grid.Row="0" Background="#21262d" Padding="10,6" BorderBrush="#30363d" BorderThickness="0,0,0,1">
+                            <TextBlock Text="Inspector" FontWeight="SemiBold" FontSize="12" Foreground="#e6edf3"/>
+                        </Border>
+                        <ContentControl Grid.Row="1" x:Name="InspectorPanel" Margin="8,8,8,8"/>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+        <Border Grid.Row="3" Background="#161b22" Padding="8,4" BorderBrush="#30363d" BorderThickness="0,1,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="TxtStatusBar" Text="X: 0  Y: 0  Chunk: (0,0)  |  Seleccionar" Foreground="#8b949e" FontSize="11" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="Atajos: 1-5 herramientas · Ctrl+Z/Y · Del · Rueda=zoom · Clic central=pan · WASD=desplazar" Foreground="#6e7681" FontSize="10" VerticalAlignment="Center" Margin="16,0,0,0"/>
+                </Grid>
+                <Border Grid.Row="1" x:Name="LogBar" Background="#0d1117" Padding="6,3" Margin="0,4,0,0" BorderBrush="#30363d" BorderThickness="0,1,0,0" Visibility="Collapsed"
+                        MouseLeftButtonDown="LogBar_MouseLeftButtonDown" Cursor="Hand">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Log:" Foreground="#6e7681" FontSize="10" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock x:Name="TxtLastLog" Grid.Column="1" Text="" Foreground="#8b949e" FontSize="10" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="Clic para abrir Consola completa"/>
+                        <TextBlock x:Name="TxtLogCounts" Grid.Column="2" Foreground="#8b949e" FontSize="10" VerticalAlignment="Center" Margin="8,0,8,0" ToolTip="Warnings y errores en el log"/>
+                        <Button x:Name="BtnOpenConsola" Grid.Column="3" Content="Consola" Padding="6,2" FontSize="10" Click="BtnOpenConsola_OnClick" Background="#21262d" Foreground="#58a6ff" BorderBrush="#30363d" ToolTip="Abrir pestaña Consola"/>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+        <!-- Toast: Info 3s, Warning 5s, Error fijo hasta clic -->
+        <Border x:Name="ToastPanel" Grid.Row="2" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,24,24"
+               Background="#21262d" BorderBrush="#30363d" BorderThickness="1" CornerRadius="4" Padding="14,10"
+               Visibility="Collapsed" MouseLeftButtonDown="ToastPanel_MouseLeftButtonDown" Cursor="Hand"
+               ToolTip="Clic para cerrar (errores no se cierran solos)">
+            <TextBlock x:Name="ToastText" Text="" Foreground="#e6edf3" FontSize="12" TextWrapping="Wrap" MaxWidth="320"/>
+        </Border>
+    </Grid>
+</Window>

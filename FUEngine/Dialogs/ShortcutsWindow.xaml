@@ -1,0 +1,17 @@
+<Window x:Class="FUEngine.ShortcutsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:FUEngine"
+        Title="Atajos de teclado" Height="480" Width="460"
+        WindowStartupLocation="CenterOwner"
+        Background="#0d1117" ResizeMode="CanResize" MinHeight="320" MinWidth="380">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <TextBlock Text="Atajos disponibles en el editor" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,8"
+                   ToolTip="Referencia de teclas; no se reconfiguran desde aquí."/>
+        <local:ShortcutsHelpContent Grid.Row="1"/>
+    </Grid>
+</Window>

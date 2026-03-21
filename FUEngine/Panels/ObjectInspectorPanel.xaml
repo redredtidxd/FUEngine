@@ -1,0 +1,148 @@
+<UserControl x:Class="FUEngine.ObjectInspectorPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="0,0,0,16">
+            <TextBlock Text="INSPECTOR · Objeto" FontWeight="Bold" FontSize="12" Foreground="#8b949e" Margin="0,0,0,10"/>
+            <TextBlock x:Name="TxtNoSelection" Text="Seleccione un objeto en el mapa o en la jerarquía." Foreground="#8b949e" Margin="0,4,0,8" TextWrapping="Wrap"/>
+            <StackPanel x:Name="PanelObject" Visibility="Collapsed">
+                <!-- Propiedades básicas -->
+                <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="Propiedades básicas" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                        <TextBlock Text="Instance ID (único)" Foreground="#8b949e" FontSize="11" Margin="0,2,0,2" ToolTip="Al cambiar el tipo de objeto, el ID se mantiene. Usa «Generar ID» para uno basado en el tipo actual."/>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="TxtInstanceId" Grid.Column="0" Margin="0,0,8,0" Padding="8,6" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="TxtInstanceId_OnTextChanged" ToolTip="ID único. Se mantiene al cambiar el tipo; usa Generar ID para uno nuevo."/>
+                            <Button x:Name="BtnGenerateInstanceId" Grid.Column="1" Content="Generar ID" Padding="8,4" Click="BtnGenerateInstanceId_OnClick" Background="#238636" Foreground="White" BorderThickness="0" ToolTip="Generar un ID único automáticamente"/>
+                        </Grid>
+                        <TextBlock Text="Definition ID (tipo)" Foreground="#8b949e" FontSize="11" Margin="0,2,0,2"/>
+                        <TextBox x:Name="TxtDefinitionId" Margin="0,0,0,8" Padding="8,6" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="TxtDefinitionId_OnTextChanged" ToolTip="ID de la definición/tipo del objeto"/>
+                        <TextBlock Text="Nombre" Foreground="#8b949e" FontSize="11" Margin="0,2,0,2"/>
+                        <TextBox x:Name="TxtNombre" Margin="0,0,0,8" Padding="8,6" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="TxtNombre_OnTextChanged" ToolTip="Nombre del objeto en la jerarquía"/>
+                        <TextBlock x:Name="TxtDefinitionName" Text="Tipo: —" Foreground="#8b949e" FontSize="11" Margin="0,0,0,4"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                <TextBlock Text="X" Foreground="#8b949e" FontSize="11"/>
+                                <TextBox x:Name="TxtPosX" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,2,0,4" TextChanged="TxtPosition_OnTextChanged"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                                <TextBlock Text="Y" Foreground="#8b949e" FontSize="11"/>
+                                <TextBox x:Name="TxtPosY" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,2,0,4" TextChanged="TxtPosition_OnTextChanged"/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="Rotación" Foreground="#8b949e" FontSize="11" Margin="0,6,0,2"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Name="CmbRotation" Grid.Column="0" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,4,4" SelectionChanged="CmbRotation_OnSelectionChanged"/>
+                            <TextBox x:Name="TxtRotationCustom" Grid.Column="1" Width="44" Padding="4,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,4" TextChanged="TxtRotation_OnTextChanged" ToolTip="Grados (0-360)"/>
+                        </Grid>
+                        <TextBlock Text="Escala" Foreground="#8b949e" FontSize="11" Margin="0,2,0,2"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                <TextBox x:Name="TxtScaleX" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,2,0,4" TextChanged="TxtScale_OnTextChanged"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                                <TextBox x:Name="TxtScaleY" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,2,0,4" TextChanged="TxtScale_OnTextChanged"/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="Orden de render (layer)" Foreground="#8b949e" FontSize="11" Margin="0,2,0,2"/>
+                        <TextBox x:Name="TxtLayerOrder" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,4" TextChanged="TxtLayerOrder_OnTextChanged" ToolTip="Mayor valor = se dibuja delante"/>
+                        <CheckBox x:Name="ChkVisible" Content="Visible en mapa" Foreground="#e6edf3" Margin="0,6,0,4" Checked="ChkVisible_OnChanged" Unchecked="ChkVisible_OnChanged" ToolTip="Si está desmarcado, el objeto no tiene representación visual (objeto invisible con script en coordenada específica). En el editor se muestra un marcador pequeño."/>
+                        <TextBlock x:Name="TxtSize" Text="Tamaño: —" Foreground="#8b949e" FontSize="11"/>
+                    </StackPanel>
+                </Border>
+                <!-- Vista previa -->
+                <Border x:Name="PreviewBorder" Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="Vista previa" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                        <Image x:Name="ImgPreview" MaxWidth="64" MaxHeight="64" Stretch="Uniform" Margin="0,0,0,0"/>
+                    </StackPanel>
+                </Border>
+                <!-- Configuración: interacción -->
+                <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="Interacción" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                        <CheckBox x:Name="ChkColision" Content="Colisión" Foreground="#e6edf3" Margin="0,4,0,0" Checked="Chk_OnChanged" Unchecked="Chk_OnChanged"/>
+                        <TextBlock Text="Tipo colisión" Foreground="#8b949e" FontSize="11" Margin="0,6,0,2"/>
+                        <ComboBox x:Name="CmbCollisionType" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,6" SelectionChanged="CmbCollisionType_OnSelectionChanged"/>
+                        <CheckBox x:Name="ChkInteractivo" Content="Interactivo" Foreground="#e6edf3" Margin="0,4,0,0" Checked="Chk_OnChanged" Unchecked="Chk_OnChanged"/>
+                        <CheckBox x:Name="ChkDestructible" Content="Destructible" Foreground="#e6edf3" Margin="0,4,0,0" Checked="Chk_OnChanged" Unchecked="Chk_OnChanged"/>
+                        <TextBlock Text="Tags (separados por coma)" Foreground="#8b949e" FontSize="11" Margin="0,8,0,2"/>
+                        <TextBox x:Name="TxtTags" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,0" TextChanged="TxtTags_OnTextChanged"/>
+                    </StackPanel>
+                </Border>
+                <!-- Juego: opciones de definición -->
+                <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="Juego" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                        <CheckBox x:Name="ChkEnableInGameDrawing" Content="Habilitar dibujo en juego" Foreground="#e6edf3" Margin="0,4,0,0" ToolTip="Genera CanvasController.lua para que el jugador pueda pintar sobre este objeto en PlayMode (respeta límites de textura)." Checked="ChkEnableInGameDrawing_OnChanged" Unchecked="ChkEnableInGameDrawing_OnChanged"/>
+                    </StackPanel>
+                </Border>
+                <!-- Scripts (múltiples) -->
+                <Expander x:Name="ExpanderScripts" Header="Scripts" IsExpanded="True" Foreground="#e6edf3" Margin="0,0,0,4">
+                    <Expander.HeaderTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12"/>
+                        </DataTemplate>
+                    </Expander.HeaderTemplate>
+                    <Border Background="#21262d" CornerRadius="4" Padding="10,8">
+                        <StackPanel>
+                            <TextBlock x:Name="TxtScriptValidation" Foreground="#f85149" FontSize="10" Margin="0,0,0,4" Visibility="Collapsed" TextWrapping="Wrap" ToolTip="El script asignado no existe en el proyecto. Verifique scripts.json."/>
+                            <ListBox x:Name="LstScripts" Height="60" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,4" SelectionChanged="LstScripts_OnSelectionChanged" ToolTip="Scripts asignados a este objeto. Seleccione uno para editar sus propiedades."/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ComboBox x:Name="CmbScriptAdd" Grid.Column="0" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,4,0" ToolTip="Scripts disponibles en el proyecto"/>
+                                <Button x:Name="BtnAddScript" Grid.Column="1" Content="Agregar" Padding="6,4" Background="#238636" Foreground="White" BorderThickness="0" Click="BtnAddScript_OnClick" ToolTip="Añadir este script al objeto"/>
+                            </Grid>
+                            <Button x:Name="BtnRemoveScript" Content="Quitar script seleccionado" Padding="6,4" Margin="0,4,0,0" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnRemoveScript_OnClick" ToolTip="Eliminar el script seleccionado de la lista"/>
+                        </StackPanel>
+                    </Border>
+                </Expander>
+                <!-- Propiedades públicas del script seleccionado -->
+                <Expander x:Name="ExpanderScriptProps" Header="Propiedades del script" IsExpanded="True" Foreground="#e6edf3" Margin="0,0,0,4">
+                    <Expander.HeaderTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12"/>
+                        </DataTemplate>
+                    </Expander.HeaderTemplate>
+                    <Border Background="#21262d" CornerRadius="4" Padding="10,8">
+                        <StackPanel>
+                            <TextBlock x:Name="TxtScriptPropsHint" Text="Seleccione un script. Variables globales en la raíz del .lua (sin «local») aparecen solas; ajústelas aquí." Foreground="#8b949e" FontSize="10" Margin="0,0,0,6" TextWrapping="Wrap"/>
+                            <ItemsControl x:Name="ItemsScriptProps"/>
+                            <Button x:Name="BtnAddScriptProp" Content="Añadir propiedad" Padding="6,4" Margin="0,6,0,0" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnAddScriptProp_OnClick" ToolTip="Añadir una propiedad pública (nombre, tipo, valor) para el script seleccionado"/>
+                        </StackPanel>
+                    </Border>
+                </Expander>
+                <!-- Acciones rápidas: oculto cuando se muestran propiedades de objeto para reducir ruido visual -->
+                <Border x:Name="AccionesRapidasPanel" Visibility="Collapsed" Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="Acciones rápidas" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                        <Button x:Name="BtnDuplicate" Content="Duplicar" Padding="8,4" Margin="0,0,0,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnDuplicate_OnClick"/>
+                        <Button x:Name="BtnRename" Content="Renombrar" Padding="8,4" Margin="0,0,0,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnRename_OnClick"/>
+                        <Button x:Name="BtnConvertToSeed" Content="Convertir a seed" Padding="8,4" Margin="0,0,0,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnConvertToSeed_OnClick"/>
+                        <Button x:Name="BtnDelete" Content="Eliminar" Padding="8,4" Margin="0,0,0,0" Background="#da3633" Foreground="White" BorderThickness="0" Click="BtnDelete_OnClick"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+</UserControl>

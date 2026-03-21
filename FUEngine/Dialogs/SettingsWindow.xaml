@@ -1,0 +1,466 @@
+<Window x:Class="FUEngine.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:FUEngine"
+        Title="Configuración del motor" Height="620" Width="560"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize" MinHeight="480" MinWidth="460"
+        Background="#0d1117"
+        ToolTip="Preferencias globales del motor (settings.json): idioma, editor, render por defecto y publicación.">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TabControl Grid.Row="0" Background="Transparent" ToolTip="Pestañas de configuración: elige una categoría arriba.">
+        <TabItem Header="General" ToolTip="Idioma, fuente, inicio del motor, actualizaciones e integración IA.">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8" ToolTip="Desplázate para ver todas las opciones de esta pestaña.">
+                <StackPanel>
+                    <TextBlock Text="Idioma" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="Idioma preferido para etiquetas y mensajes cuando estén traducidos."/>
+                    <ComboBox x:Name="CmbLanguage" Width="240" HorizontalAlignment="Left" Margin="0,0,0,12"
+                              Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              ToolTip="Español, inglés o japonés."/>
+                    <TextBlock Text="Fuente del motor" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="Tipo y tamaño aplicados al hub y ventanas principales del editor."/>
+                    <ComboBox x:Name="CmbEngineFont" Width="280" HorizontalAlignment="Left" Margin="0,0,0,16"
+                              Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              ToolTip="Combinaciones predefinidas nombre + tamaño."/>
+                    <TextBlock Text="Al iniciar el motor" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,6"
+                               ToolTip="Qué ocurre al terminar la pantalla de bienvenida."/>
+                    <ComboBox x:Name="CmbStartupBehavior" Width="320" HorizontalAlignment="Left" Margin="0,0,0,8"
+                              Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              ToolTip="Hub: pantalla de inicio. Último proyecto: abre el más reciente si existe. Nuevo proyecto: muestra el asistente de creación."/>
+                    <CheckBox x:Name="ChkHardwareAcceleration" Content="Aceleración por hardware (renderizado WPF)" Foreground="#e6edf3" Margin="0,0,0,12"
+                              ToolTip="Desactívalo si la interfaz va entrecortada en equipos antiguos (usa renderizado por software)."/>
+                    <TextBlock Text="Servicios externos" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,8,0,6"
+                               ToolTip="Integraciones opcionales con herramientas fuera del motor."/>
+                    <TextBlock Text="Integración con IA (ruta)" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="Ejecutable o carpeta del conector de IA, si lo usas."/>
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="TxtAiPath" Grid.Column="0" IsReadOnly="True" Margin="0,0,8,0"
+                                 Background="#21262d" Foreground="#8b949e" BorderBrush="#30363d"
+                                 ToolTip="Selecciona carpeta o archivo según tu integración."/>
+                        <Button x:Name="BtnBrowseAi" Grid.Column="1" Content="..." Width="36" Height="28" Padding="0" Click="BtnBrowseAi_OnClick"
+                                ToolTip="Examinar"/>
+                    </Grid>
+                    <CheckBox x:Name="ChkAutoUpdate" Content="Comprobar actualizaciones automáticamente" Foreground="#e6edf3" Margin="0,0,0,4"
+                              ToolTip="Consulta de versiones nuevas al iniciar."/>
+                    <TextBlock Text="Canal de actualizaciones" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="Estable o beta: de qué fuente bajar builds nuevas del motor (si el comprobador está activo)."/>
+                    <ComboBox x:Name="CmbUpdateChannel" Width="120" HorizontalAlignment="Left" Margin="0,0,0,8" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              ToolTip="Elige el canal de actualización (estable suele ser más seguro)."/>
+                    <TextBlock x:Name="TxtEngineVersionLabel" Text="Versión del motor: 0.0.1" Foreground="#8b949e" FontSize="11" Margin="0,0,0,8"
+                               ToolTip="Versión del ejecutable FUEngine; se actualiza al cargar la página. Solo informativo."/>
+                    <CheckBox x:Name="ChkShowTips" Content="Mostrar tips al iniciar en pantalla de inicio" Foreground="#e6edf3" Margin="0,0,0,8"
+                              ToolTip="Consejos en el hub."/>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+        <TabItem Header="Editor" ToolTip="Mapa, tema, autoguardado del motor, rutas, exportación por defecto y lienzo.">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8" ToolTip="Desplázate para ver todas las opciones de esta pestaña.">
+                <StackPanel>
+                    <TextBlock Text="Vista del mapa" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,6"
+                               ToolTip="Cómo se muestra y mide el mapa en el editor (coordenadas, zoom, tema)."/>
+                    <TextBlock Text="Unidad de coordenadas (barra de estado)" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="Cómo se muestran X/Y al mover el ratón sobre el mapa."/>
+                    <ComboBox x:Name="CmbCoordinateUnit" Width="280" HorizontalAlignment="Left" Margin="0,0,0,12"
+                              Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              ToolTip="Tiles, medias casillas (subtiles) o píxeles de mundo."/>
+                    <TextBlock Text="Tema de la aplicación" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="Colores de ventanas, menús y paneles del IDE (oscuro/claro)."/>
+                    <ComboBox x:Name="CmbTheme" Width="220" HorizontalAlignment="Left" Margin="0,0,0,16"
+                              Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              ToolTip="Paleta visual del IDE."/>
+                    <TextBlock Text="Autoguardado (motor)" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,4"
+                               ToolTip="Si usas ajustes del motor, el intervalo activado aquí sustituye al del proyecto mientras editas."/>
+                    <CheckBox x:Name="ChkUseEngineAutoSave" Content="Usar autoguardado del motor (ignorar intervalo del proyecto en el editor)" Foreground="#e6edf3" Margin="0,0,0,6"
+                              ToolTip="Cuando está activo, el editor aplica activado e intervalo de abajo. La carpeta y copias siguen en Configuración del proyecto."/>
+                    <CheckBox x:Name="ChkEngineAutoSaveEnabled" Content="Autoguardado activo" Foreground="#e6edf3" Margin="0,0,0,4"
+                              ToolTip="Activa o desactiva el guardado automático por tiempo cuando el motor controla el intervalo (arriba)."/>
+                    <TextBlock Text="Intervalo (minutos)" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="Cada cuántos minutos guardar automáticamente si el autoguardado del motor está activo."/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <Slider x:Name="SldEngineAutoSaveInterval" Width="220" Minimum="1" Maximum="60" TickFrequency="5" IsSnapToTickEnabled="False"
+                                ToolTip="Minutos entre autoguardados cuando el motor controla el intervalo."/>
+                        <TextBlock x:Name="TblEngineAutoSaveInterval" Foreground="#e6edf3" Margin="12,0,0,0" VerticalAlignment="Center" MinWidth="28" Text="5"
+                                   ToolTip="Minutos seleccionados en el deslizador (solo lectura en pantalla)."/>
+                    </StackPanel>
+                    <TextBlock TextWrapping="Wrap" Foreground="#8b949e" FontSize="11" Margin="0,0,0,12"
+                               Text="Carpeta de copias y número máximo de respaldos: Proyecto → Configuración del proyecto → Autoguardado."
+                               ToolTip="El autoguardado con copias numeradas se configura por proyecto; aquí solo el intervalo si usas el motor."/>
+                    <TextBlock Text="Sensibilidad Pan/Zoom" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,8,0,6"
+                               ToolTip="Ajusta qué tan rápido zoom y desplazamiento responden al ratón y al teclado."/>
+                    <TextBlock Text="Zoom con rueda del ratón" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="1,0 = velocidad por defecto."/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <Slider x:Name="SldZoomWheelSensitivity" Width="220" Minimum="0.25" Maximum="3" TickFrequency="0.25"
+                                ToolTip="Multiplica la velocidad del zoom con la rueda del ratón sobre el mapa (1 = normal)."/>
+                        <TextBlock x:Name="TblZoomWheelSensitivity" Foreground="#e6edf3" Margin="12,0,0,0" VerticalAlignment="Center" MinWidth="36"
+                                   ToolTip="Valor numérico actual del multiplicador de zoom."/>
+                    </StackPanel>
+                    <TextBlock Text="Desplazamiento con WASD / flechas" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="Velocidad al mover la vista del mapa con teclas (sin cambiar la posición de los tiles)."/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                        <Slider x:Name="SldPanKeyScale" Width="220" Minimum="0.25" Maximum="3" TickFrequency="0.25"
+                                ToolTip="Multiplica qué tan rápido se desplaza el lienzo con WASD o flechas."/>
+                        <TextBlock x:Name="TblPanKeyScale" Foreground="#e6edf3" Margin="12,0,0,0" VerticalAlignment="Center" MinWidth="36"
+                                   ToolTip="Valor numérico del multiplicador de pan con teclas."/>
+                    </StackPanel>
+                    <TextBlock Text="Rutas" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,6"
+                               ToolTip="Carpetas por defecto del motor: nuevos proyectos, biblioteca global y salida de builds."/>
+                    <TextBlock Text="Proyectos (carpeta por defecto)" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="Donde se proponen o guardan proyectos nuevos al usar «Crear proyecto» u operaciones similares."/>
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="TxtProjectsPath" Grid.Column="0" IsReadOnly="True" Margin="0,0,8,0" Background="#21262d" Foreground="#8b949e" BorderBrush="#30363d"
+                                 ToolTip="Ruta actual de la carpeta base de proyectos."/>
+                        <Button x:Name="BtnBrowseProjects" Grid.Column="1" Content="..." Width="36" Height="28" Padding="0" Click="BtnBrowseProjects_OnClick"
+                                ToolTip="Elegir carpeta donde crear o listar proyectos por defecto."/>
+                    </Grid>
+                    <TextBlock Text="Assets compartidos" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="Biblioteca global reutilizable entre proyectos (sprites, tilesets, etc.)."/>
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="TxtSharedAssetsPath" Grid.Column="0" IsReadOnly="True" Margin="0,0,8,0" Background="#21262d" Foreground="#8b949e" BorderBrush="#30363d"
+                                 ToolTip="Ruta de la carpeta SharedAssets / biblioteca del hub."/>
+                        <Button x:Name="BtnBrowseSharedAssets" Grid.Column="1" Content="..." Width="36" Height="28" Padding="0" Click="BtnBrowseSharedAssets_OnClick"
+                                ToolTip="Seleccionar carpeta de assets compartidos."/>
+                    </Grid>
+                    <TextBlock Text="La biblioteca del hub (Assets → Biblioteca) usa Library/library.json dentro de esta carpeta. Si queda vacía, el motor usa %LocalAppData%/FUEngine/SharedAssets." Foreground="#8b949e" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"
+                               ToolTip="Explicación de la ruta de assets compartidos y del fallback en AppData."/>
+                    <TextBlock Text="Exportación de builds" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="Carpeta por defecto donde se generan ejecutables y datos al exportar un juego."/>
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="TxtBuildExportPath" Grid.Column="0" IsReadOnly="True" Margin="0,0,8,0" Background="#21262d" Foreground="#8b949e" BorderBrush="#30363d"
+                                 ToolTip="Ruta de salida de builds (exe + Data)."/>
+                        <Button x:Name="BtnBrowseBuildExport" Grid.Column="1" Content="..." Width="36" Height="28" Padding="0" Click="BtnBrowseBuildExport_OnClick"
+                                ToolTip="Elegir carpeta de exportación de builds."/>
+                    </Grid>
+                    <TextBlock Text="Editor de código externo (.exe)" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="VS Code, Notepad++, etc. Para abrir scripts con «Abrir en externo» cuando exista."/>
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="TxtExternalCodeEditor" Grid.Column="0" IsReadOnly="True" Margin="0,0,8,0" Background="#21262d" Foreground="#8b949e" BorderBrush="#30363d"
+                                 ToolTip="Ruta del .exe del editor externo (VS Code, etc.) para abrir scripts desde el motor."/>
+                        <Button x:Name="BtnBrowseExternalEditor" Grid.Column="1" Content="..." Width="36" Height="28" Padding="0" Click="BtnBrowseExternalEditor_OnClick"
+                                ToolTip="Elegir ejecutable"/>
+                    </Grid>
+                    <TextBlock Text="Formato de exportación por defecto" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,6"
+                               ToolTip="Formato de archivo cuando exportas o conviertes assets desde herramientas del motor."/>
+                    <TextBlock Text="Imágenes" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="PNG, WebP, etc.: formato preferido para texturas y capturas exportadas."/>
+                    <ComboBox x:Name="CmbExportFormatImage" Width="100" HorizontalAlignment="Left" Margin="0,0,0,8" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              ToolTip="Extensión por defecto para exportación de imágenes."/>
+                    <TextBlock Text="Audio" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="OGG, WAV, etc.: cómo se escriben clips al exportar o convertir."/>
+                    <ComboBox x:Name="CmbExportFormatAudio" Width="100" HorizontalAlignment="Left" Margin="0,0,0,12" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              ToolTip="Formato de audio por defecto en exportaciones."/>
+                    <CheckBox x:Name="ChkSaveOverwriteProtection" Content="Proteger contra sobrescritura al guardar" Foreground="#e6edf3" Margin="0,0,0,16"
+                              ToolTip="Pide confirmación antes de sobrescribir archivos."/>
+                    <TextBlock Text="Interfaz del editor" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,6"
+                               ToolTip="Apariencia del lienzo del mapa: rejilla, reglas y límites de zoom."/>
+                    <CheckBox x:Name="ChkCollisionMaskDefault" Content="Mostrar máscara de colisión por defecto" Foreground="#e6edf3" Margin="0,0,0,8"
+                              ToolTip="Al abrir el editor, muestra u oculta la superposición de máscaras de colisión en el mapa."/>
+                    <TextBlock Text="Zoom mínimo / máximo" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="Límites del factor de zoom (alejar/acercar) para no perderse ni pixelar en exceso."/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <TextBox x:Name="TxtZoomMin" Width="72" Margin="0,0,8,0" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Zoom mínimo permitido (número decimal, p. ej. 0,25)."/>
+                        <TextBox x:Name="TxtZoomMax" Width="72" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Zoom máximo permitido al acercar el mapa."/>
+                    </StackPanel>
+                    <TextBlock Text="Grid snapping" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="Alineación de objetos y herramientas a la cuadrícula del tile."/>
+                    <ComboBox x:Name="CmbGridSnap" Width="180" HorizontalAlignment="Left" Margin="0,0,0,8" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              ToolTip="Sin snap, por tile, por píxel, etc., según opciones del motor."/>
+                    <CheckBox x:Name="ChkGridVisible" Content="Mostrar grid por defecto" Foreground="#e6edf3" Margin="0,0,0,4"
+                              ToolTip="Activa la cuadrícula al iniciar sesión de edición."/>
+                    <CheckBox x:Name="ChkRulersVisible" Content="Mostrar reglas por defecto" Foreground="#e6edf3" Margin="0,0,0,8"
+                              ToolTip="Muestra reglas en los bordes del lienzo para medir en píxeles o tiles."/>
+                    <TextBlock Text="Color de fondo escenas nuevas (#RRGGBB)" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="Color hexadecimal de fondo del mapa cuando creas una escena nueva."/>
+                    <TextBox x:Name="TxtDefaultSceneBgColor" Width="120" HorizontalAlignment="Left" Margin="0,0,0,8" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                             ToolTip="Ej.: #0d1117 — color de relleno detrás del tilemap en escenas nuevas."/>
+                    <TextBlock Text="Renderizado" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,8,0,6"
+                               ToolTip="Opciones extra de previsualización en el editor (miniaturas, luces)."/>
+                    <CheckBox x:Name="ChkThumbnailPreview" Content="Generar miniaturas para .lua y .png (cuando el explorador lo soporte)" Foreground="#e6edf3" Margin="0,0,0,4"
+                              ToolTip="Calcula vistas en miniatura para identificar archivos más rápido en el explorador."/>
+                    <CheckBox x:Name="ChkLightingPreview" Content="Preview de iluminación en editor" Foreground="#e6edf3" Margin="0,0,0,8"
+                              ToolTip="Aproxima cómo se verán luces y sombras en el visor WPF del mapa."/>
+                    <TextBlock Text="Plugins por defecto (coma)" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="Identificadores de plugins del motor que se cargan en nuevos proyectos o sesiones."/>
+                    <TextBox x:Name="TxtDefaultPlugins" Height="40" TextWrapping="Wrap" Margin="0,0,0,8" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                             ToolTip="Lista separada por comas; deja vacío si no usas plugins."/>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+        <TabItem Header="Atajos" ToolTip="Perfiles de teclado y reasignación de combinaciones (settings.json).">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8" ToolTip="Lista de atajos y perfiles guardados en settings.json.">
+                <StackPanel>
+                    <TextBlock Text="Perfil de atajos" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,4"
+                               ToolTip="Conjunto predefinido de teclas (estilo IDE o juego) o perfil personalizado."/>
+                    <ComboBox x:Name="CmbShortcutPreset" Width="420" HorizontalAlignment="Left" Margin="0,0,0,4"
+                              Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              DisplayMemberPath="Display"
+                              SelectionChanged="CmbShortcutPreset_OnSelectionChanged"
+                              ToolTip="Aplica un conjunto de atajos. «Personalizado» aparece si editaste teclas fuera del perfil."/>
+                    <TextBlock x:Name="TxtShortcutPresetCustomNote" Text="Perfil personalizado: las teclas no coinciden con un preset guardado." Foreground="#d29922" TextWrapping="Wrap" Margin="0,0,0,8" Visibility="Collapsed"
+                               ToolTip="Visible cuando tus teclas no coinciden con ningún perfil nombrado."/>
+                    <TextBlock Text="Pulsa «Cambiar…» y luego la combinación deseada. Escape cancela." Foreground="#8b949e" TextWrapping="Wrap" Margin="0,0,0,8"
+                               ToolTip="Los atajos se guardan en settings.json."/>
+                    <TextBlock x:Name="TxtShortcutCaptureHint" Text="" Foreground="#58a6ff" Margin="0,0,0,8" Visibility="Collapsed"
+                               ToolTip="Mensaje temporal mientras capturas una nueva combinación de teclas."/>
+                    <StackPanel x:Name="PanelShortcutRows" Margin="0,0,0,8" ToolTip="Filas generadas en código: acción, tecla actual y botón Cambiar."/>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+        <TabItem Header="Motor" ToolTip="Valores por defecto de render, física, luz, animación y tamaño de chunks para proyectos nuevos.">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8" ToolTip="Desplázate para ver todas las opciones en esta pestaña.">
+                <StackPanel>
+                    <TextBlock Text="Escala de tiles por defecto (proyectos nuevos)" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="Factor de escala visual de los tiles al crear un proyecto nuevo (1 = tamaño nativo)."/>
+                    <TextBox x:Name="TxtDefaultTileScale" Width="80" HorizontalAlignment="Left" Margin="0,0,0,12" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                             ToolTip="Número decimal; afecta el valor inicial del proyecto, no los proyectos ya creados."/>
+                    <TextBlock Text="Modo de render" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="Estrategia de dibujado del runtime (2D, referencias futuras)."/>
+                    <ComboBox x:Name="CmbRenderMode" Width="200" HorizontalAlignment="Left" Margin="0,0,0,12" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              ToolTip="Selecciona el backend o estilo de render por defecto en proyectos nuevos."/>
+                    <TextBlock Text="FPS predeterminado para proyectos nuevos" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="Velocidad lógica inicial; se puede cambiar por proyecto."/>
+                    <TextBox x:Name="TxtDefaultProjectFps" Width="80" HorizontalAlignment="Left" Margin="0,0,0,16" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                             ToolTip="FPS iniciales del bucle de juego en proyectos nuevos (p. ej. 60)."/>
+                    <TextBlock Text="Física / colisiones (referencia futura)" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,6"
+                               ToolTip="Valores guardados para runtime; el juego puede leerlos en versiones futuras."/>
+                    <TextBlock Text="Modo de colisión" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="Precisión del test de colisión AABB/tiles en el runtime (referencia futura)."/>
+                    <ComboBox x:Name="CmbPhysicsCollisionMode" Width="200" HorizontalAlignment="Left" Margin="0,0,0,8" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              ToolTip="Simple o más precisa según implementación del runtime."/>
+                    <TextBlock Text="Gravedad global" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="Aceleración vertical por defecto para física de personajes u objetos dinámicos."/>
+                    <TextBox x:Name="TxtGlobalGravity" Width="100" HorizontalAlignment="Left" Margin="0,0,0,16" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                             ToolTip="Valor por defecto (p. ej. 9,8 m/s²)."/>
+                    <TextBlock Text="Iluminación por defecto" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,6"
+                               ToolTip="Parámetros de luz global para proyectos nuevos; las luces por objeto siguen en el editor."/>
+                    <TextBlock Text="Modo" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="Tipo de iluminación global por defecto (plana, direccional, etc.)."/>
+                    <ComboBox x:Name="CmbLightingMode" Width="200" HorizontalAlignment="Left" Margin="0,0,0,8" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              ToolTip="Define cómo se calculan sombras y tintes en escenas nuevas."/>
+                    <TextBlock Text="Paleta global" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="Conjunto de colores de luz ambiente por defecto."/>
+                    <ComboBox x:Name="CmbDefaultPalette" Width="200" HorizontalAlignment="Left" Margin="0,0,0,8" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              ToolTip="Paleta cromática aplicada como punto de partida en nuevos proyectos."/>
+                    <TextBlock Text="Intensidad (0-100)" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="Brillo global de la luz por defecto."/>
+                    <TextBox x:Name="TxtLightingIntensity" Width="80" HorizontalAlignment="Left" Margin="0,0,0,8" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                             ToolTip="Valor numérico de intensidad (0 apagado, 100 muy fuerte)."/>
+                    <TextBlock Text="Dirección (grados)" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="Ángulo en el plano XY desde el que «llega» la luz direccional."/>
+                    <TextBox x:Name="TxtLightingDirection" Width="80" HorizontalAlignment="Left" Margin="0,0,0,12" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                             ToolTip="0° suele ser derecha; 90° arriba, según convención del motor."/>
+                    <TextBlock Text="Post-procesado" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,8,0,6"
+                               ToolTip="Efectos de imagen aplicados después del render principal (dithering, pruebas de luz)."/>
+                    <CheckBox x:Name="ChkDithering" Content="Dithering automático (efecto retro)" Foreground="#e6edf3" Margin="0,0,0,8"
+                              ToolTip="Reduce bandas de color simulando pocos bits por canal (estética retro)."/>
+                    <CheckBox x:Name="ChkTestDynamicLight" Content="Luz dinámica (prueba de render)" Foreground="#e6edf3" Margin="0,0,0,8"
+                              ToolTip="Flag experimental del motor de pruebas."/>
+                    <TextBlock Text="Parallax (velocidad scroll 0-2)" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="Qué tan rápido se mueven capas en parallax respecto a la cámara."/>
+                    <TextBox x:Name="TxtParallaxSpeed" Width="80" HorizontalAlignment="Left" Margin="0,0,0,12" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                             ToolTip="1 = sincronizado con el mundo; menor = fondo más lento."/>
+                    <TextBlock Text="Animación por defecto" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,6"
+                               ToolTip="FPS e interpolación iniciales para clips de sprite en proyectos nuevos."/>
+                    <TextBlock Text="FPS animación" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="Velocidad por defecto de clips de animación en proyectos nuevos."/>
+                    <TextBox x:Name="TxtDefaultAnimationFps" Width="80" HorizontalAlignment="Left" Margin="0,0,0,8" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                             ToolTip="Fotogramas por segundo lógicos para animaciones de sprite."/>
+                    <TextBlock Text="Interpolación" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="Suavizado entre fotogramas (nearest, linear, etc.)."/>
+                    <ComboBox x:Name="CmbAnimationInterpolation" Width="180" HorizontalAlignment="Left" Margin="0,0,0,16" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              ToolTip="Método de interpolación entre frames de animación."/>
+                    <TextBlock Text="Tilemap y mundo" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,6"
+                               ToolTip="Fragmentación del mapa (chunks), tamaño de celda y autotiling por defecto."/>
+                    <TextBlock Text="Chunk size" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="Lado del chunk en tiles (16, 32…) para mapas nuevos; afecta memoria y streaming."/>
+                    <ComboBox x:Name="CmbChunkSize" Width="120" HorizontalAlignment="Left" Margin="0,0,0,8" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              ToolTip="Tamaño de fragmento del mapa almacenado en disco/memoria."/>
+                    <TextBlock Text="Tamaño de tile (px)" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="Píxeles por lado de celda en proyectos nuevos."/>
+                    <TextBox x:Name="TxtDefaultTileSize" Width="80" HorizontalAlignment="Left" Margin="0,0,0,8" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                             ToolTip="Típico 16 o 32; debe coincidir con tu arte pixel art."/>
+                    <TextBlock Text="Altura máxima tiles (2.5D)" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="Para tiles «altos» que se dibujan en perspectiva falsa."/>
+                    <TextBox x:Name="TxtMaxTileHeight" Width="80" HorizontalAlignment="Left" Margin="0,0,0,8" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                             ToolTip="Límite vertical en unidades de tile para apilamiento visual."/>
+                    <CheckBox x:Name="ChkAutoTiling" Content="Auto-tiling por defecto" Foreground="#e6edf3"
+                              ToolTip="Activa reglas de autotiling al pintar bordes entre terrenos en proyectos nuevos."/>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+        <TabItem Header="Assets y scripting" ToolTip="Scripts sugeridos, editor integrado/externo y carpeta de placeholders.">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8" ToolTip="Desplázate para ver todas las opciones en esta pestaña.">
+                <StackPanel>
+                    <TextBlock Text="Scripts comunes por defecto" Foreground="#e6edf3" Margin="0,0,0,6"
+                               ToolTip="Registro de IDs de scripts que el motor sugiere o precarga en proyectos nuevos."/>
+                    <TextBlock Text="IDs separados por coma" Foreground="#8b949e" FontSize="11" Margin="0,0,0,8"
+                               ToolTip="Deben coincidir con entradas en scripts.json del proyecto cuando lo uses."/>
+                    <TextBox x:Name="TxtCommonScriptIds" Height="60" TextWrapping="Wrap" AcceptsReturn="True" Margin="0,0,0,16" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                             ToolTip="Lista de identificadores de scripts, uno por línea o separados por comas."/>
+                    <TextBlock Text="Editor de scripts por defecto" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="Abrir Lua en el editor integrado o en el externo configurado en la pestaña Editor."/>
+                    <ComboBox x:Name="CmbScriptEditorMode" Width="200" HorizontalAlignment="Left" Margin="0,0,0,16" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              ToolTip="Interno = pestaña Scripts; externo = .exe de la ruta de código externo."/>
+                    <TextBlock Text="Carpeta placeholder assets" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="Imágenes genéricas usadas cuando falta un asset en herramientas de creación."/>
+                    <Grid Margin="0,0,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="TxtPlaceholderAssetsPath" Grid.Column="0" IsReadOnly="True" Margin="0,0,8,0" Background="#21262d" Foreground="#8b949e" BorderBrush="#30363d"
+                                 ToolTip="Ruta de carpeta con placeholders (caja gris, etc.)."/>
+                        <Button x:Name="BtnBrowsePlaceholder" Grid.Column="1" Content="..." Width="36" Height="28" Padding="0" Click="BtnBrowsePlaceholder_OnClick"
+                                ToolTip="Elegir carpeta de placeholders."/>
+                    </Grid>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+        <TabItem Header="Publicación" ToolTip="Splash, icono del .exe, versión del juego y opciones del build exportado.">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8" ToolTip="Desplázate para ver todas las opciones en esta pestaña.">
+                <StackPanel>
+                    <CheckBox x:Name="ChkSplashCreatedWith" Content="Splash «Created with FUEngine»" Foreground="#e6edf3" Margin="0,0,0,12"
+                              ToolTip="Muestra una pantalla de bienvenida con marca al arrancar el juego exportado."/>
+                    <TextBlock Text="Duración splash (ms)" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="Milisegundos que permanece visible la pantalla splash."/>
+                    <TextBox x:Name="TxtSplashDuration" Width="80" HorizontalAlignment="Left" Margin="0,0,0,8" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                             ToolTip="Ej.: 2000 = 2 segundos."/>
+                    <CheckBox x:Name="ChkSplashFadeIn" Content="Fade in" Foreground="#e6edf3" Margin="0,0,0,2"
+                              ToolTip="Aparece gradualmente el splash al iniciar."/>
+                    <CheckBox x:Name="ChkSplashFadeOut" Content="Fade out" Foreground="#e6edf3" Margin="0,0,0,8"
+                              ToolTip="Desvanece el splash al pasar al menú o juego."/>
+                    <TextBlock Text="Logo splash (ruta)" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="Imagen mostrada en el centro del splash (PNG recomendado)."/>
+                    <TextBox x:Name="TxtSplashLogoPath" Margin="0,0,0,12" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                             ToolTip="Ruta relativa al proyecto o absoluta al archivo de imagen del logo."/>
+                    <TextBlock Text="Icono del ejecutable (.ico)" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="Ruta al icono para empaquetado; el pipeline de build puede usarlo más adelante."/>
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="TxtBuildExeIcon" Grid.Column="0" IsReadOnly="True" Margin="0,0,8,0" Background="#21262d" Foreground="#8b949e" BorderBrush="#30363d"
+                                 ToolTip="Icono embebido en el .exe de Windows."/>
+                        <Button x:Name="BtnBrowseBuildIcon" Grid.Column="1" Content="..." Width="36" Height="28" Padding="0" Click="BtnBrowseBuildIcon_OnClick"
+                                ToolTip="Seleccionar archivo .ico para el ejecutable."/>
+                    </Grid>
+                    <TextBlock Text="Versión del juego" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="Cadena de versión incrustada en metadatos del build (no es la del motor)."/>
+                    <TextBox x:Name="TxtBuildGameVersion" Width="160" HorizontalAlignment="Left" Margin="0,0,0,12" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                             ToolTip="Ej. 1.0.0"/>
+                    <TextBlock Text="Modo de ventana por defecto (build)" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="Ventana, pantalla completa o sin bordes al lanzar el ejecutable exportado."/>
+                    <ComboBox x:Name="CmbBuildWindowMode" Width="200" HorizontalAlignment="Left" Margin="0,0,0,16" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              ToolTip="Define el estilo de ventana del juego compilado."/>
+                    <TextBlock Text="Carpeta compilación temporal" Foreground="#e6edf3" Margin="0,0,0,4"
+                               ToolTip="Donde el motor escribe archivos intermedios al generar un build."/>
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="TxtTempBuildPath" Grid.Column="0" IsReadOnly="True" Margin="0,0,8,0" Background="#21262d" Foreground="#8b949e" BorderBrush="#30363d"
+                                 ToolTip="Ruta de trabajo temporal (objetos compilados, caché)."/>
+                        <Button x:Name="BtnBrowseTempBuild" Grid.Column="1" Content="..." Width="36" Height="28" Padding="0" Click="BtnBrowseTempBuild_OnClick"
+                                ToolTip="Elegir carpeta temporal de compilación."/>
+                    </Grid>
+                    <TextBlock Text="Target y resolución" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,8"
+                               ToolTip="Plataforma de runtime y tamaño de framebuffer del juego exportado."/>
+                    <TextBlock Text="Runtime .NET" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="Versión de .NET incluida o requerida por el ejecutable publicado."/>
+                    <ComboBox x:Name="CmbBuildRuntime" Width="220" HorizontalAlignment="Left" Margin="0,0,0,8" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              ToolTip="Selecciona el RID o runtime embebido (win-x64, etc.)."/>
+                    <TextBlock Text="Resolución" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="Resolución interna de render del build si aplica plantilla fija."/>
+                    <ComboBox x:Name="CmbBuildResolution" Width="220" HorizontalAlignment="Left" Margin="0,0,0,8" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              ToolTip="Preset de ancho×alto para el viewport exportado."/>
+                    <TextBlock Text="Tile scaling en build" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="Escala final de píxeles por tile en el ejecutable (integer scale)."/>
+                    <TextBox x:Name="TxtTileScalingBuild" Width="80" HorizontalAlignment="Left" Margin="0,0,0,8" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                             ToolTip="Multiplicador entero típico 1–4 para pixel art nítido."/>
+                    <CheckBox x:Name="ChkAutoOptimizeExport" Content="Optimización automática al exportar" Foreground="#e6edf3" Margin="0,8,0,4"
+                              ToolTip="Comprime o recorta assets durante el paso de export para reducir tamaño."/>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+        <TabItem Header="Avanzado" ToolTip="Overlays de depuración, logs a disco y caché de assets.">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8" ToolTip="Desplázate para ver todas las opciones en esta pestaña.">
+                <StackPanel>
+                    <TextBlock Text="Depuración" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,8"
+                               ToolTip="Herramientas para diagnosticar rendimiento y estado en tiempo de desarrollo."/>
+                    <CheckBox x:Name="ChkDebugOverlay" Content="Overlay: coordenadas, colisión, Z-index" Foreground="#e6edf3" Margin="0,0,0,4"
+                              ToolTip="Superpone datos de depuración sobre el viewport de prueba."/>
+                    <CheckBox x:Name="ChkDebugFps" Content="Mostrar FPS" Foreground="#e6edf3" Margin="0,0,0,4"
+                              ToolTip="Contador de fotogramas por segundo en pantalla."/>
+                    <CheckBox x:Name="ChkDebugDrawCalls" Content="Mostrar draw calls" Foreground="#e6edf3" Margin="0,0,0,4"
+                              ToolTip="Cuantas pasadas de dibujo hace la GPU por frame."/>
+                    <CheckBox x:Name="ChkDebugMemory" Content="Mostrar memoria" Foreground="#e6edf3" Margin="0,0,0,16"
+                              ToolTip="Uso aproximado de RAM del proceso del editor o juego."/>
+                    <TextBlock Text="Render de pruebas" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,8"
+                               ToolTip="Flags experimentales del pipeline gráfico."/>
+                    <CheckBox x:Name="ChkTestSpriteStacking" Content="Sprite stacking" Foreground="#e6edf3" Margin="0,0,0,4"
+                              ToolTip="Prueba ordenación por capas de sprites en el mismo Z."/>
+                    <CheckBox x:Name="ChkTestDepthBlending" Content="Depth blending" Foreground="#e6edf3" Margin="0,0,0,16"
+                              ToolTip="Mezcla entre capas según profundidad simulada."/>
+                    <TextBlock Text="Logs automáticos" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,8"
+                               ToolTip="Volcado de consola del motor a archivo para informes de error."/>
+                    <CheckBox x:Name="ChkAutoLogs" Content="Guardar logs a disco" Foreground="#e6edf3" Margin="0,0,0,4"
+                              ToolTip="Escribe un .log periódicamente o al cerrar."/>
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="TxtAutoLogsPath" Grid.Column="0" IsReadOnly="True" Margin="0,0,8,0" Background="#21262d" Foreground="#8b949e" BorderBrush="#30363d"
+                                 ToolTip="Carpeta donde guardar archivos de log automáticos."/>
+                        <Button x:Name="BtnBrowseLogs" Grid.Column="1" Content="..." Width="36" Height="28" Padding="0" Click="BtnBrowseLogs_OnClick"
+                                ToolTip="Elegir carpeta de logs."/>
+                    </Grid>
+                    <TextBlock Text="Caché de assets" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,8"
+                               ToolTip="Mantiene texturas y datos descomprimidos en memoria para cargas más rápidas."/>
+                    <CheckBox x:Name="ChkAssetCacheEnabled" Content="Caché habilitada" Foreground="#e6edf3" Margin="0,0,0,4"
+                              ToolTip="Activa el almacenamiento en caché de recursos cargados."/>
+                    <TextBlock Text="Límite MB (0 = sin límite)" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="Techo de megabytes para la caché; al superarlo se purgan entradas viejas."/>
+                    <TextBox x:Name="TxtAssetCacheMaxMb" Width="80" HorizontalAlignment="Left" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                             ToolTip="0 deja crecer la caché sin tope explícito (depende del sistema)."/>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+        </TabControl>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0" ToolTip="Cierra el diálogo guardando o descartando cambios en settings.json.">
+            <Button Content="Cancelar" Width="90" Margin="0,0,8,0" IsCancel="True" Click="BtnCancel_OnClick"
+                    ToolTip="Cierra sin guardar cambios."/>
+            <Button Content="Guardar" Width="90" IsDefault="True" Click="BtnSave_OnClick"
+                    ToolTip="Guarda la configuración en settings.json y aplica la fuente en la ventana actual."/>
+        </StackPanel>
+    </Grid>
+</Window>

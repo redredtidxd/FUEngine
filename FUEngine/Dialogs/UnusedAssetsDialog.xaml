@@ -1,0 +1,20 @@
+<Window x:Class="FUEngine.UnusedAssetsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Assets no usados" Height="400" Width="500"
+        WindowStartupLocation="CenterOwner"
+        Background="#0d1117" ResizeMode="CanResizeWithGrip">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock x:Name="TxtSummary" Text="Archivos que no están referenciados por mapa, objetos ni seeds." 
+                   Foreground="#8b949e" TextWrapping="Wrap" Margin="0,0,0,8"/>
+        <ListBox x:Name="UnusedList" Grid.Row="1" Background="#21262d" Foreground="#e6edf3"
+                 BorderBrush="#30363d" SelectionMode="Single"/>
+        <Button Grid.Row="2" Content="Cerrar" Width="80" HorizontalAlignment="Right" Margin="0,12,0,0"
+                Click="BtnClose_OnClick" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+    </Grid>
+</Window>

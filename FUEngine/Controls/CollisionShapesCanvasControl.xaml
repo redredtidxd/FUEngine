@@ -1,0 +1,22 @@
+<UserControl x:Class="FUEngine.CollisionShapesCanvasControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#161b22">
+    <Grid>
+        <ScrollViewer x:Name="ScrollViewer" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                      Background="#0d1117">
+            <Border x:Name="HostBorder"
+                    MouseLeftButtonDown="Host_MouseLeftButtonDown"
+                    MouseMove="Host_MouseMove"
+                    MouseLeftButtonUp="Host_MouseLeftButtonUp"
+                    MouseLeave="Host_MouseLeave"
+                    KeyDown="Host_KeyDown"
+                    Focusable="True">
+                <Grid x:Name="ContentGrid">
+                    <Image x:Name="BackgroundImage" Stretch="None" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                    <Canvas x:Name="ShapesOverlay" IsHitTestVisible="True"/>
+                </Grid>
+            </Border>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

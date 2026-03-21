@@ -1,0 +1,60 @@
+<UserControl x:Class="FUEngine.ScriptableTileTabContent"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:avalon="http://icsharpcode.net/sharpdevelop/avalonedit"
+             Background="#161b22">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Border Grid.Row="0" Background="#21262d" Padding="8,6" BorderBrush="#30363d" BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock x:Name="TxtPath" Text="Tile por script — Sin script" VerticalAlignment="Center" Foreground="#8b949e" Margin="0,0,16,0"/>
+                <Button x:Name="BtnOpen" Content="Abrir script" Padding="10,4" Margin="0,0,12,0" Click="BtnOpen_OnClick" Background="#21262d" Foreground="#58a6ff" BorderBrush="#30363d"/>
+                <TextBlock Text="Tamaño:" VerticalAlignment="Center" Foreground="#e6edf3" Margin="0,0,6,0"/>
+                <ComboBox x:Name="CmbSize" Width="80" Margin="0,0,16,0" SelectionChanged="CmbSize_SelectionChanged">
+                    <ComboBoxItem Content="16" Tag="16"/>
+                    <ComboBoxItem Content="32" Tag="32"/>
+                    <ComboBoxItem Content="64" Tag="64"/>
+                    <ComboBoxItem Content="128" Tag="128"/>
+                </ComboBox>
+                <Button x:Name="BtnRegenerate" Content="Regenerar" Padding="10,4" Margin="0,0,8,0" Click="BtnRegenerate_OnClick" Background="#238636" Foreground="White" BorderThickness="0"/>
+                <Button x:Name="BtnExport" Content="Exportar a PNG" Padding="10,4" Click="BtnExport_OnClick" Background="#21262d" Foreground="#58a6ff" BorderBrush="#30363d"/>
+            </StackPanel>
+        </Border>
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="200"/>
+                <ColumnDefinition Width="Auto" MinWidth="200"/>
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Background="#0d1117" BorderBrush="#30363d" BorderThickness="0,0,1,0">
+                <avalon:TextEditor x:Name="CodeEditor"
+                                  ShowLineNumbers="True"
+                                  FontFamily="Consolas" FontSize="13"
+                                  Background="#0d1117" Foreground="#e6edf3"
+                                  Padding="8"/>
+            </Border>
+            <Border Grid.Column="1" Background="#161b22" Padding="16" MinWidth="220">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*" MinHeight="80"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="Parámetros" FontWeight="SemiBold" Foreground="#e6edf3" Margin="0,0,0,6"/>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" MaxHeight="200">
+                        <StackPanel x:Name="PropertiesPanel"/>
+                    </ScrollViewer>
+                    <TextBlock Grid.Row="2" Text="Vista previa" FontWeight="SemiBold" Foreground="#e6edf3" Margin="0,12,0,8"/>
+                    <Border Grid.Row="3" Background="#0d1117" BorderBrush="#30363d" BorderThickness="1" MinWidth="180" MinHeight="180">
+                        <Image x:Name="PreviewImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                    </Border>
+                    <TextBlock x:Name="TxtError" Grid.Row="4" Foreground="#f85149" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed"/>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>
