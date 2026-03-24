@@ -43,7 +43,8 @@ public static class EngineDocumentation
                 "Explorador de archivos = disco del proyecto. Jerarquía de la escena = nodos lógicos (Scene, Map/Layers, objetos, triggers, UI).",
                 "Si algo no se ve: revisa capa visible, herramienta activa y pestaña correcta (Mapa vs Scripts vs Juego).",
                 "Con el proyecto abierto: menú Ayuda (documentación rápida / completa) o menú Proyecto → mismas guías sin salir del flujo de trabajo.",
-                "Más temas en el manual: Depuración, Hot reload, Escenas múltiples, Triggers mapa vs objeto, Exportación build, FAQ troubleshooting."
+                "Más temas en el manual: Depuración, Hot reload, Escenas múltiples, Triggers mapa vs objeto, Exportación build, FAQ troubleshooting.",
+                "Si clonaste el repositorio: ver el tema «Compilar desde el repositorio» y README.md en la raíz (tools\\publicar.bat abre la carpeta con FUEngine.exe)."
             }),
 
         new(
@@ -85,6 +86,24 @@ public static class EngineDocumentation
             {
                 "El editor dibuja el mapa con WPF; el juego en ejecución usa Vulkan salvo modos especiales.",
                 "Los scripts solo ven lo que el Runtime expone: no asumas APIs de Unity; usa las tablas documentadas abajo."
+            }),
+
+        new(
+            id: "compilar-desde-fuente",
+            title: "Compilar desde el repositorio",
+            paraQue: "Obtener FUEngine.exe si tienes el código fuente y no confundir con solo ejecutar el programa.",
+            porQueImporta: "Abrir el ejecutable no compila; publicar.bat genera el build en una carpeta nueva y abre el Explorador.",
+            paragraphs: new[]
+            {
+                "Instrucciones completas y tabla «ejecutar vs compilar» están en README.md en la raíz del repositorio (único README de entrada).",
+                "Para generar el editor: entra en la carpeta tools del repo y ejecuta publicar.bat. Publica en Release (win-x64, autocontenido) y abre la carpeta de salida publish\\Release_fecha_hora con FUEngine.exe dentro.",
+                "Ejecuta FUEngine.exe desde esa carpeta. Cada publicación crea una subcarpeta nueva para no bloquear si el editor sigue abierto.",
+                "Desarrollo diario del motor: Visual Studio o Rider con FUEngine.sln, o dotnet run --project FUEngine\\FUEngine.csproj; es distinto del flujo publicar.bat (sin ejecutable autocontenido en publish\\)."
+            },
+            bullets: new[]
+            {
+                "Requisitos: Windows y .NET SDK 8 (detalle en README.md).",
+                "limpiar.bat y release_publish.bat: ver README.md, sección scripts en tools."
             }),
 
         new(
@@ -496,7 +515,7 @@ public static class EngineDocumentation
                 "Desde Lua: world.instantiate(\"nombre\", x, y, rotacion) o self:instantiate con variante opcional para convención nombre_variante.",
                 "Los objetos creados en runtime reciben scripts al inicio del siguiente tick de simulación (cola de spawn), salvo anidación en onAwake.",
                 "Los objetos colocados en el editor son instancias en objetos.json; no confundir con seeds, aunque compartan definiciones.",
-                "En plantillas nuevas, el seed demo_square instancia un objeto (obj_default): no es un tile del mapa; el script de capa de la escena Start lo mueve como un bloque lógico (estilo «canvas»), registrado en seeds.json."
+                "En proyectos nuevos (Blank), el seed demo_square instancia un obj_default sin Lua propio; el rebote y los bordes del viewport están solo en Scripts/main.lua (script de capa Ground en la escena Start), registrado en seeds.json."
             },
             bullets: new[]
             {
@@ -514,6 +533,7 @@ public static class EngineDocumentation
                 "En el inspector de la capa (o panel de capas) puedes asignar un .lua y propiedades como en objetos.",
                 "El entorno Lua expone la tabla layer con offset, parallax, opacidad y campos que el motor rellene.",
                 "Eventos típicos: onLayerUpdate(dt) cada frame; no hay self — el contexto es la capa.",
+                "Proyecto nuevo por defecto: el demo del cuadrado que rebota en los bordes del área de juego vive solo en Scripts/main.lua en la capa Ground de la escena Start (world:instantiate del seed demo_square).",
                 "Útil para scroll horizontal, oscurecer capas de fondo o sincronizar con música."
             },
             bullets: new[]

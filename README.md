@@ -22,45 +22,50 @@ Si clonas este repositorio desde GitHub, revisa siempre **LICENSE.md** antes de 
 
 ---
 
-## Requisitos para compilar
+## Requisitos (solo si vas a compilar desde el código)
 
 - **Windows** (el editor usa WPF).
 - **[.NET SDK 8](https://dotnet.microsoft.com/download)** (`dotnet --version` debe ser 8.x).
 
 ---
 
-## Compilar y usar el motor (editor)
+## Ejecutar el motor y compilar: no lo mezcles
 
-Desde la **raíz del repositorio** (donde está `FUEngine.sln`):
+| Qué quieres | Qué hacer |
+|-------------|-----------|
+| **Solo usar el editor** | Ejecuta **`FUEngine.exe`** (doble clic o desde la carpeta donde esté). Eso **no** compila nada: solo arranca el programa ya construido. |
+| **Generar el ejecutable a partir del código fuente** (clonaste el repo y quieres el `.exe`) | 1) Entra en la carpeta **`tools`** de este repositorio.<br>2) Ejecuta **`publicar.bat`**.<br>3) Al terminar bien, el script **abre el Explorador de archivos** en la carpeta de salida (`publish\Release_AAAAMMDD_HHMMSS\`).<br>4) Ahí está **`FUEngine.exe`**: ejecútalo desde esa carpeta.<br><br>Cada publicación usa una carpeta nueva con fecha y hora para que puedas seguir con el editor abierto sin bloquear archivos. |
 
-```powershell
-dotnet restore FUEngine.sln
-dotnet build FUEngine.sln -c Release
-```
-
-Ejecutar el editor sin generar carpeta `publish`:
-
-```powershell
-dotnet run --project FUEngine\FUEngine.csproj -c Release
-```
-
-Con **Visual Studio** o **JetBrains Rider**: abre `FUEngine.sln`, proyecto de inicio **FUEngine**, ejecutar (F5).
-
-Tras compilar, el editor queda en la salida típica de .NET bajo `FUEngine\bin\Release\net8.0-windows\` (puedes lanzar el `.exe` desde ahí o usar `dotnet run` como arriba).
+**Resumen:** compilar/publicar el motor en este repo = **`tools\publicar.bat`** → se abre la carpeta del build → **`FUEngine.exe`**. No es lo mismo que tener ya un `.exe` y solo abrirlo.
 
 ---
 
-## Scripts en `tools\` (compilar, publicar, limpiar)
+## Desarrollo (opcional): ejecutar sin publicar
 
-Todos los `.bat` asumen que los ejecutas desde Windows; internamente cambian a la **raíz del repo**.
+Si estás **modificando el código** del motor y quieres probar cambios rápido sin pasar por `publicar.bat`:
+
+- Desde la **raíz del repositorio**:
+
+```powershell
+dotnet restore FUEngine.sln
+dotnet run --project FUEngine\FUEngine.csproj -c Release
+```
+
+- Con **Visual Studio** o **JetBrains Rider**: abre `FUEngine.sln`, proyecto de inicio **FUEngine**, **F5**.
+
+Tras un `dotnet build`, también puedes lanzar el `.exe` bajo `FUEngine\bin\Release\net8.0-windows\` (build normal, no autocontenido como `publicar.bat`).
+
+---
+
+## Más scripts en `tools\`
+
+Los `.bat` asumen **Windows**; por dentro pasan a la raíz del repo.
 
 | Script | Qué hace |
 |--------|----------|
-| **`tools\publicar.bat`** | Publica un **FUEngine.exe** listo para distribuir: `dotnet publish` en Release, **win-x64**, **self-contained**. Crea `publish\Release_AAAAMMDD_HHMMSS\` para no pisar builds si el editor sigue abierto. Al terminar, abre esa carpeta. Úsalo cuando quieras un ejecutable portable para usar el motor sin instalar el SDK en otra máquina. |
-| **`tools\release_publish.bat`** | Intenta cerrar `FUEngine.exe` y da consejos si la carpeta `publish` sigue bloqueada (Explorador, VS, etc.). Úsalo antes de borrar o vaciar `publish` manualmente. |
-| **`tools\limpiar.bat`** | Borra `bin`, `obj`, `publish` en los proyectos del motor y la carpeta `publish` en la raíz, y `.vs`. Reduce tamaño en disco; **después** debes volver a compilar (`dotnet build` o Visual Studio). No borra código fuente. |
-
-**Flujo habitual:** desarrollo con `dotnet run` o F5 → cuando quieras un `.exe` autocontenido, **`tools\publicar.bat`** → si necesitas liberar archivos, **`tools\release_publish.bat`** → si el repo pesa mucho por artefactos, **`tools\limpiar.bat`** y recompilar.
+| **`tools\publicar.bat`** | Publica **`FUEngine.exe`** listo para usar: `dotnet publish` Release, **win-x64**, **self-contained**. Crea `publish\Release_AAAAMMDD_HHMMSS\` y **abre esa carpeta** al terminar. |
+| **`tools\release_publish.bat`** | Ayuda a cerrar `FUEngine.exe` y a desbloquear `publish` si hace falta antes de borrar carpetas a mano. |
+| **`tools\limpiar.bat`** | Borra `bin`, `obj`, `publish` en los proyectos y la carpeta `publish` en la raíz, y `.vs`. Luego vuelve a compilar con **`publicar.bat`** o `dotnet build` / Visual Studio. |
 
 ---
 

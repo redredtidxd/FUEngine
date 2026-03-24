@@ -189,7 +189,7 @@ public static class NewProjectStructure
             var sceneObjectsPath = Path.Combine(dir, scene.ObjectsPathRelative);
             CreateDir(Path.GetDirectoryName(sceneMapPath)!);
             CreateDir(Path.GetDirectoryName(sceneObjectsPath)!);
-            // Solo la escena Start ejecuta el demo en Scripts/main.lua (script de capa Ground). End queda sin script de capa.
+            // Solo Start: el demo del cuadrado que rebota en los bordes del viewport está íntegramente en Scripts/main.lua (script de capa Ground). demo_square no lleva .lua propio. End sin script de capa.
             string? layerScript = string.Equals(scene.Id, "Start", StringComparison.OrdinalIgnoreCase)
                 ? "Scripts/main.lua"
                 : null;
@@ -255,9 +255,10 @@ public static class NewProjectStructure
         };
         File.WriteAllText(Path.Combine(dir, SettingsFileName), JsonSerializer.Serialize(settings, JsonOptions));
 
-        // main.lua: límites = rectángulo de vista lógica (mismo que marco azul / resolución en Play).
+        // Único .lua del proyecto nuevo (plantilla Blank): registro scripts.json = solo esta entrada vía EnsureDefaultScriptsJsonIfMissing.
+        // Límites = rectángulo de vista lógica (mismo que marco azul / resolución en Play).
         var mainLuaContent = @"-- FUEngine · script de capa (Ground, escena Start)
--- demo_square = seed (objeto); rebote dentro del viewport lógico (world:getPlayViewport*).
+-- Demo predeterminado: todo el rebote está aquí (no hay otro .lua en el objeto). demo_square = seed; viewport: world:getPlayViewport*.
 
 local left, top, vw, vh = 0, 0, 20, 11
 local half = 0.5
@@ -412,7 +413,7 @@ end
     }
 
     /// <summary>
-    /// Asegura scripts.json con entrada main si existe Scripts/main.lua (proyectos nuevos sin archivo hasta el primer arranque).
+    /// Si falta scripts.json y existe Scripts/main.lua, crea el registro con una sola entrada <c>main</c> (proyecto Blank: no hay más .lua por defecto).
     /// </summary>
     public static void EnsureDefaultScriptsJsonIfMissing(string projectDirectory)
     {
