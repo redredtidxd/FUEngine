@@ -362,6 +362,9 @@ public partial class EditorWindow
     private void MenuDocumentacionCompleta_OnClick(object sender, RoutedEventArgs e) =>
         ShowDocumentation(EngineDocumentation.FullManualStartTopicId);
 
+    private void MenuLuaReference_OnClick(object sender, RoutedEventArgs e) =>
+        ShowDocumentation(EngineDocumentation.LuaReferenceIntroTopicId);
+
     private void MenuAcercaDe_OnClick(object sender, RoutedEventArgs e)
     {
         new AboutWindow { Owner = this }.ShowDialog();

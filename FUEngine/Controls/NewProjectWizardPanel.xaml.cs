@@ -339,7 +339,7 @@ public partial class NewProjectWizardPanel : System.Windows.Controls.UserControl
         }
         var hint = new TextBlock
         {
-            Text = $"{tile}px tile · chunk {chunk} · {chunksSide}×{chunksSide} chunks",
+            Text = $"{tile}px tile · chunk {chunk} · {chunksSide}×{chunksSide} chunks ({chunksSide * chunksSide} al crear)",
             Foreground = new SolidColorBrush(WpfColor.FromRgb(0x8b, 0x94, 0x9e)),
             FontSize = 9,
             Margin = new Thickness(4, 2, 0, 0)

@@ -223,6 +223,55 @@ public class TileMap
         return GetOrCreateChunk(layerIndex, cx, cy);
     }
 
+    /// <summary>True si alguna capa tiene entrada de chunk en (cx, cy).</summary>
+    public bool HasAnyChunkAt(int cx, int cy)
+    {
+        for (int li = 0; li < _layerChunks.Count; li++)
+        {
+            if (_layerChunks[li].ContainsKey((cx, cy))) return true;
+        }
+        return false;
+    }
+
+    /// <summary>Crea chunks vacíos en (cx, cy) en todas las capas (expansión por celda de chunk).</summary>
+    public void EnsureEmptyChunksAllLayers(int cx, int cy)
+    {
+        for (int li = 0; li < _layerChunks.Count; li++)
+            GetOrCreateChunk(li, cx, cy);
+    }
+
+    /// <summary>Unión en casillas mundo de todos los chunks presentes (bordes exclusivos max).</summary>
+    public bool TryGetWorldBoundsFromChunkUnion(out int minWx, out int minWy, out int maxWxEx, out int maxWyEx)
+    {
+        minWx = minWy = 0;
+        maxWxEx = maxWyEx = 0;
+        int cs = Math.Max(1, ChunkSize);
+        bool any = false;
+        foreach (var (cx, cy) in EnumerateChunkCoords())
+        {
+            int wx0 = cx * cs;
+            int wy0 = cy * cs;
+            int wx1 = wx0 + cs;
+            int wy1 = wy0 + cs;
+            if (!any)
+            {
+                minWx = wx0;
+                minWy = wy0;
+                maxWxEx = wx1;
+                maxWyEx = wy1;
+                any = true;
+            }
+            else
+            {
+                minWx = Math.Min(minWx, wx0);
+                minWy = Math.Min(minWy, wy0);
+                maxWxEx = Math.Max(maxWxEx, wx1);
+                maxWyEx = Math.Max(maxWyEx, wy1);
+            }
+        }
+        return any;
+    }
+
     /// <summary>Añade una capa al final (nuevo diccionario de chunks vacío).</summary>
     public int AddLayer(MapLayerDescriptor descriptor)
     {

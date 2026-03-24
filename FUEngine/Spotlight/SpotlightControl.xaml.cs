@@ -244,7 +244,9 @@ public partial class SpotlightControl : System.Windows.Controls.UserControl
                     break;
                 case SpotlightCategory.LuaApi:
                 {
-                    var topicId = ResolveLuaApiManualTopicId(item);
+                    var topicId = !string.IsNullOrEmpty(item.DocumentationTopicId)
+                        ? item.DocumentationTopicId
+                        : ResolveLuaApiManualTopicId(item);
                     if (!string.IsNullOrEmpty(topicId))
                     {
                         if (host is EditorWindow edLua)

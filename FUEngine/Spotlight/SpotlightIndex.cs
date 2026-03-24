@@ -38,6 +38,7 @@ internal static class SpotlightIndex
         var list = new List<SpotlightItem>();
         foreach (var t in EngineDocumentation.Topics)
         {
+            if (EngineDocumentation.IsLuaReferenceSidebarTopic(t.Id)) continue;
             var sb = new StringBuilder();
             sb.Append(t.Title).Append(' ');
             if (!string.IsNullOrEmpty(t.ParaQue)) sb.Append(t.ParaQue).Append(' ');
@@ -143,7 +144,48 @@ internal static class SpotlightIndex
                 Subtitle = LuaLanguageKeywords.KeywordSubtitle,
                 SearchText = name + " " + detail,
                 LuaSignature = name,
-                LuaDetail = detail
+                LuaDetail = detail,
+                DocumentationTopicId = "lua-kw-" + name
+            });
+        }
+
+        var introLua = EngineDocumentation.Topics.FirstOrDefault(x => x.Id == EngineDocumentation.LuaReferenceIntroTopicId);
+        if (introLua != null && seenLuaKeys.Add("lua-ref-intro-spot"))
+        {
+            var sbIntro = new StringBuilder();
+            sbIntro.Append(introLua.Title).Append(' ');
+            if (!string.IsNullOrEmpty(introLua.ParaQue)) sbIntro.Append(introLua.ParaQue).Append(' ');
+            foreach (var p in introLua.Paragraphs) sbIntro.Append(p).Append(' ');
+            list.Add(new SpotlightItem
+            {
+                Category = SpotlightCategory.LuaApi,
+                Title = introLua.Title,
+                Subtitle = "Índice Lua (sintaxis y librería)",
+                SearchText = sbIntro.ToString(),
+                DocumentationTopicId = introLua.Id,
+                LuaSignature = introLua.Id,
+                LuaDetail = introLua.ParaQue ?? introLua.Title
+            });
+        }
+
+        foreach (var t in EngineDocumentation.Topics)
+        {
+            if (!t.Id.StartsWith("lua-guide-", StringComparison.Ordinal)) continue;
+            var key = "spotlua:" + t.Id;
+            if (!seenLuaKeys.Add(key)) continue;
+            var sb = new StringBuilder();
+            sb.Append(t.Title).Append(' ');
+            if (!string.IsNullOrEmpty(t.ParaQue)) sb.Append(t.ParaQue).Append(' ');
+            foreach (var p in t.Paragraphs) sb.Append(p).Append(' ');
+            list.Add(new SpotlightItem
+            {
+                Category = SpotlightCategory.LuaApi,
+                Title = t.Title,
+                Subtitle = "Guía Lua (librería)",
+                SearchText = sb.ToString(),
+                DocumentationTopicId = t.Id,
+                LuaSignature = t.Id,
+                LuaDetail = t.ParaQue ?? t.Title
             });
         }
 

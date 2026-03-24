@@ -9,23 +9,52 @@ namespace FUEngine;
 
 public partial class DocumentationView : System.Windows.Controls.UserControl
 {
-    private readonly List<DocumentationTopic> _allTopics;
+    private List<DocumentationTopic> _allTopics = new();
+    private bool _topicsInitialized;
     private DocumentationTopic? _current;
 
     public DocumentationView()
     {
         InitializeComponent();
-        _allTopics = EngineDocumentation.Topics.ToList();
     }
+
+    /// <summary>Si true, solo temas <see cref="EngineDocumentation.IsLuaReferenceSidebarTopic"/> (pestaña Lua del host).</summary>
+    public bool LuaReferenceMode { get; set; }
 
     /// <summary>Si coincide con un <see cref="DocumentationTopic.Id"/>, ese tema se selecciona al abrir.</summary>
     public string? InitialTopicId { get; set; }
 
     public event EventHandler? RequestClose;
 
+    private void EnsureTopicsLoaded()
+    {
+        if (_topicsInitialized) return;
+        _topicsInitialized = true;
+        var q = EngineDocumentation.Topics.Where(t => LuaReferenceMode
+            ? EngineDocumentation.IsLuaReferenceSidebarTopic(t.Id)
+            : !EngineDocumentation.IsLuaReferenceSidebarTopic(t.Id)).ToList();
+        if (LuaReferenceMode)
+        {
+            var introId = EngineDocumentation.LuaReferenceIntroTopicId;
+            var intro = q.FirstOrDefault(x => x.Id == introId);
+            if (intro != null)
+            {
+                q.Remove(intro);
+                q.Sort((a, b) => string.Compare(a.Title, b.Title, StringComparison.OrdinalIgnoreCase));
+                q.Insert(0, intro);
+            }
+            else
+                q.Sort((a, b) => string.Compare(a.Title, b.Title, StringComparison.OrdinalIgnoreCase));
+        }
+        _allTopics = q;
+    }
+
     public void Open(string? initialTopicId)
     {
+        EnsureTopicsLoaded();
         InitialTopicId = initialTopicId;
+        if (!string.IsNullOrEmpty(initialTopicId))
+            TxtFilter.Text = "";
         ApplyFilter();
         var id = InitialTopicId;
         if (!string.IsNullOrEmpty(id))
@@ -85,6 +114,7 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
 
     private void ApplyFilter()
     {
+        EnsureTopicsLoaded();
         var q = (TxtFilter?.Text ?? "").Trim();
         IEnumerable<DocumentationTopic> src = _allTopics;
         if (q.Length > 0)

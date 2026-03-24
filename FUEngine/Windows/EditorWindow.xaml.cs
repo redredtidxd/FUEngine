@@ -1731,57 +1731,35 @@ public partial class EditorWindow : Window
         _pasteOriginTy += dty;
     }
 
-    /// <summary>Clic en zona «+» junto al mapa finito: expande un chunk en esa dirección.</summary>
+    /// <summary>Clic en zona «+» junto al mapa finito: añade un chunk vacío (ChunkSize×ChunkSize casillas) y recalcula el rectángulo de juego como unión de chunks. Si el visor estaba en el centro geométrico, se recalcula el centro.</summary>
     private bool TryHandleFiniteMapExpandClick(System.Windows.Point pos)
     {
         if (_project.Infinite || MapCanvas == null) return false;
         var (tx, ty) = GetTileAt(pos);
         int cs = Math.Max(1, _project.ChunkSize);
+        int tcx = FiniteMapExpand.FloorDiv(tx, cs);
+        int tcy = FiniteMapExpand.FloorDiv(ty, cs);
+        if (!FiniteMapExpand.IsExpandTargetChunk(_project, _tileMap, tcx, tcy)) return false;
+
+        int ox = _project.MapBoundsOriginWorldTileX;
+        int oy = _project.MapBoundsOriginWorldTileY;
         int mw = Math.Max(1, _project.MapWidth);
         int mh = Math.Max(1, _project.MapHeight);
-        int ww = Math.Min(cs, mw);
-        int wx0 = (mw - ww) / 2;
-        int hh = Math.Min(cs, mh);
-        int wy0 = (mh - hh) / 2;
-        int? dir = null;
-        if (ty >= -cs && ty < 0 && tx >= wx0 && tx < wx0 + ww) dir = 0;
-        else if (ty >= mh && ty < mh + cs && tx >= wx0 && tx < wx0 + ww) dir = 1;
-        else if (tx >= -cs && tx < 0 && ty >= wy0 && ty < wy0 + hh) dir = 2;
-        else if (tx >= mw && tx < mw + cs && ty >= wy0 && ty < wy0 + hh) dir = 3;
-        if (dir == null) return false;
+        double oldGeomCx = ox + mw * 0.5;
+        double oldGeomCy = oy + mh * 0.5;
+        const double geomEps = 0.85;
+        bool wasGeomCenter =
+            Math.Abs(_project.EditorViewportCenterWorldX - oldGeomCx) < geomEps &&
+            Math.Abs(_project.EditorViewportCenterWorldY - oldGeomCy) < geomEps;
 
-        switch (dir.Value)
+        _tileMap.EnsureEmptyChunksAllLayers(tcx, tcy);
+        FiniteMapExpand.SyncProjectBoundsFromChunkUnion(_project, _tileMap);
+
+        if (wasGeomCenter)
         {
-            case 0:
-                _tileMap.ShiftAllWorldTiles(0, cs);
-                _project.MapHeight += cs;
-                _project.InitialChunksH = Math.Max(1, _project.InitialChunksH + 1);
-                foreach (var inst in _objectLayer.Instances)
-                    inst.Y += cs;
-                foreach (var z in _triggerZones)
-                    z.Y += cs;
-                _project.EditorViewportCenterWorldY += cs;
-                OffsetTransientTileStateForMapShift(0, cs);
-                break;
-            case 1:
-                _project.MapHeight += cs;
-                _project.InitialChunksH = Math.Max(1, _project.InitialChunksH + 1);
-                break;
-            case 2:
-                _tileMap.ShiftAllWorldTiles(cs, 0);
-                _project.MapWidth += cs;
-                _project.InitialChunksW = Math.Max(1, _project.InitialChunksW + 1);
-                foreach (var inst in _objectLayer.Instances)
-                    inst.X += cs;
-                foreach (var z in _triggerZones)
-                    z.X += cs;
-                _project.EditorViewportCenterWorldX += cs;
-                OffsetTransientTileStateForMapShift(cs, 0);
-                break;
-            case 3:
-                _project.MapWidth += cs;
-                _project.InitialChunksW = Math.Max(1, _project.InitialChunksW + 1);
-                break;
+            GameViewportMath.GetFiniteMapCenterWorldTile(_project, out var ncx, out var ncy);
+            _project.EditorViewportCenterWorldX = ncx;
+            _project.EditorViewportCenterWorldY = ncy;
         }
 
         ClampViewportCenterForCurrentMap();
@@ -3872,7 +3850,13 @@ public partial class EditorWindow : Window
     private static string DefaultSelectedTabKind(SceneDefinition? def)
     {
         if (def?.DefaultTabKinds != null && def.DefaultTabKinds.Count > 0)
-            return def.DefaultTabKinds[0];
+        {
+            var first = def.DefaultTabKinds[0];
+            // Plantillas antiguas solo ponían «Juego»; la edición empieza en Mapa.
+            if (def.DefaultTabKinds.Count == 1 && string.Equals(first, "Juego", StringComparison.Ordinal))
+                return "Mapa";
+            return first;
+        }
         return "Mapa";
     }
 

@@ -18,6 +18,9 @@ public class ProjectInfo
     public int TileSize { get; set; } = 16;
     public int MapWidth { get; set; } = 64;
     public int MapHeight { get; set; } = 64;
+    /// <summary>Esquina mínima del rectángulo de juego en casillas mundo (mapa finito). Por defecto 0; puede ser negativa si se expande con chunks hacia norte/oeste.</summary>
+    public int MapBoundsOriginWorldTileX { get; set; }
+    public int MapBoundsOriginWorldTileY { get; set; }
     public bool Infinite { get; set; } = true;
     public int ChunkSize { get; set; } = 32;
     /// <summary>Cantidad de chunks en X para plantillas y límites de integridad; casillas mapa ≈ esto × <see cref="ChunkSize"/> (si el mapa finito coincide con el proyecto).</summary>
@@ -74,7 +77,7 @@ public class ProjectInfo
     /// <summary>La cámara del visor sigue al protagonista con suavizado (tras Lua/física).</summary>
     public bool UseNativeCameraFollow { get; set; }
 
-    /// <summary>Centro de la cámara en casillas mundo (esquina sup.-izq. del mundo = 0); el marco azul se centra aquí. Mapas finitos: suele iniciarse en el centro geométrico del mapa (<c>MapWidth/2</c>, <c>MapHeight/2</c>).</summary>
+    /// <summary>Centro de la cámara en casillas mundo; el marco azul se centra aquí. Mapas finitos: suele iniciarse en el centro geométrico del rectángulo de juego (origen + mitad de ancho/alto).</summary>
     public double EditorViewportCenterWorldX { get; set; }
 
     /// <summary>Centro de la cámara en casillas mundo (eje Y).</summary>

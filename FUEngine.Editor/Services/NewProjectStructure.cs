@@ -30,7 +30,7 @@ public static class NewProjectStructure
             Name = "Start",
             MapPathRelative = "Maps/Start/map.map",
             ObjectsPathRelative = "Objects/Start/objects.objects",
-            DefaultTabKinds = new List<string> { "Juego" }
+            DefaultTabKinds = new List<string> { "Mapa" }
         },
         new SceneDefinition
         {
@@ -48,8 +48,8 @@ public static class NewProjectStructure
     public const string SettingsFileName = "Settings.json";
 
     /// <summary>
-    /// Chunks por lado del mapa inicial por defecto. El ancho/alto en <strong>casillas mundo</strong> es
-    /// <c>InitialChunksW × <see cref="ProjectInfo.ChunkSize"/></c> (y lo mismo en H).
+    /// Chunks por lado del mapa inicial por defecto (4×4 = <strong>16</strong> chunks materializados en el .map).
+    /// El ancho/alto en casillas mundo es <c>InitialChunksW × <see cref="ProjectInfo.ChunkSize"/></c> (y lo mismo en H).
     /// </summary>
     public const int DefaultMapChunksPerSide = 4;
 
@@ -476,11 +476,9 @@ end
         catch { /* ignore */ }
     }
 
-    /// <summary>Mapa inicial: capas vacías; opcionalmente script de capa en Ground (p. ej. demo solo en escena Start).</summary>
+    /// <summary>Mapa inicial: capas vacías y un chunk vacío por celda que cubre el rectángulo mundo (p. ej. 4×4 = 16 chunks); opcionalmente script de capa en Ground.</summary>
     private static TileMap CreateDefaultSceneTileMap(int chunkSize, IReadOnlyList<string> layerNames, int mapW, int mapH, string? layerScriptRelativePath)
     {
-        _ = mapW;
-        _ = mapH;
         var map = new TileMap(chunkSize);
         while (map.Layers.Count > 0)
             map.RemoveLayerAt(0);
@@ -498,6 +496,17 @@ end
                 desc.LayerScriptId = layerScriptRelativePath;
             }
             map.AddLayer(desc);
+        }
+        int cs = Math.Max(1, map.ChunkSize);
+        if (mapW > 0 && mapH > 0)
+        {
+            int maxCx = (mapW - 1) / cs;
+            int maxCy = (mapH - 1) / cs;
+            for (int cy = 0; cy <= maxCy; cy++)
+            {
+                for (int cx = 0; cx <= maxCx; cx++)
+                    map.EnsureEmptyChunksAllLayers(cx, cy);
+            }
         }
         return map;
     }

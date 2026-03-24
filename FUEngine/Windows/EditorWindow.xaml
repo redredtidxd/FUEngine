@@ -97,6 +97,7 @@
             <MenuItem Header="Proyecto" Foreground="#e6edf3">
                 <MenuItem Header="Guía rápida (motor y juegos)…" Click="MenuDocumentacion_OnClick" ToolTip="Primeros pasos: mapa, escenas, Play y scripts (misma ventana que Ayuda → Documentación rápida)"/>
                 <MenuItem Header="Manual completo del motor…" Click="MenuDocumentacionCompleta_OnClick" ToolTip="Índice de todos los temas (empieza en «Cómo hacer un juego»)"/>
+                <MenuItem Header="Lua — sintaxis y librería…" Click="MenuLuaReference_OnClick" ToolTip="Palabras reservadas y guías (pairs, pcall, string.format…) con enlaces al motor"/>
                 <Separator/>
                 <MenuItem Header="Configuración del proyecto..." Click="MenuConfigProyecto_OnClick"/>
                 <MenuItem Header="Propiedades del mapa..." Click="MenuPropiedadesMapa_OnClick"/>
@@ -148,6 +149,7 @@
             <MenuItem Header="Ayuda" Foreground="#e6edf3">
                 <MenuItem Header="Documentación rápida" Click="MenuDocumentacion_OnClick" ToolTip="Primeros pasos con el proyecto abierto: mapa, escenas, Play"/>
                 <MenuItem Header="Documentación completa" Click="MenuDocumentacionCompleta_OnClick" ToolTip="Índice de todos los temas; empieza en «Cómo hacer un juego»"/>
+                <MenuItem Header="Lua — sintaxis y librería…" Click="MenuLuaReference_OnClick" ToolTip="Palabras clave Lua y guías de librería estándar usadas con world, self, time…"/>
                 <MenuItem Header="Atajos de teclado" Click="MenuAtajos_OnClick"/>
                 <MenuItem Header="Acerca de FUEngine" Click="MenuAcercaDe_OnClick"/>
             </MenuItem>
@@ -523,7 +525,7 @@
               Background="#B3000000" MouseLeftButtonDown="DocumentationBackdrop_OnMouseLeftButtonDown">
             <Border MaxWidth="960" MaxHeight="740" MinHeight="400" VerticalAlignment="Center" HorizontalAlignment="Center"
                     Background="#0d1117" BorderBrush="#30363d" BorderThickness="1" CornerRadius="8">
-                <local:DocumentationView x:Name="DocumentationEmbedded" RequestClose="DocumentationEmbedded_RequestClose"/>
+                <local:DocumentationHostControl x:Name="DocumentationEmbedded" RequestClose="DocumentationEmbedded_RequestClose"/>
             </Border>
         </Grid>
         <Grid x:Name="NewProjectWizardOverlay" Visibility="Collapsed" Panel.ZIndex="1002"

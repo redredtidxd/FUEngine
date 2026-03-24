@@ -82,12 +82,14 @@ public sealed class MapRenderer
                 double top = 0;
                 if (!ctx.Project.Infinite)
                 {
+                    int ox = ctx.Project.MapBoundsOriginWorldTileX;
+                    int oy = ctx.Project.MapBoundsOriginWorldTileY;
                     int mw = Math.Max(1, ctx.Project.MapWidth);
                     int mh = Math.Max(1, ctx.Project.MapHeight);
                     imgW = mw * ts;
                     imgH = mh * ts;
-                    left = (0 - ctx.CanvasMinWx) * ts;
-                    top = (0 - ctx.CanvasMinWy) * ts;
+                    left = (ox - ctx.CanvasMinWx) * ts;
+                    top = (oy - ctx.CanvasMinWy) * ts;
                 }
                 var img = new System.Windows.Controls.Image
                 {
@@ -240,6 +242,7 @@ public sealed class MapRenderer
 
     private int _lastMinWx;
     private int _lastMinWy;
+    private readonly HashSet<(int cx, int cy)> _expandTargetChunksScratch = new();
     /// <summary>Mapas infinitos: el tamaño del lienzo no se reduce para evitar que el thumb del scroll cambie de tamaño al moverse.</summary>
     private int _infiniteStickyCanvasW;
     private int _infiniteStickyCanvasH;
@@ -359,25 +362,29 @@ public sealed class MapRenderer
         }
         else
         {
-            // Un chunk de margen alrededor para dibujar bordes y botones «+» fuera del área jugable [0..MapWidth) × [0..MapHeight).
+            // Un chunk de margen alrededor para dibujar bordes y botones «+» fuera del área jugable.
             int cs = Math.Max(1, ctx.Project.ChunkSize);
+            int ox = ctx.Project.MapBoundsOriginWorldTileX;
+            int oy = ctx.Project.MapBoundsOriginWorldTileY;
             int mw = Math.Max(1, ctx.Project.MapWidth);
             int mh = Math.Max(1, ctx.Project.MapHeight);
-            _lastMinWx = -cs;
-            _lastMinWy = -cs;
+            _lastMinWx = ox - cs;
+            _lastMinWy = oy - cs;
             canvasW = Math.Max((mw + 2 * cs) * tileSize, 800);
             canvasH = Math.Max((mh + 2 * cs) * tileSize, 600);
         }
     }
 
-    /// <summary>Marco del mapa finito y zonas «+» (un chunk) fuera de cada lado para expandir.</summary>
+    /// <summary>Marco del mapa finito y una zona «+» por chunk en la frontera: cada clic añade un chunk vacío (ChunkSize×ChunkSize casillas).</summary>
     private void DrawFiniteMapBorderAndExpandZones(Canvas canvas, MapRenderContext ctx, double tileSize)
     {
         int cs = Math.Max(1, ctx.Project.ChunkSize);
+        int ox = ctx.Project.MapBoundsOriginWorldTileX;
+        int oy = ctx.Project.MapBoundsOriginWorldTileY;
         int mw = Math.Max(1, ctx.Project.MapWidth);
         int mh = Math.Max(1, ctx.Project.MapHeight);
-        double innerLeft = ToCanvasX(ctx, 0);
-        double innerTop = ToCanvasY(ctx, 0);
+        double innerLeft = ToCanvasX(ctx, ox);
+        double innerTop = ToCanvasY(ctx, oy);
         double innerW = mw * tileSize;
         double innerH = mh * tileSize;
         var border = new Rectangle
@@ -393,7 +400,6 @@ public sealed class MapRenderer
         Canvas.SetTop(border, innerTop);
         canvas.Children.Add(border);
 
-        // Franjas de grosor 1 chunk: un clic añade exactamente ChunkSize casillas en esa dirección.
         void addZone(int wx, int wy, int wTiles, int hTiles, string arrow, string toolTip)
         {
             double zl = ToCanvasX(ctx, wx);
@@ -418,8 +424,8 @@ public sealed class MapRenderer
             var sp = new System.Windows.Controls.StackPanel { Orientation = System.Windows.Controls.Orientation.Vertical, IsHitTestVisible = false };
             sp.Children.Add(new System.Windows.Controls.TextBlock
             {
-                Text = "+1 chunk",
-                FontSize = Math.Max(10, Math.Min(13, tileSize * 0.28)),
+                Text = "+ chunk",
+                FontSize = Math.Max(10, Math.Min(14, tileSize * 0.26)),
                 FontWeight = System.Windows.FontWeights.SemiBold,
                 Foreground = Brushes.White,
                 HorizontalAlignment = System.Windows.HorizontalAlignment.Center
@@ -427,29 +433,34 @@ public sealed class MapRenderer
             sp.Children.Add(new System.Windows.Controls.TextBlock
             {
                 Text = arrow,
-                FontSize = Math.Max(14, tileSize * 0.4),
+                FontSize = Math.Max(14, Math.Min(18, tileSize * 0.38)),
                 Foreground = Brushes.White,
                 HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
                 Margin = new Thickness(0, -2, 0, 0)
             });
-            Canvas.SetLeft(sp, zl + zw * 0.5 - 36);
-            Canvas.SetTop(sp, zt + zh * 0.5 - 18);
+            double spW = Math.Min(zw * 0.95, 120);
+            Canvas.SetLeft(sp, zl + (zw - spW) * 0.5);
+            Canvas.SetTop(sp, zt + (zh - 40) * 0.5);
             canvas.Children.Add(sp);
         }
 
-        // Un área de clic de tamaño chunk×chunk (p. ej. 16×16), centrada en cada lado del rectángulo jugable.
-        int ww = Math.Min(cs, mw);
-        int wx0 = (mw - ww) / 2;
-        int hh = Math.Min(cs, mh);
-        int wy0 = (mh - hh) / 2;
-        string tipN = $"Añade {cs} casillas al norte (1 chunk). Mapa: {mw}×{mh} → {mw}×{mh + cs}.";
-        string tipS = $"Añade {cs} casillas al sur (1 chunk). Mapa: {mw}×{mh} → {mw}×{mh + cs}.";
-        string tipW = $"Añade {cs} casillas al oeste (1 chunk). Mapa: {mw}×{mh} → {mw + cs}×{mh}.";
-        string tipE = $"Añade {cs} casillas al este (1 chunk). Mapa: {mw}×{mh} → {mw + cs}×{mh}.";
-        addZone(wx0, -cs, ww, cs, "▲", tipN);
-        addZone(wx0, mh, ww, cs, "▼", tipS);
-        addZone(-cs, wy0, cs, hh, "◀", tipW);
-        addZone(mw, wy0, cs, hh, "▶", tipE);
+        FiniteMapExpand.CollectExpandTargetChunks(ctx.Project, ctx.TileMap, _expandTargetChunksScratch);
+        double gcx = ox + mw * 0.5;
+        double gcy = oy + mh * 0.5;
+        foreach (var (tcx, tcy) in _expandTargetChunksScratch)
+        {
+            int wx = tcx * cs;
+            int wy = tcy * cs;
+            double tcxCenter = wx + cs * 0.5;
+            double tcyCenter = wy + cs * 0.5;
+            string arrow;
+            if (tcyCenter < gcy - 0.01) arrow = "▲";
+            else if (tcyCenter > gcy + 0.01) arrow = "▼";
+            else if (tcxCenter < gcx - 0.01) arrow = "◀";
+            else arrow = "▶";
+            string tip = $"Añade 1 chunk vacío en ({tcx},{tcy}): {cs}×{cs} casillas. Rect. juego pasa a cubrir la unión de chunks.";
+            addZone(wx, wy, cs, cs, arrow, tip);
+        }
     }
 
     /// <summary>Solo chunks existentes en la capa que intersectan el rectángulo mundo [minTx,maxTx]×[minTy,maxTy] (evita O(n²) en mapas infinitos vacíos).</summary>
@@ -482,12 +493,14 @@ public sealed class MapRenderer
         maxTy = minTy + (int)Math.Ceiling(canvas.Height / tileSize);
         if (!ctx.Project.Infinite)
         {
+            int ox = ctx.Project.MapBoundsOriginWorldTileX;
+            int oy = ctx.Project.MapBoundsOriginWorldTileY;
             int mw = Math.Max(1, ctx.Project.MapWidth);
             int mh = Math.Max(1, ctx.Project.MapHeight);
-            minTx = Math.Max(minTx, 0);
-            minTy = Math.Max(minTy, 0);
-            maxTx = Math.Min(maxTx, mw - 1);
-            maxTy = Math.Min(maxTy, mh - 1);
+            minTx = Math.Max(minTx, ox);
+            minTy = Math.Max(minTy, oy);
+            maxTx = Math.Min(maxTx, ox + mw - 1);
+            maxTy = Math.Min(maxTy, oy + mh - 1);
             if (maxTx < minTx) maxTx = minTx;
             if (maxTy < minTy) maxTy = minTy;
             return;
@@ -525,6 +538,8 @@ public sealed class MapRenderer
         };
         if (!ctx.Project.Infinite)
         {
+            int ox = ctx.Project.MapBoundsOriginWorldTileX;
+            int oy = ctx.Project.MapBoundsOriginWorldTileY;
             int mw = Math.Max(1, ctx.Project.MapWidth);
             int mh = Math.Max(1, ctx.Project.MapHeight);
             double w = mw * tileSize;
@@ -536,8 +551,8 @@ public sealed class MapRenderer
                 Fill = gridBrush,
                 IsHitTestVisible = false
             };
-            Canvas.SetLeft(gridRect, ToCanvasX(ctx, 0));
-            Canvas.SetTop(gridRect, ToCanvasY(ctx, 0));
+            Canvas.SetLeft(gridRect, ToCanvasX(ctx, ox));
+            Canvas.SetTop(gridRect, ToCanvasY(ctx, oy));
             canvas.Children.Add(gridRect);
             return;
         }
@@ -587,9 +602,11 @@ public sealed class MapRenderer
                     int wy = cy * ctx.TileMap.ChunkSize + ly;
                     if (!ctx.Project.Infinite)
                     {
+                        int ox = ctx.Project.MapBoundsOriginWorldTileX;
+                        int oy = ctx.Project.MapBoundsOriginWorldTileY;
                         int mw = Math.Max(1, ctx.Project.MapWidth);
                         int mh = Math.Max(1, ctx.Project.MapHeight);
-                        if (wx < 0 || wx >= mw || wy < 0 || wy >= mh) continue;
+                        if (wx < ox || wx >= ox + mw || wy < oy || wy >= oy + mh) continue;
                     }
                     var isInteractive = data.Interactivo || !string.IsNullOrEmpty(data.ScriptId);
                     if (ctx.MaskColision && !data.Colision) continue;
@@ -717,9 +734,11 @@ public sealed class MapRenderer
                     int wy = cy * ctx.TileMap.ChunkSize + ly;
                     if (!project.Infinite)
                     {
+                        int ox = project.MapBoundsOriginWorldTileX;
+                        int oy = project.MapBoundsOriginWorldTileY;
                         int mw = Math.Max(1, project.MapWidth);
                         int mh = Math.Max(1, project.MapHeight);
-                        if (wx < 0 || wx >= mw || wy < 0 || wy >= mh) continue;
+                        if (wx < ox || wx >= ox + mw || wy < oy || wy >= oy + mh) continue;
                     }
                     if (string.IsNullOrWhiteSpace(data.SourceImagePath)) continue;
                     var fullPath = System.IO.Path.Combine(projectDir, data.SourceImagePath);
@@ -812,9 +831,11 @@ public sealed class MapRenderer
             var hTiles = def?.Height ?? 1;
             if (!ctx.Project.Infinite)
             {
+                int ox = ctx.Project.MapBoundsOriginWorldTileX;
+                int oy = ctx.Project.MapBoundsOriginWorldTileY;
                 int mw = Math.Max(1, ctx.Project.MapWidth);
                 int mh = Math.Max(1, ctx.Project.MapHeight);
-                if (inst.X + wTiles <= 0 || inst.X >= mw || inst.Y + hTiles <= 0 || inst.Y >= mh) continue;
+                if (inst.X + wTiles <= ox || inst.X >= ox + mw || inst.Y + hTiles <= oy || inst.Y >= oy + mh) continue;
             }
             if (inst.X + wTiles < minWx || inst.X > maxWx) continue;
             if (inst.Y + hTiles < minWy || inst.Y > maxWy) continue;
@@ -881,9 +902,11 @@ public sealed class MapRenderer
         {
             if (!ctx.Project.Infinite)
             {
+                int ox = ctx.Project.MapBoundsOriginWorldTileX;
+                int oy = ctx.Project.MapBoundsOriginWorldTileY;
                 int mw = Math.Max(1, ctx.Project.MapWidth);
                 int mh = Math.Max(1, ctx.Project.MapHeight);
-                if (z.X + z.Width <= 0 || z.X >= mw || z.Y + z.Height <= 0 || z.Y >= mh) continue;
+                if (z.X + z.Width <= ox || z.X >= ox + mw || z.Y + z.Height <= oy || z.Y >= oy + mh) continue;
             }
             if (z.X + z.Width < minWx || z.X > maxWx) continue;
             if (z.Y + z.Height < minWy || z.Y > maxWy) continue;

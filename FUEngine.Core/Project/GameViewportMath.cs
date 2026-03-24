@@ -52,23 +52,30 @@ public static class GameViewportMath
         heightTiles = pxH / (double)ts;
     }
 
-    /// <summary>Centro geométrico del mapa finito en casillas mundo (origen de tile = esquina sup.-izq. de la casilla 0).</summary>
+    /// <summary>Centro geométrico del mapa finito en casillas mundo (rectángulo [Origin, Origin+Size) en X/Y).</summary>
     public static void GetFiniteMapCenterWorldTile(ProjectInfo p, out double centerWx, out double centerWy)
     {
-        centerWx = Math.Max(1, p.MapWidth) * 0.5;
-        centerWy = Math.Max(1, p.MapHeight) * 0.5;
+        int ox = p.MapBoundsOriginWorldTileX;
+        int oy = p.MapBoundsOriginWorldTileY;
+        int mw = Math.Max(1, p.MapWidth);
+        int mh = Math.Max(1, p.MapHeight);
+        centerWx = ox + mw * 0.5;
+        centerWy = oy + mh * 0.5;
     }
 
     /// <summary>
-    /// Coordenadas de HUD del editor: desplazamiento entero en casillas respecto al centro del mapa finito (0,0 = centro).
-    /// Los datos del mapa siguen usando [0, MapWidth) × [0, MapHeight).
+    /// Coordenadas de HUD del editor: desplazamiento entero en casillas respecto al centro del rectángulo de juego (0,0 = centro aproximado en enteros).
     /// </summary>
     public static void GetTileCoordsRelativeToFiniteMapCenter(ProjectInfo p, int worldTx, int worldTy, out int relX, out int relY)
     {
         int mw = Math.Max(1, p.MapWidth);
         int mh = Math.Max(1, p.MapHeight);
-        relX = worldTx - mw / 2;
-        relY = worldTy - mh / 2;
+        int ox = p.MapBoundsOriginWorldTileX;
+        int oy = p.MapBoundsOriginWorldTileY;
+        int cx = ox + mw / 2;
+        int cy = oy + mh / 2;
+        relX = worldTx - cx;
+        relY = worldTy - cy;
     }
 
     /// <summary>Rectángulo de vista lógica en coordenadas mundo (casillas): esquina superior izquierda y tamaño.</summary>
@@ -102,35 +109,41 @@ public static class GameViewportMath
         topCanvasPx = Math.Round((topWy - canvasMinWyTiles) * ts);
     }
 
-    /// <summary>Ajusta el centro del marco «área visible» para que el rectángulo de vista quede dentro de un mapa finito [0, MapWidth] × [0, MapHeight] en casillas.</summary>
+    /// <summary>Ajusta el centro del marco «área visible» para que el rectángulo de vista quede dentro del mapa finito en casillas mundo.</summary>
     public static void ClampViewportCenterToFiniteMap(ProjectInfo p,
         double editorViewportW = 0, double editorViewportH = 0, double editorZoom = 1)
     {
         if (p.Infinite) return;
         GetViewportSizeInWorldTiles(p, out var wt, out var ht, editorViewportW, editorViewportH, editorZoom);
+        var ox = p.MapBoundsOriginWorldTileX;
+        var oy = p.MapBoundsOriginWorldTileY;
         var mw = Math.Max(1, p.MapWidth);
         var mh = Math.Max(1, p.MapHeight);
         var cx = p.EditorViewportCenterWorldX;
         var cy = p.EditorViewportCenterWorldY;
         var halfW = wt * 0.5;
         var halfH = ht * 0.5;
+        var leftBound = (double)ox;
+        var rightBound = ox + mw;
+        var topBound = (double)oy;
+        var bottomBound = oy + mh;
         if (wt >= mw)
-            cx = mw * 0.5;
+            cx = ox + mw * 0.5;
         else
         {
             var left = cx - halfW;
             var right = cx + halfW;
-            if (left < 0) cx = halfW;
-            if (right > mw) cx = mw - halfW;
+            if (left < leftBound) cx = leftBound + halfW;
+            if (right > rightBound) cx = rightBound - halfW;
         }
         if (ht >= mh)
-            cy = mh * 0.5;
+            cy = oy + mh * 0.5;
         else
         {
             var top = cy - halfH;
             var bottom = cy + halfH;
-            if (top < 0) cy = halfH;
-            if (bottom > mh) cy = mh - halfH;
+            if (top < topBound) cy = topBound + halfH;
+            if (bottom > bottomBound) cy = bottomBound - halfH;
         }
         p.EditorViewportCenterWorldX = cx;
         p.EditorViewportCenterWorldY = cy;

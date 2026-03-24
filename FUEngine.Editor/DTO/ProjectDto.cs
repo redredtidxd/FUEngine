@@ -18,6 +18,8 @@ public class ProjectDto
     public int TileSize { get; set; } = 16;
     public int MapWidth { get; set; } = 64;
     public int MapHeight { get; set; } = 64;
+    public int MapBoundsOriginWorldTileX { get; set; }
+    public int MapBoundsOriginWorldTileY { get; set; }
     public bool Infinite { get; set; } = true;
     public int ChunkSize { get; set; } = 32;
     public int InitialChunksW { get; set; } = 4;

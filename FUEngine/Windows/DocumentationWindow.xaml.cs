@@ -5,11 +5,7 @@ namespace FUEngine;
 public partial class DocumentationWindow : Window
 {
     /// <summary>Si coincide con un tema del manual, se selecciona al abrir.</summary>
-    public string? InitialTopicId
-    {
-        get => DocView.InitialTopicId;
-        set => DocView.InitialTopicId = value;
-    }
+    public string? InitialTopicId { get; set; }
 
     public DocumentationWindow()
     {
@@ -20,8 +16,8 @@ public partial class DocumentationWindow : Window
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         Loaded -= OnLoaded;
-        DocView.Open(InitialTopicId);
+        DocHost.Open(InitialTopicId);
     }
 
-    private void DocView_OnRequestClose(object? sender, System.EventArgs e) => Close();
+    private void DocHost_OnRequestClose(object? sender, System.EventArgs e) => Close();
 }

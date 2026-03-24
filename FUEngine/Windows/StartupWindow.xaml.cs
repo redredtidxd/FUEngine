@@ -264,6 +264,9 @@ public partial class StartupWindow : Window
     private void LinkDocs_OnClick(object sender, RoutedEventArgs e) =>
         ShowDocumentation(EngineDocumentation.QuickStartTopicId);
 
+    private void LinkLuaKeywords_OnClick(object sender, RoutedEventArgs e) =>
+        ShowDocumentation(EngineDocumentation.LuaReferenceIntroTopicId);
+
     private static string? FindRepoFile(string relative)
     {
         try

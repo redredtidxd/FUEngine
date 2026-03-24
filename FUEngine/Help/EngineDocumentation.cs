@@ -8,11 +8,22 @@ public static class EngineDocumentation
     /// <summary>Tema inicial al elegir «Documentación completa»: flujo de juego (no repetir el mismo apartado que la guía rápida).</summary>
     public const string FullManualStartTopicId = "crear-juego";
 
+    /// <summary>Índice de la pestaña «Lua — sintaxis y librería» (palabras reservadas + guías usadas con el motor).</summary>
+    public const string LuaReferenceIntroTopicId = "lua-reference-intro";
+
+    public static bool IsLuaReferenceSidebarTopic(string? id)
+    {
+        if (string.IsNullOrEmpty(id)) return false;
+        return id == LuaReferenceIntroTopicId
+               || id.StartsWith("lua-kw-", StringComparison.Ordinal)
+               || id.StartsWith("lua-guide-", StringComparison.Ordinal);
+    }
+
     public static IReadOnlyList<DocumentationTopic> Topics { get; } = BuildTopics();
 
     private static IReadOnlyList<DocumentationTopic> BuildTopics()
     {
-        return new List<DocumentationTopic>
+        var topics = new List<DocumentationTopic>
     {
         new(
             id: QuickStartTopicId,
@@ -23,7 +34,7 @@ public static class EngineDocumentation
             {
                 "Abre o crea un proyecto desde la pantalla de inicio (Hub). Cada proyecto es una carpeta con configuración y escenas; el Hub también ofrece biblioteca global, Lua global, estado del motor y FUEngine Spotlight (Ctrl+P), un buscador integrado en la misma ventana para proyectos y la guía AI-ONBOARDING.",
                 "Abre una escena (Archivo → Abrir escena o pestañas Scene). La escena enlaza mapa, objetos, triggers, scripts y UI.",
-                "Al abrir el editor, la primera pestaña central suele ser Juego (vista Play embebida); cambia a Mapa para pintar tiles (capa activa en el panel de capas a la derecha) y coloca objetos con la herramienta Colocar o desde la jerarquía.",
+                "Al abrir el editor, la primera pestaña central es Mapa (edición del tilemap); la pestaña Juego muestra Play embebido. Pinta tiles con la capa activa en el panel de capas a la derecha y coloca objetos con la herramienta Colocar o desde la jerarquía.",
                 "Guarda con Ctrl+S o Guardar todo. Prueba el juego con Proyecto → Iniciar juego o el panel de Play / pestaña Juego.",
                 "Los scripts Lua viven en archivos .lua registrados en el proyecto; se asignan a objetos en el Inspector (lista Scripts). En la pestaña Scripts el editor sugiere APIs mientras escribes (Ctrl+Espacio para forzar sugerencias)."
             },
@@ -83,7 +94,7 @@ public static class EngineDocumentation
             porQueImporta: "El flujo de trabajo es mapa + selección + inspector; sin eso no editas propiedades finas.",
             paragraphs: new[]
             {
-                "Centro: pestañas Mapa, Consola y Juego (esta última suele ser la primera al abrir: Play embebido) y el botón «+» para Scripts, Tiles, Creative Suite, etc.",
+                "Centro: pestañas Mapa, Juego y Consola (por defecto se abre Mapa; Juego = Play embebido) y el botón «+» para Scripts, Tiles, Creative Suite, etc.",
                 "Izquierda: Explorador de proyecto (árbol de carpetas) y Jerarquía de la escena (Scene, Map/Layers, objetos, triggers, UI).",
                 "Derecha superior: panel de capas (lista con visibilidad, bloqueo, renombrar inline y botones de pie para añadir/quitar/reordenar). Derecha inferior: Inspector según lo seleccionado.",
                 "Ver → puedes mostrar u ocultar Jerarquía, Inspector, Consola y pestaña Juego (Play embebido).",
@@ -97,7 +108,7 @@ public static class EngineDocumentation
             porQueImporta: "Cada pestaña concentra un flujo (editar Lua, pintar atlas, escuchar audio) sin mezclar UI.",
             paragraphs: new[]
             {
-                "Juego: vista Play embebida (suele ser la primera pestaña al abrir el proyecto). Mapa: edición del tilemap y objetos sobre el canvas (scroll con rueda o pan). Consola: salida de logs del editor.",
+                "Mapa: edición del tilemap y objetos sobre el canvas (scroll con rueda o pan). Juego: vista Play embebida. Consola: salida de logs del editor.",
                 "Scripts: mini-IDE con lista de scripts registrados (scripts.json + .lua en Scripts/), resaltado Lua/JSON y autocompletado de APIs (ver tema «Mini-IDE de scripts»). Explorador: vista enfocada del árbol de proyecto (según implementación actual).",
                 "Tiles / Animaciones / Seeds: trabajo con catálogo, animaciones y prefabs (seeds comparten UI con objetos en parte del flujo).",
                 "Debug: herramientas de depuración. Audio: manifiesto y escucha.",
@@ -135,7 +146,7 @@ public static class EngineDocumentation
                 "Cada capa tiene GUID propio en el JSON para que los chunks sigan a la capa aunque reordenes.",
                 "Tiles: modo clásico (tipo + imagen) o catálogo (ID en atlas vía tileset JSON). En Lua: world.getTile / world.setTile usan nombre de capa e ID de catálogo.",
                 "Zoom del lienzo: Ctrl+rueda del ratón o botones +/−. Rueda sin Ctrl: desplaza el mapa (scroll del área). Pan: clic central arrastrando. WASD desplazan la vista (paso mayor y proporcional al zoom del lienzo).",
-                "Mapa finito (Infinite desactivado en el proyecto): el lienzo incluye un chunk de margen; se dibuja el borde del área jugable y cuatro zonas «+» (un cuadrado de ChunkSize×ChunkSize casillas, centrado en cada lado del rectángulo jugable). Clic en «+» expande el mapa un chunk en esa dirección (ilimitado) y guarda mapa, objetos y triggers. El tamaño en casillas del mapa es InitialChunks × ChunkSize (p. ej. chunk 32 y 16 chunks de ancho = 512 casillas).",
+                "Mapa finito (Infinite desactivado): margen de un chunk alrededor del rectángulo de juego; borde azul del área jugable y botones «+ chunk» solo en la frontera (un botón por celda de chunk de tamaño ChunkSize×ChunkSize casillas). Cada clic crea un chunk vacío en esa celda y el rectángulo de juego (origen + MapWidth/Height en proyecto.json) se recalcula como la unión de todos los chunks, permitiendo formas no rectangulares. Si el marco azul estaba en el centro geométrico del rectángulo, tras expandir se recalcula ese centro.",
                 "Brocha: tamaño y rotación desde el botón Transform en la barra. Relleno: herramienta Relleno; Shift+clic según flujo de cubo.",
                 "Selección rectangular de tiles: rotación 90°/180°, volteos, rellenar, copiar/pegar/duplicar (también desde menú Editar).",
                 "Bucket fill tiene límite de celdas (protección anti-congelado) en el servicio de pintura."
@@ -143,7 +154,7 @@ public static class EngineDocumentation
             bullets: new[]
             {
                 "Herramientas: Pincel, Rectángulo, Línea, Relleno, Goma, Cuentagotas, Stamp, Seleccionar, Colocar objeto, Zona, Medir, Pixel.",
-                "Visual → área visible: marco azul = rectángulo de la cámara/render (px y casillas mostrados en el propio marco). Alt+arrastrar mueve la cámara. Botones Centro mapa / Mundo 0,0 en la barra; scripts en Play usan el mismo rectángulo de vista que el visor (tamaño del canvas del tab Juego). Fuera del mapa jugable: franjas +1 chunk por lado. Proyecto → Avanzado: color del lienzo y fondo de escena.",
+                "Visual → área visible: marco azul = rectángulo de la cámara/render (px y casillas mostrados en el propio marco). Alt+arrastrar mueve la cámara. Botones Centro mapa / Mundo 0,0 en la barra; scripts en Play usan el mismo rectángulo de vista que el visor (tamaño del canvas del tab Juego). Fuera del área jugable: celdas «+ chunk» en la frontera del conjunto de chunks. Si el visor estaba en el centro del mapa y expandes, el centro se actualiza solo. Proyecto → Avanzado: color del lienzo y fondo de escena.",
                 "Visual → Play activo también en pestaña Mapa: el sandbox del tab Juego no se pausa al volver al mapa (edición y play a la vez).",
                 "Inspector de capa (`LayerInspectorPanel`): al final del bloque de propiedades, «Añadir componente…» abre el catálogo (script Lua de capa y entradas reservadas)."
             }),
@@ -317,7 +328,8 @@ public static class EngineDocumentation
             {
                 "La lista izquierda muestra scripts del registro del proyecto (scripts.json), el propio archivo scripts.json y otros .json bajo la carpeta Scripts/ cuando no están duplicados; el título incluye el nombre de archivo con extensión (p. ej. «Main · main.lua»).",
                 "El editor usa resaltado de sintaxis Lua y JSON (definición Lua embebida en el motor, alineada al tema oscuro). El color base del texto no depende solo del tema de la ventana: el resaltado aplica tonos distintos a comentarios, cadenas y palabras clave. Mientras escribes, aparecen sugerencias para identificadores y miembros tras escribir un punto (world., self., ads., …). Ctrl+Espacio fuerza el menú de completado; Escape lo cierra. Las entradas muestran iconos pequeños (tablas, métodos, ads).",
-                "Las palabras clave Lua vienen de LuaLanguageKeywords (misma lista que Spotlight). Los nombres tras «tabla.» se generan por reflexión desde clases [LuaVisible] en FUEngine.Runtime (jerarquía de tipos y campos públicos; incluye layer., component. tras getComponent, Key./Mouse., etc.); MergeDynamic sigue añadiendo globales extra.",
+                "Las palabras clave Lua vienen de LuaLanguageKeywords (misma lista que Spotlight). Cada una tiene tema propio en la pestaña «Lua — sintaxis y librería» del panel de documentación (Ayuda / Proyecto o enlace Lua (sintaxis) en el Hub); Spotlight (Ctrl+P) abre ese tema al confirmar la entrada.",
+                "Los nombres tras «tabla.» se generan por reflexión desde clases [LuaVisible] en FUEngine.Runtime (jerarquía de tipos y campos públicos; incluye layer., component. tras getComponent, Key./Mouse., etc.); MergeDynamic sigue añadiendo globales extra.",
                 "Menú contextual en la lista: abrir en el editor, abrir con aplicación externa o mostrar en el explorador de Windows."
             },
             bullets: new[]
@@ -1031,7 +1043,7 @@ public static class EngineDocumentation
                 "Acciones rápidas: pestaña «Scripts globales» (lista + ScriptEditorControl con resaltado y autocompletado en SharedAssets/Scripts); «Biblioteca» lleva a la pestaña Assets; «No usados» abre el escáner; botón «Buscar en el motor…» abre el panel Spotlight en esta ventana (sin atajo de teclado).",
                 "Tips rotativos y recordatorio de atajos; barra inferior: resumen de líneas [Error]/[Critical] en el log de sesión del día y uso aproximado de RAM del proceso; botones «Carpeta» (abre LocalApplicationData/FUEngine/logs) y «Limpiar» (vacía el .log de hoy en disco).",
                 "Crear proyecto en el Hub muestra el asistente en un overlay (datos básicos, mapa y tiles: tamaño de tile y de chunk con mini vista previa; sin mapa infinito ni plantilla/paleta en el asistente — la paleta por defecto está en Configuración del motor → Motor). «Generar jerarquía estándar» y carpetas extra/temas: pestaña Explorador. En el editor, Proyecto → Nuevo proyecto usa el mismo control. Recientes en AppData (recent.json). Al borrar o refrescar, el scroll de las listas vuelve arriba.",
-                "FUEngine Spotlight (Ctrl+P o Ctrl+Espacio): mismo buscador integrado en el Hub o en el editor (overlay en la ventana actual, no una ventana extra). Búsqueda unificada con totales del índice, coincidencias por categoría y lista agrupada; incluye manual integrado, Lua (API por reflexión con textos «para qué sirve» en LuaSpotlightDescriptions, hooks KnownEvents, palabras clave y biblioteca estándar; el juego en ejecución solo expone parte de la biblioteca Lua — ver LuaEnvironment), archivos .lua/.map/.seed, objetos en escena; en el Hub también proyectos recientes. Confirmar una entrada Lua (Enter o doble clic) abre el manual integrado en el tema relacionado (p. ej. hooks → eventos y ciclo de vida, API world/self → scripting). «Novedades» / onboarding abre docs/AI-ONBOARDING.md."
+                "FUEngine Spotlight (Ctrl+P o Ctrl+Espacio): mismo buscador integrado en el Hub o en el editor (overlay en la ventana actual, no una ventana extra). Búsqueda unificada con totales del índice, coincidencias por categoría y lista agrupada; incluye manual integrado, Lua (API por reflexión con textos «para qué sirve» en LuaSpotlightDescriptions, hooks KnownEvents, palabras clave con tema dedicado en la pestaña «Lua — sintaxis y librería», biblioteca estándar; el juego en ejecución solo expone parte de la biblioteca Lua — ver LuaEnvironment), archivos .lua/.map/.seed, objetos en escena; en el Hub también proyectos recientes. Confirmar una palabra clave Lua abre su tema concreto en esa pestaña; hooks y API siguen enlazando al manual general. «Novedades» / onboarding abre docs/AI-ONBOARDING.md."
             },
             bullets: new[]
             {
@@ -1048,7 +1060,7 @@ public static class EngineDocumentation
             {
                 "En el asistente (Hub o Proyecto → Nuevo proyecto) marca «Generar jerarquía estándar» para crear en la raíz el orden Sprites, Maps, Scripts, Audio, Seeds (o tu lista personalizada si eliges Personalizado en Configuración del motor → Explorador).",
                 "La pestaña Explorador añade carpetas que no sustituyen al motor: «Carpetas adicionales» (una por línea, p. ej. un nombre libre) y un «Tema» opcional (UI+Prefabs, Jam, Contenido…) que suma nombres predefinidos. Todo se fusiona sin duplicar nombres.",
-                "El mapa nuevo es finito en el asistente: eliges tamaño de tile (px) y tamaño de chunk; el tamaño inicial en casillas sigue la constante del motor (pocos chunks por lado). La paleta del proyecto toma el valor por defecto de la pestaña Motor, no del asistente.",
+                "El mapa nuevo es finito en el asistente: eliges tamaño de tile (px) y tamaño de chunk; por defecto el motor crea una cuadrícula 4×4 de chunks vacíos (16 chunks en el .map). La paleta del proyecto toma el valor por defecto de la pestaña Motor, no del asistente.",
                 "Color de fondo de la primera escena (hex #RRGGBB) en Render y UI inicial; «Modo depuración» en opciones avanzadas puede heredar el valor por defecto de Explorador. Logs automáticos del motor (Avanzado): por defecto activados en settings.",
                 "El botón «Crear proyecto» solo se activa con nombre de carpeta válido en Windows y ruta usable. Clic fuera del overlay cancela."
             }),
@@ -1141,6 +1153,8 @@ public static class EngineDocumentation
                 "BootstrapScriptId: no confíes en ejecución automática al pulsar Play sin comprobar el tema «BootstrapScriptId (aviso)»."
             })
         };
+        topics.AddRange(LuaReferenceDocumentation.BuildTopics());
+        return topics;
     }
 }
 

@@ -5,5 +5,5 @@
         Title="Documentación FUEngine" Height="720" Width="920" MinWidth="640" MinHeight="480"
         WindowStartupLocation="CenterOwner"
         Background="#0d1117">
-    <local:DocumentationView x:Name="DocView" RequestClose="DocView_OnRequestClose"/>
+    <local:DocumentationHostControl x:Name="DocHost" RequestClose="DocHost_OnRequestClose"/>
 </Window>
