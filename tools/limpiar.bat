@@ -2,7 +2,7 @@
 setlocal
 cd /d "%~dp0\.."
 echo Limpiando carpetas de compilacion (bin, obj, publish, .vs)...
-for %%D in (FUEngine FUEngine.Core FUEngine.Editor FUEngine.Runtime) do (
+for %%D in (FUEngine FUEngine.Core FUEngine.Editor FUEngine.Runtime FUEngine.Graphics.Vulkan) do (
     if exist "%%D\bin" rd /s /q "%%D\bin" && echo   Eliminado: %%D\bin
     if exist "%%D\obj" rd /s /q "%%D\obj" && echo   Eliminado: %%D\obj
     if exist "%%D\publish" rd /s /q "%%D\publish" && echo   Eliminado: %%D\publish
