@@ -181,8 +181,16 @@ public partial class EditorWindow
 
     private void MenuConfiguracion_OnClick(object sender, RoutedEventArgs e)
     {
-        var settings = new SettingsWindow { Owner = this };
-        settings.ShowDialog();
+        BeginModalDiscordPresence("Configuración del motor", "Preferencias, rutas y tipografía");
+        try
+        {
+            var settings = new SettingsWindow { Owner = this };
+            settings.ShowDialog();
+        }
+        finally
+        {
+            EndModalDiscordPresence();
+        }
     }
 
     private NewProjectWizardPanel? _newProjectWizardPanel;
@@ -287,11 +295,20 @@ public partial class EditorWindow
         var legacyPath = string.IsNullOrEmpty(projectDir) ? null : System.IO.Path.Combine(projectDir, "proyecto.json");
         var path = projectPath != null && NewProjectStructure.UsesNewStructure(projectDir) ? projectPath : legacyPath;
         var dlg = new ProjectConfigWindow(_project, path, _objectLayer) { Owner = this };
-        if (dlg.ShowDialog() != true) return;
-        ClampViewportCenterForCurrentMap();
-        ApplyEditorVisualColorsFromProject();
-        DrawMap();
-        ConfigureAutoSave();
+        var pn = string.IsNullOrWhiteSpace(_project.Nombre) ? "Proyecto sin nombre" : _project.Nombre.Trim();
+        BeginModalDiscordPresence("Configuración del proyecto", pn);
+        try
+        {
+            if (dlg.ShowDialog() != true) return;
+            ClampViewportCenterForCurrentMap();
+            ApplyEditorVisualColorsFromProject();
+            DrawMap();
+            ConfigureAutoSave();
+        }
+        finally
+        {
+            EndModalDiscordPresence();
+        }
     }
 
     private void MenuPropiedadesMapa_OnClick(object sender, RoutedEventArgs e)
@@ -367,7 +384,15 @@ public partial class EditorWindow
 
     private void MenuAcercaDe_OnClick(object sender, RoutedEventArgs e)
     {
-        new AboutWindow { Owner = this }.ShowDialog();
+        BeginModalDiscordPresence("Acerca de FUEngine", "Versión y créditos");
+        try
+        {
+            new AboutWindow { Owner = this }.ShowDialog();
+        }
+        finally
+        {
+            EndModalDiscordPresence();
+        }
     }
 
     private void MenuBorrarObjeto_OnClick(object sender, RoutedEventArgs e)

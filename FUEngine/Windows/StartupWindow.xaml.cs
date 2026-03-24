@@ -75,6 +75,7 @@ public partial class StartupWindow : Window
         _tilePatternTimer.Start();
         EditorLog.ToastRequested += OnToastRequested;
         Dispatcher.BeginInvoke(new Action(() => ApplyStartupBehaviorIfNeeded(bootSettings)), DispatcherPriority.Background);
+        RefreshDiscordStartupPresence();
     }
 
     private void ApplyStartupBehaviorIfNeeded(EngineSettings st)
@@ -125,6 +126,24 @@ public partial class StartupWindow : Window
         _tilePatternTimer.Stop();
         _hubTelemetryTimer.Stop();
         _tipRotateTimer.Stop();
+    }
+
+    private void RefreshDiscordStartupPresence()
+    {
+        DiscordRichPresenceService.Instance.EnsureInitialized();
+        var tabLabel = MainTabControl?.SelectedItem is TabItem ti && ti.Header != null
+            ? ti.Header.ToString()?.Trim() ?? "Hub"
+            : "Hub";
+        var stateHint = tabLabel switch
+        {
+            "Hub" => "Inicio · recientes, plantillas y acciones",
+            "Scripts globales" => "Editor Lua en SharedAssets/Scripts",
+            "Assets" => "Biblioteca global (library.json)",
+            "Proyectos" => "Lista y gestión de proyectos",
+            "Configuración del motor" => "Preferencias, rutas y tipografía",
+            _ => "Pantalla de inicio"
+        };
+        DiscordRichPresenceService.Instance.SetHub($"FUEngine · {tabLabel}", stateHint);
     }
 
     private void UpdateHubStatusPanel()
@@ -292,8 +311,11 @@ public partial class StartupWindow : Window
         if (SpotlightOverlay.Visibility == Visibility.Visible)
         {
             SpotlightOverlay.Visibility = Visibility.Collapsed;
+            RefreshDiscordStartupPresence();
             return;
         }
+        DiscordRichPresenceService.Instance.EnsureInitialized();
+        DiscordRichPresenceService.Instance.SetHub("FUEngine · Spotlight", "Buscar (Ctrl+P) · manual, Lua, proyectos…");
         SpotlightEmbedded.SetContext(null, this);
         SpotlightOverlay.Visibility = Visibility.Visible;
         SpotlightEmbedded.Open();
@@ -302,14 +324,20 @@ public partial class StartupWindow : Window
     private void SpotlightBackdrop_OnMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         SpotlightOverlay.Visibility = Visibility.Collapsed;
+        RefreshDiscordStartupPresence();
         e.Handled = true;
     }
 
-    private void SpotlightEmbedded_RequestClose(object? sender, EventArgs e) =>
+    private void SpotlightEmbedded_RequestClose(object? sender, EventArgs e)
+    {
         SpotlightOverlay.Visibility = Visibility.Collapsed;
+        RefreshDiscordStartupPresence();
+    }
 
     public void ShowDocumentation(string? initialTopicId)
     {
+        DiscordRichPresenceService.Instance.EnsureInitialized();
+        DiscordRichPresenceService.Instance.SetHub("FUEngine · Manual del motor", "Documentación integrada (Ayuda)");
         DocumentationEmbedded.Open(initialTopicId);
         DocumentationOverlay.Visibility = Visibility.Visible;
     }
@@ -317,11 +345,15 @@ public partial class StartupWindow : Window
     private void DocumentationBackdrop_OnMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         DocumentationOverlay.Visibility = Visibility.Collapsed;
+        RefreshDiscordStartupPresence();
         e.Handled = true;
     }
 
-    private void DocumentationEmbedded_RequestClose(object? sender, EventArgs e) =>
+    private void DocumentationEmbedded_RequestClose(object? sender, EventArgs e)
+    {
         DocumentationOverlay.Visibility = Visibility.Collapsed;
+        RefreshDiscordStartupPresence();
+    }
 
     private void BtnQuickLuaIde_OnClick(object sender, RoutedEventArgs e) => GoToGlobalScriptsTab();
 
@@ -860,7 +892,17 @@ public partial class StartupWindow : Window
                 return;
             }
             var configWindow = new ProjectConfigWindow(project!, info.Path) { Owner = this };
-            configWindow.ShowDialog();
+            var pn = string.IsNullOrWhiteSpace(project!.Nombre) ? "Proyecto sin nombre" : project!.Nombre.Trim();
+            DiscordRichPresenceService.Instance.EnsureInitialized();
+            DiscordRichPresenceService.Instance.SetHub("Configuración del proyecto", pn);
+            try
+            {
+                configWindow.ShowDialog();
+            }
+            finally
+            {
+                RefreshDiscordStartupPresence();
+            }
             StartupService.RefreshProjectStats(info);
             LoadRecentProjects();
         }
@@ -1200,6 +1242,7 @@ public partial class StartupWindow : Window
 
     private void MainTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        RefreshDiscordStartupPresence();
         if (MainTabControl?.SelectedIndex == 0)
             UpdateHubStatusPanel();
         if (MainTabControl?.SelectedIndex == 2)

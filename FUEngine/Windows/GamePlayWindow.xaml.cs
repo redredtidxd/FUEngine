@@ -38,6 +38,7 @@ public partial class GamePlayWindow : Window
         _hudTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = System.TimeSpan.FromMilliseconds(250) };
         _hudTimer.Tick += HudTimer_Tick;
         _hudTimer.Start();
+        DiscordRichPresenceService.Instance.SetStandalonePlayWindow(_project.Nombre ?? "Proyecto", _useMainScene);
     }
 
     private void HudTimer_Tick(object? sender, System.EventArgs e)
@@ -58,5 +59,7 @@ public partial class GamePlayWindow : Window
         _hudTimer = null;
         _runner?.Stop();
         _runner = null;
+        if (Owner is EditorWindow editor)
+            editor.SyncDiscordRichPresence();
     }
 }

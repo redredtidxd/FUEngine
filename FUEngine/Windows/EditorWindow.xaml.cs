@@ -307,6 +307,7 @@ public partial class EditorWindow : Window
             ApplyGameTabPausePolicy(MainTabs?.SelectedItem as TabItem);
             ConfigureAutoSave();
             UpdateCurrentTool();
+            SyncDiscordRichPresence();
         };
         DrawMap();
         RefreshInspector();
@@ -4241,6 +4242,7 @@ public partial class EditorWindow : Window
         UpdateMapTabDirtyState();
         _ = SaveEditorStateAsync();
         _ = SaveEditorLayoutAsync();
+        SyncDiscordRichPresence();
     }
 
     private void UpdateToolbarVisibility()
@@ -4373,14 +4375,32 @@ public partial class EditorWindow : Window
 
     private void MenuAssetsLibrary_OnClick(object sender, RoutedEventArgs e)
     {
-        var w = new GlobalLibraryBrowserWindow(_project) { Owner = this };
-        w.ShowDialog();
+        var pn = string.IsNullOrWhiteSpace(_project.Nombre) ? "Proyecto sin nombre" : _project.Nombre.Trim();
+        BeginModalDiscordPresence("Biblioteca global de assets", pn);
+        try
+        {
+            var w = new GlobalLibraryBrowserWindow(_project) { Owner = this };
+            w.ShowDialog();
+        }
+        finally
+        {
+            EndModalDiscordPresence();
+        }
     }
 
     private void MenuExportarParcial_OnClick(object sender, RoutedEventArgs e)
     {
-        var w = new ExportPartialWindow(_project, _tileMap, _objectLayer, _scriptRegistry) { Owner = this };
-        w.ShowDialog();
+        var pn = string.IsNullOrWhiteSpace(_project.Nombre) ? "Proyecto sin nombre" : _project.Nombre.Trim();
+        BeginModalDiscordPresence("Exportación parcial", pn);
+        try
+        {
+            var w = new ExportPartialWindow(_project, _tileMap, _objectLayer, _scriptRegistry) { Owner = this };
+            w.ShowDialog();
+        }
+        finally
+        {
+            EndModalDiscordPresence();
+        }
     }
 
     private void MenuVerificarIntegridad_OnClick(object sender, RoutedEventArgs e)
@@ -4429,7 +4449,15 @@ public partial class EditorWindow : Window
             return;
         }
         var dlg = new CleanOrphansDialog(orphans) { Owner = this };
-        dlg.ShowDialog();
+        BeginModalDiscordPresence("Archivos huérfanos", string.IsNullOrWhiteSpace(_project.Nombre) ? "Proyecto sin nombre" : _project.Nombre.Trim());
+        try
+        {
+            dlg.ShowDialog();
+        }
+        finally
+        {
+            EndModalDiscordPresence();
+        }
         if (dlg.PathsToDelete.Count == 0) return;
         var deleted = 0;
         foreach (var f in dlg.PathsToDelete)
@@ -4462,9 +4490,21 @@ public partial class EditorWindow : Window
             EditorLog.Toast("No hay snapshots guardados.", LogLevel.Info, "Snapshot");
             return;
         }
-        var w = new SnapshotPickerWindow(list) { Owner = this };
-        if (w.ShowDialog() != true || string.IsNullOrEmpty(w.SelectedName)) return;
-        if (!MapSnapshotService.LoadSnapshot(_project.ProjectDirectory ?? "", w.SelectedName, out var map, out var objects) || map == null || objects == null)
+        var pn = string.IsNullOrWhiteSpace(_project.Nombre) ? "Proyecto sin nombre" : _project.Nombre.Trim();
+        BeginModalDiscordPresence("Cargar snapshot del mapa", pn);
+        string? selectedName = null;
+        try
+        {
+            var w = new SnapshotPickerWindow(list) { Owner = this };
+            if (w.ShowDialog() == true && !string.IsNullOrEmpty(w.SelectedName))
+                selectedName = w.SelectedName;
+        }
+        finally
+        {
+            EndModalDiscordPresence();
+        }
+        if (string.IsNullOrEmpty(selectedName)) return;
+        if (!MapSnapshotService.LoadSnapshot(_project.ProjectDirectory ?? "", selectedName, out var map, out var objects) || map == null || objects == null)
         {
             System.Windows.MessageBox.Show(this, "Error al cargar el snapshot.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             return;
@@ -4482,7 +4522,15 @@ public partial class EditorWindow : Window
 
     private void MenuAtajos_OnClick(object sender, RoutedEventArgs e)
     {
-        new ShortcutsWindow { Owner = this }.ShowDialog();
+        BeginModalDiscordPresence("Atajos de teclado", "Referencia rápida");
+        try
+        {
+            new ShortcutsWindow { Owner = this }.ShowDialog();
+        }
+        finally
+        {
+            EndModalDiscordPresence();
+        }
     }
 
     private void PaletteTile_StartDrag(object sender, MouseButtonEventArgs e)
@@ -4577,8 +4625,17 @@ public partial class EditorWindow : Window
 
     private void MenuSimular_OnClick(object sender, RoutedEventArgs e)
     {
-        var sim = new SimulateWindow(_project, _tileMap, _objectLayer) { Owner = this };
-        sim.ShowDialog();
+        var pn = string.IsNullOrWhiteSpace(_project.Nombre) ? "Proyecto sin nombre" : _project.Nombre.Trim();
+        BeginModalDiscordPresence("Simulación (vista previa)", pn);
+        try
+        {
+            var sim = new SimulateWindow(_project, _tileMap, _objectLayer) { Owner = this };
+            sim.ShowDialog();
+        }
+        finally
+        {
+            EndModalDiscordPresence();
+        }
     }
 
     private void MenuExportBuild_OnClick(object sender, RoutedEventArgs e)
@@ -4591,8 +4648,17 @@ public partial class EditorWindow : Window
             return;
         }
 
-        var dlg = new BuildExportWindow(_project, dir) { Owner = this };
-        dlg.ShowDialog();
+        var pn = string.IsNullOrWhiteSpace(_project.Nombre) ? "Proyecto sin nombre" : _project.Nombre.Trim();
+        BeginModalDiscordPresence("Exportar build", pn);
+        try
+        {
+            var dlg = new BuildExportWindow(_project, dir) { Owner = this };
+            dlg.ShowDialog();
+        }
+        finally
+        {
+            EndModalDiscordPresence();
+        }
     }
 
     private void CmbTileType_OnSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)

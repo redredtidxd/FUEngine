@@ -4,7 +4,7 @@ Copyright © Red Redtid. All rights reserved.
 
 This license governs the use of FUEngine software (including FUEngine.Core, FUEngine.Runtime, FUEngine.Editor, FUEngine.Graphics.Vulkan, and the FUEngine application).
 
-Version: 1.1 — Global Use
+Version: 1.2 — Global Use
 Date: 2026-03-23
 */
 
@@ -28,8 +28,8 @@ Date: 2026-03-23
 
 2. Commercial Use (Studios, Companies, and Individual Developers)
 
-   * Studios and companies of all sizes may use FUEngine for commercial projects, subject to a 2% revenue share of net revenue from products created with FUEngine.
-   * Individual developers or non-studio users using FUEngine commercially must contribute a 5% revenue share of net revenue.
+   * Studios and companies of all sizes may use FUEngine for commercial projects, subject to a 2% revenue share of net revenue from products created with FUEngine, with a proposed threshold of $2,000 USD per quarter (or $8,000 USD per year) per game.
+   * Individual developers or non-studio users using FUEngine commercially must contribute a 5% revenue share of net revenue, with the same threshold of $2,000 USD per quarter (or $8,000 USD per year) per game.
    * Future optional subscriptions for premium features may be offered, with fair pricing determined by the Licensor; subscription fees are not considered excessive or mandatory for core usage.
    * Licensor may provide an official distribution or installer for commercial use.
 
@@ -97,7 +97,7 @@ Users must NOT:
 =========================
 
 * GitHub / Open Repository: Full source access, non-commercial only.
-* Commercial Version: 2% revenue share for studios/companies, 5% for individual devs.
+* Commercial Version: 2% revenue share for studios/companies, 5% for individual devs; threshold $2,000 USD per quarter ($8,000 USD per year) per game.
 * Fully Modifiable: Users can change core modules.
 * No Malicious Use: Strict legal restrictions on malware, scams, and deception.
 * Plugins/Assets: Allowed, must respect engine integrity.

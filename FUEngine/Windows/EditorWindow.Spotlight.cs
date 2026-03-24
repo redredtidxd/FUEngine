@@ -58,8 +58,12 @@ public partial class EditorWindow
         if (SpotlightOverlay.Visibility == Visibility.Visible)
         {
             SpotlightOverlay.Visibility = Visibility.Collapsed;
+            SyncDiscordRichPresence();
             return;
         }
+        DiscordRichPresenceService.Instance.EnsureInitialized();
+        var pn = string.IsNullOrWhiteSpace(_project.Nombre) ? "Proyecto sin nombre" : _project.Nombre.Trim();
+        DiscordRichPresenceService.Instance.SetEditorActivity("FUEngine · Spotlight", $"Buscar · {pn}");
         SpotlightEmbedded.SetContext(this, null);
         SpotlightOverlay.Visibility = Visibility.Visible;
         SpotlightEmbedded.Open();
@@ -68,14 +72,21 @@ public partial class EditorWindow
     private void SpotlightBackdrop_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         SpotlightOverlay.Visibility = Visibility.Collapsed;
+        SyncDiscordRichPresence();
         e.Handled = true;
     }
 
-    private void SpotlightEmbedded_RequestClose(object? sender, EventArgs e) =>
+    private void SpotlightEmbedded_RequestClose(object? sender, EventArgs e)
+    {
         SpotlightOverlay.Visibility = Visibility.Collapsed;
+        SyncDiscordRichPresence();
+    }
 
     public void ShowDocumentation(string? initialTopicId)
     {
+        DiscordRichPresenceService.Instance.EnsureInitialized();
+        var pn = string.IsNullOrWhiteSpace(_project.Nombre) ? "Proyecto sin nombre" : _project.Nombre.Trim();
+        DiscordRichPresenceService.Instance.SetEditorActivity("Manual del motor", $"Ayuda integrada · {pn}");
         DocumentationEmbedded.Open(initialTopicId);
         DocumentationOverlay.Visibility = Visibility.Visible;
     }
@@ -83,9 +94,13 @@ public partial class EditorWindow
     private void DocumentationBackdrop_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         DocumentationOverlay.Visibility = Visibility.Collapsed;
+        SyncDiscordRichPresence();
         e.Handled = true;
     }
 
-    private void DocumentationEmbedded_RequestClose(object? sender, EventArgs e) =>
+    private void DocumentationEmbedded_RequestClose(object? sender, EventArgs e)
+    {
         DocumentationOverlay.Visibility = Visibility.Collapsed;
+        SyncDiscordRichPresence();
+    }
 }

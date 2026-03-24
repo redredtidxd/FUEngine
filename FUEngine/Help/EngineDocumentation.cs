@@ -32,7 +32,7 @@ public static class EngineDocumentation
             porQueImporta: "Sin este orden es fácil perderse entre archivos JSON, pestañas y el lienzo del mapa.",
             paragraphs: new[]
             {
-                "Abre o crea un proyecto desde la pantalla de inicio (Hub). Cada proyecto es una carpeta con configuración y escenas; el Hub también ofrece biblioteca global, Lua global, estado del motor y FUEngine Spotlight (Ctrl+P), un buscador integrado en la misma ventana para proyectos y la guía AI-ONBOARDING.",
+                "Abre o crea un proyecto desde la pantalla de inicio (Hub). Cada proyecto es una carpeta con configuración y escenas; el Hub también ofrece biblioteca global, Lua global, estado del motor y FUEngine Spotlight (Ctrl+P), un buscador integrado en la misma ventana para proyectos y la guía AI-ONBOARDING. Con Discord en ejecución, el estado del motor puede mostrarse en tu perfil (Rich Presence): pestañas del Hub, del editor, ayuda integrada, Spotlight y ventanas modales (configuración, exportación, etc.) actualizan el texto; un botón enlaza al repositorio público del motor; si Discord no está abierto o falla la conexión, puede aparecer un aviso en la consola del editor (categoría Discord).",
                 "Abre una escena (Archivo → Abrir escena o pestañas Scene). La escena enlaza mapa, objetos, triggers, scripts y UI.",
                 "Al abrir el editor, la primera pestaña central es Mapa (edición del tilemap); la pestaña Juego muestra Play embebido. Pinta tiles con la capa activa en el panel de capas a la derecha y coloca objetos con la herramienta Colocar o desde la jerarquía.",
                 "Guarda con Ctrl+S o Guardar todo. Prueba el juego con Proyecto → Iniciar juego o el panel de Play / pestaña Juego.",

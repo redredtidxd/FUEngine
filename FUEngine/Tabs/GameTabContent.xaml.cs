@@ -211,6 +211,7 @@ public partial class GameTabContent : System.Windows.Controls.UserControl, IDisp
         StartHudUpdates();
         AddLog(LogLevel.Info, $"Play iniciado en tab · {_runner.GetSceneObjects().Count} objetos.", "Juego");
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, new Action(() => Keyboard.Focus(this)));
+        if (System.Windows.Window.GetWindow(this) is EditorWindow ed) ed.SyncDiscordRichPresence();
     }
 
     private void WirePlayViewportSurfaceProvider(PlayModeRunner runner)
@@ -473,6 +474,7 @@ public partial class GameTabContent : System.Windows.Controls.UserControl, IDisp
         _textureCache?.Clear();
         RenderViewport();
         AddLog(LogLevel.Info, "Play detenido. Runtime destruido.", "Juego");
+        if (System.Windows.Window.GetWindow(this) is EditorWindow ed2) ed2.SyncDiscordRichPresence();
     }
 
     private void StopRunner()

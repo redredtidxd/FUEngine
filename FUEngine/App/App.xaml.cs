@@ -245,6 +245,7 @@ public partial class App : System.Windows.Application
             }
         }
         _instanceMutex?.Dispose();
+        DiscordRichPresenceService.Instance.Shutdown();
         base.OnExit(e);
     }
 }
