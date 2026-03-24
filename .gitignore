@@ -1,4 +1,4 @@
-# Build and IDE (eliminar estas carpetas si el proyecto pesa mucho)
+# Build y salidas locales (el motor se compila de nuevo con dotnet build)
 bin/
 obj/
 .vs/
@@ -19,3 +19,31 @@ packages/
 *.tmp
 .DS_Store
 Thumbs.db
+
+# Cursor / documentación e instrucciones solo locales (no subir a GitHub)
+.cursor/
+docs/
+instruccionescursor.md
+
+# IDEs (configuración local; no hace falta para compilar el motor)
+.idea/
+.vscode/
+*.DotSettings.user
+_ReSharper.Caches/
+
+# Pruebas y cobertura (si se añaden más adelante)
+TestResults/
+[Tt]est[Rr]esult*/
+*.coverage
+*.coveragexml
+
+# Claves / secretos locales (nunca en el repo)
+*.pfx
+*.snk
+.env
+.env.local
+
+# Restos de merge y copias de seguridad
+*.orig
+*.rej
+*~

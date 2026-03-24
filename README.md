@@ -10,14 +10,35 @@
 
 Micro-motor pixel art para Freddy's UnWired y juegos 2D.
 
-- **Documentación**: [docs/README.md](docs/README.md)
-- **Estado del proyecto**: [docs/STATUS.md](docs/STATUS.md)
-- **Licencia y monetización**: [LICENSE.md](LICENSE.md)
-- **Publicar ejecutable**: ejecuta `tools\publicar.bat`
-- **Liberar carpeta publish**: `tools\release_publish.bat`
-- **Reducir tamaño del proyecto** (quitar miles de archivos de compilación): ejecuta `tools\limpiar.bat` (borra `bin/`, `obj/`, `publish/`, `.vs/`). Luego compila de nuevo.
+## Requisitos para compilar
 
-## Estructura
+- **Windows** (el editor usa WPF).
+- **[.NET SDK 8](https://dotnet.microsoft.com/download)** instalado (`dotnet --version` debe mostrar 8.x).
+
+## Cómo compilar y ejecutar el editor
+
+Desde la **raíz del repositorio** (donde está `FUEngine.sln`):
+
+```powershell
+dotnet restore FUEngine.sln
+dotnet build FUEngine.sln -c Release
+```
+
+Para arrancar el editor sin publicar:
+
+```powershell
+dotnet run --project FUEngine\FUEngine.csproj -c Release
+```
+
+Con **Visual Studio** o **Rider**: abre `FUEngine.sln`, establece el proyecto **FUEngine** como proyecto de inicio y ejecuta (F5 / Run).
+
+## Publicar un ejecutable (.exe)
+
+Desde la raíz del repo, ejecuta `tools\publicar.bat`. Genera una carpeta bajo `publish\Release_AAAAMMDD_HHMMSS` con `FUEngine.exe` (win-x64, self-contained). Puedes tener el editor abierto: cada publicación usa una carpeta nueva.
+
+Si necesitas liberar la carpeta `publish` (archivos en uso): `tools\release_publish.bat`. Para borrar artefactos de compilación y aligerar el disco: `tools\limpiar.bat` (elimina `bin/`, `obj/`, `publish/`, `.vs/`); luego vuelve a compilar.
+
+## Estructura del código
 
 - **FUEngine** – Aplicación editor (WPF): ventanas, paneles, diálogos, servicios
 - **FUEngine.Core** – Motor: mapa, objetos, scripts, animación, proyecto
