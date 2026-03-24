@@ -10,14 +10,9 @@ public partial class DocumentationHostControl : System.Windows.Controls.UserCont
     public DocumentationHostControl()
     {
         InitializeComponent();
-        Loaded += OnLoadedOnce;
-    }
-
-    private void OnLoadedOnce(object sender, RoutedEventArgs e)
-    {
-        Loaded -= OnLoadedOnce;
         ManualDocView.LuaReferenceMode = false;
         LuaDocView.LuaReferenceMode = true;
+        DocTabs.SelectionChanged += DocTabs_OnSelectionChanged;
     }
 
     public event EventHandler? RequestClose;
@@ -30,12 +25,31 @@ public partial class DocumentationHostControl : System.Windows.Controls.UserCont
         if (EngineDocumentation.IsLuaReferenceSidebarTopic(initialTopicId))
         {
             DocTabs.SelectedIndex = 1;
-            LuaDocView.Open(initialTopicId);
+            EnsureLuaOpened(initialTopicId);
         }
         else
         {
             DocTabs.SelectedIndex = 0;
-            ManualDocView.Open(initialTopicId);
+            EnsureManualOpened(initialTopicId);
         }
+    }
+
+    private void DocTabs_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        if (DocTabs.SelectedIndex == 1)
+            EnsureLuaOpened(EngineDocumentation.LuaReferenceIntroTopicId);
+        else
+            EnsureManualOpened(EngineDocumentation.QuickStartTopicId);
+    }
+
+    private void EnsureManualOpened(string? topicId)
+    {
+        ManualDocView.Open(topicId);
+    }
+
+    private void EnsureLuaOpened(string? topicId)
+    {
+        LuaDocView.Open(topicId);
     }
 }
