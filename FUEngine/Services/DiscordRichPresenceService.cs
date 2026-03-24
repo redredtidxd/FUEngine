@@ -17,12 +17,16 @@ public sealed class DiscordRichPresenceService
     private const string ApplicationClientId = "1486054213984452759";
     /// <summary>Nombre exacto del arte en el portal (no renombrar sin actualizar el portal).</summary>
     public const string LargeImageKey = "logo_principal";
-    private const string DownloadPageUrl = "https://github.com/redredtidxd/FUEngine";
+    /// <summary>Repositorio público (botón Rich Presence).</summary>
+    public const string GitHubRepositoryUrl = "https://github.com/redredtidxd/FUEngine";
 
     private const int MaxDiscordFieldLength = 127;
+    /// <summary>Máx. 32 caracteres en la API de Discord para la etiqueta del botón.</summary>
+    private const string GitHubButtonLabel = "Ver en GitHub";
 
     private DiscordRpcClient? _client;
     private bool _initAttempted;
+    private bool _loggedButtonRpcError;
 
     private DiscordRichPresenceService() { }
 
@@ -37,6 +41,7 @@ public sealed class DiscordRichPresenceService
             _client = new DiscordRpcClient(ApplicationClientId, -1, null, autoEvents: true, null);
             _client.ShutdownOnly = true;
             _client.OnConnectionFailed += Discord_OnConnectionFailed;
+            _client.OnError += Discord_OnError;
             _client.Initialize();
         }
         catch (Exception ex)
@@ -50,6 +55,19 @@ public sealed class DiscordRichPresenceService
             }
             catch { /* ignore */ }
         }
+    }
+
+    private static void Discord_OnError(object? sender, ErrorMessage args)
+    {
+        try
+        {
+            if (Instance._loggedButtonRpcError) return;
+            Instance._loggedButtonRpcError = true;
+            EditorLog.Warning(
+                $"Discord RPC: {args.Message} (código {args.Code}). Si no ves el botón «{GitHubButtonLabel}», revisa en el Developer Portal (Rich Presence / URLs de botones) que el dominio del enlace esté permitido.",
+                "Discord");
+        }
+        catch { /* ignore */ }
     }
 
     private static void Discord_OnConnectionFailed(object? sender, ConnectionFailedMessage args)
@@ -92,7 +110,10 @@ public sealed class DiscordRichPresenceService
         try
         {
             if (_client != null)
+            {
                 _client.OnConnectionFailed -= Discord_OnConnectionFailed;
+                _client.OnError -= Discord_OnError;
+            }
             _client?.Dispose();
         }
         catch { /* ignore */ }
@@ -120,17 +141,22 @@ public sealed class DiscordRichPresenceService
             }
         };
 
+        DiscordRPC.Button[]? githubButtons = null;
         if (includeDownloadButton)
         {
-            rp.Buttons = new[]
+            githubButtons = new[]
             {
-                new DiscordRPC.Button { Label = "Descargar FUEngine", Url = DownloadPageUrl }
+                new DiscordRPC.Button { Label = GitHubButtonLabel, Url = GitHubRepositoryUrl }
             };
+            rp.Buttons = githubButtons;
         }
 
         try
         {
             _client.SetPresence(rp);
+            // Algunos clientes aplican mejor los botones si se envían también vía UpdateButtons tras SetPresence.
+            if (githubButtons != null && githubButtons.Length > 0)
+                _client.UpdateButtons(githubButtons);
         }
         catch
         {

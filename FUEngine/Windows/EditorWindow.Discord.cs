@@ -21,10 +21,20 @@ public partial class EditorWindow
         if (_project == null) return;
         DiscordRichPresenceService.Instance.EnsureInitialized();
         var projectName = string.IsNullOrWhiteSpace(_project.Nombre) ? "Proyecto sin nombre" : _project.Nombre.Trim();
-        var tag = (MainTabs?.SelectedItem as TabItem)?.Tag as string ?? "Mapa";
-        var embeddedPlay = GetEmbeddedGameTab()?.IsActiveAndRunning == true;
+        if (MainTabs?.SelectedItem is not TabItem selectedTab)
+        {
+            DiscordRichPresenceService.Instance.SetEditorActivity($"Proyecto: {projectName}", "Editor");
+            return;
+        }
 
-        if (embeddedPlay)
+        var tag = selectedTab.Tag as string ?? "Mapa";
+        var tabLabel = GetVisibleTabHeaderText(selectedTab);
+        var embeddedPlay = GetEmbeddedGameTab()?.IsActiveAndRunning == true;
+        var onGameTab = string.Equals(tag, "Juego", StringComparison.Ordinal);
+
+        // Solo "sandbox" cuando el usuario está *viendo* la pestaña Juego con Play en marcha.
+        // Si cambia a Mapa/Consola/… con Play en segundo plano, Discord refleja esa pestaña.
+        if (embeddedPlay && onGameTab)
         {
             DiscordRichPresenceService.Instance.SetEditorActivity(
                 "Probando juego",
@@ -35,38 +45,46 @@ public partial class EditorWindow
         if (string.Equals(tag, "Scripts", StringComparison.Ordinal))
         {
             var scriptPath = (GetTabByKind("Scripts")?.Content as ScriptsTabContent)?.GetEditorControl()?.FilePath;
-            var fileHint = string.IsNullOrEmpty(scriptPath) ? "Lua" : Path.GetFileName(scriptPath);
-            DiscordRichPresenceService.Instance.SetEditorActivity(
-                "Programando en Lua",
-                $"{fileHint} · {projectName}");
+            var fileHint = string.IsNullOrEmpty(scriptPath) ? "sin archivo" : Path.GetFileName(scriptPath);
+            var state = embeddedPlay ? $"{tabLabel} · {fileHint} · Play en segundo plano" : $"{tabLabel} · {fileHint}";
+            DiscordRichPresenceService.Instance.SetEditorActivity($"Proyecto: {projectName}", state);
             return;
         }
 
-        var state = TabKindToDiscordState(tag);
-        DiscordRichPresenceService.Instance.SetEditorActivity(
-            $"Proyecto: {projectName}",
-            state);
+        var stateLine = embeddedPlay ? $"{tabLabel} · Play en segundo plano" : tabLabel;
+        DiscordRichPresenceService.Instance.SetEditorActivity($"Proyecto: {projectName}", stateLine);
     }
 
-    private static string TabKindToDiscordState(string? tabKind) =>
-        tabKind switch
+    /// <summary>Texto que ve el usuario en la pestaña (Mapa, Consola, icono + nombre dinámico, UI:…).</summary>
+    private string GetVisibleTabHeaderText(TabItem tab)
+    {
+        if (tab.Header is string s)
+            return NormalizeTabHeaderForDiscord(s);
+        if (tab.Header is StackPanel sp)
         {
-            "Mapa" => "Editando mapa",
-            "Juego" => "Pestaña Juego (viewport)",
-            "Consola" => "Consola y Lua",
-            "Explorador" => "Explorador de archivos",
-            "Tiles" => "Catálogo de tiles",
-            "Animaciones" => "Animaciones",
-            "Debug" => "Depuración / inspección Play",
-            "Audio" => "Audio del proyecto",
-            "Seeds" => "Seeds y objetos",
-            "TileCreator" => "Crear tile",
-            "TileEditor" => "Editar tile",
-            "PaintCreator" => "Crear paint",
-            "PaintEditor" => "Editar paint",
-            "CollisionsEditor" => "Editor de colisiones",
-            "ScriptableTile" => "Tile por script",
-            "UITab" or "UI" => "Interfaz (UI)",
-            _ => string.IsNullOrEmpty(tabKind) ? "Editor" : tabKind
-        };
+            foreach (var child in sp.Children)
+            {
+                if (child is TextBlock tb)
+                    return NormalizeTabHeaderForDiscord(tb.Text ?? "");
+            }
+        }
+        if (tab.Tag is string tag)
+        {
+            if (tag.StartsWith("UI:", StringComparison.OrdinalIgnoreCase))
+            {
+                var id = tag.Length > 3 ? tag.Substring(3) : "";
+                return string.IsNullOrEmpty(id) ? "UI" : $"UI · {id}";
+            }
+            return TabDisplayNames.GetValueOrDefault(tag, tag);
+        }
+        return "Editor";
+    }
+
+    private static string NormalizeTabHeaderForDiscord(string t)
+    {
+        t = (t ?? "").Trim();
+        if (t.EndsWith(" *", StringComparison.Ordinal))
+            t = t[..^2].TrimEnd();
+        return string.IsNullOrEmpty(t) ? "Pestaña" : t;
+    }
 }
