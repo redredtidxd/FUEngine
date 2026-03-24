@@ -6,6 +6,9 @@ namespace FUEngine.Core;
 /// </summary>
 public sealed class ColliderComponent : Component
 {
+    /// <summary>Forma lógica; círculo usa mitades iguales como AABB.</summary>
+    public ColliderShapeKind Shape { get; set; } = ColliderShapeKind.Box;
+
     /// <summary>Mitad del ancho en unidades de casilla (sin multiplicar por escala), típicamente definición.Width/2.</summary>
     public float TileHalfWidth { get; set; } = 0.5f;
 

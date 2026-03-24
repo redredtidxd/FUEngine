@@ -19,7 +19,7 @@ public partial class UIElementInspectorPanel : System.Windows.Controls.UserContr
     {
         InitializeComponent();
         CmbKind.Items.Clear();
-        foreach (var kind in new[] { UIElementKind.Button, UIElementKind.Text, UIElementKind.Image, UIElementKind.Panel })
+        foreach (var kind in new[] { UIElementKind.Button, UIElementKind.Text, UIElementKind.Image, UIElementKind.Panel, UIElementKind.TabControl })
             CmbKind.Items.Add(new ComboBoxItem { Content = kind.ToString(), Tag = kind });
     }
 

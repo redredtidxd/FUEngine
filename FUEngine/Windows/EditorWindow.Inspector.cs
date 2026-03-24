@@ -49,6 +49,7 @@ public partial class EditorWindow
             if (_selection.InspectorContextKind == InspectorContextKind.Layer && _selection.InspectorContextLayer != null)
             {
                 var layerPanel = GetOrCreateLayerInspectorPanel();
+                layerPanel.SetProjectDirectory(_project.ProjectDirectory);
                 layerPanel.SetDescriptor(_selection.InspectorContextLayer);
                 InspectorPanel.Content = layerPanel;
                 return;
@@ -89,7 +90,22 @@ public partial class EditorWindow
         var objPanel = GetOrCreateObjectPanel();
         var scripts = _scriptRegistry?.GetAll()?.Select(s => (s.Id, s.Nombre, s.Path)) ?? Enumerable.Empty<(string, string, string?)>();
         objPanel.SetProjectDirectory(_project.ProjectDirectory);
+        objPanel.SetTileSize(_project.TileSize > 0 ? _project.TileSize : 32);
         objPanel.SetAvailableScripts(scripts);
+        var playLive = GetCurrentDebugRunner() is { IsRunning: true };
+        objPanel.LiveVariablesProvider = playLive
+            ? (instId, sid) =>
+            {
+                var r = GetCurrentDebugRunner();
+                return r != null && r.TryGetLiveScriptVariables(instId, sid, out var d) ? d : null;
+            }
+            : null;
+        objPanel.LiveVariableWriter = playLive
+            ? (instId, sid, key, ty, val) =>
+            {
+                _ = GetCurrentDebugRunner()?.TrySetLiveScriptVariable(instId, sid, key, ty, val);
+            }
+            : null;
         objPanel.SetTarget(_selection.SelectedObject, _objectLayer);
         InspectorPanel.Content = objPanel;
     }
@@ -104,7 +120,7 @@ public partial class EditorWindow
             var clone = new TriggerZone { Id = Guid.NewGuid().ToString("N"), Nombre = z.Nombre + " (copia)", Descripcion = z.Descripcion, TriggerType = z.TriggerType, LayerId = z.LayerId, X = z.X + 2, Y = z.Y, Width = z.Width, Height = z.Height, ScriptIdOnEnter = z.ScriptIdOnEnter, ScriptIdOnExit = z.ScriptIdOnExit, ScriptIdOnTick = z.ScriptIdOnTick, Tags = new List<string>(z.Tags ?? new List<string>()) };
             _triggerZones.Add(clone);
             TriggerZoneSerialization.Save(_triggerZones, _project.TriggerZonesPath);
-            MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(_project.MapPath), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+            RefreshMapHierarchy();
             _selection.SetTriggerSelection(clone);
             RefreshInspector();
         };
@@ -114,7 +130,7 @@ public partial class EditorWindow
             _triggerZones.Remove(z);
             _selection.SetTriggerSelection(null);
             TriggerZoneSerialization.Save(_triggerZones, _project.TriggerZonesPath);
-            MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(_project.MapPath), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+            RefreshMapHierarchy();
             RefreshInspector();
             DrawMap();
         };
@@ -132,17 +148,17 @@ public partial class EditorWindow
     private void CachedObjectPanel_PropertyChanged(object? sender, EventArgs e)
     {
         ProjectExplorer?.SetModified(GetCurrentSceneObjectsPath(), true);
-        if (MapHierarchy != null)
-            MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+        RefreshMapHierarchy();
         DrawMap();
     }
     private void CachedObjectPanel_RequestConvertToSeed(object? sender, ObjectInstance e) => ConvertObjectToSeed(e);
+    private void CachedObjectPanel_RequestApplyToSeed(object? sender, ObjectInstance e) => ApplyInstanceToSourceSeed(e);
     private void CachedUIElementPanel_PropertyChanged(object? sender, EventArgs e)
     {
         var canvas = _selection.SelectedUICanvas ?? FindCanvasForElement(_selection.SelectedUIElement);
         if (canvas != null)
             ProjectExplorer?.SetModified(System.IO.Path.Combine(GetCurrentUIFolder(), canvas.Id + ".json"), true);
-        MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+        RefreshMapHierarchy();
         RefreshOpenUICanvasTabs();
         DrawMap();
     }
@@ -164,6 +180,7 @@ public partial class EditorWindow
         _cachedObjectPanel.RequestDelete += MapHierarchy_OnRequestDeleteObject;
         _cachedObjectPanel.RequestRename += MapHierarchy_OnRequestRenameObject;
         _cachedObjectPanel.RequestConvertToSeed += CachedObjectPanel_RequestConvertToSeed;
+        _cachedObjectPanel.RequestApplyToSeed += CachedObjectPanel_RequestApplyToSeed;
         return _cachedObjectPanel;
     }
 
@@ -204,7 +221,16 @@ public partial class EditorWindow
     {
         if (_cachedLayerInspectorPanel != null) return _cachedLayerInspectorPanel;
         _cachedLayerInspectorPanel = new LayerInspectorPanel();
-        _cachedLayerInspectorPanel.PropertyChanged += (_, _) => DrawMap();
+        _cachedLayerInspectorPanel.PropertyChanged += (_, _) =>
+        {
+            ProjectExplorer?.SetModified(GetCurrentSceneMapPath(), true);
+            DrawMap();
+        };
+        _cachedLayerInspectorPanel.LayerComponentRequested += (_, desc) =>
+        {
+            _selection.SetInspectorContextLayer(desc);
+            RefreshInspector();
+        };
         return _cachedLayerInspectorPanel;
     }
 

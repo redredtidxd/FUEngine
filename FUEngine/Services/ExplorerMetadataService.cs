@@ -232,12 +232,24 @@ public class ExplorerMetadataService
     {
         var file = GetStateFilePath();
         if (string.IsNullOrEmpty(_projectDirectory)) return;
+        if (!File.Exists(file) && IsExplorerStateEmpty(_state)) return;
         try
         {
             var json = JsonSerializer.Serialize(_state, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(file, json);
         }
         catch { /* ignore */ }
+    }
+
+    private static bool IsExplorerStateEmpty(ExplorerStateDto s)
+    {
+        if (s.Favorites?.Count > 0) return false;
+        if (s.RecentPaths?.Count > 0) return false;
+        if (s.PinnedPaths?.Count > 0) return false;
+        if (s.AssetMeta?.Count > 0) return false;
+        if (s.VirtualCollections?.Count > 0) return false;
+        if (s.ExpandedFolderPaths?.Count > 0) return false;
+        return true;
     }
 
     public Task SaveAsync()

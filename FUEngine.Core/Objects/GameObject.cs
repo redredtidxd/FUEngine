@@ -22,6 +22,10 @@ public class GameObject
     public event Action<GameObject, GameObject?>? ParentChanged;
 
     public string Name { get; set; } = "";
+
+    /// <summary>Id de instancia del editor (<c>objetos.json</c>); usado para referencias y <c>self.id</c> en Lua.</summary>
+    public string? InstanceId { get; set; }
+
     public Transform Transform { get; set; } = new();
     public List<Component> Components { get; set; } = new();
 

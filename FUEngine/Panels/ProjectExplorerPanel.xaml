@@ -64,6 +64,21 @@
                       Visibility="Collapsed"/>
         </StackPanel>
         <Grid Grid.Row="4" Margin="4,0,4,8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <StackPanel x:Name="GridBreadcrumbPanel" Grid.Row="0" Orientation="Horizontal" Visibility="Collapsed" Margin="0,0,0,6"
+                        VerticalAlignment="Center">
+                <Button x:Name="BtnGridRoot" Content="Raíz" Padding="6,2" Margin="0,0,6,0" FontSize="11" Cursor="Hand"
+                        Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnGridRoot_OnClick"
+                        ToolTip="Ir a la raíz del proyecto"/>
+                <Button x:Name="BtnGridUp" Content="↑ Subir" Padding="6,2" Margin="0,0,8,0" FontSize="11" Cursor="Hand"
+                        Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnGridUp_OnClick"
+                        ToolTip="Carpeta superior"/>
+                <TextBlock x:Name="TxtGridFolder" Foreground="#8b949e" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+            <Grid Grid.Row="1">
             <TreeView x:Name="ProjectTree" Background="Transparent" Foreground="#e6edf3"
                       AllowDrop="True"
                       SelectedItemChanged="ProjectTree_OnSelectedItemChanged"
@@ -100,7 +115,9 @@
             </TreeView.ItemTemplate>
             </TreeView>
             <ListBox x:Name="ProjectList" Visibility="Collapsed" Background="Transparent" Foreground="#e6edf3" BorderThickness="0"
-                     SelectionChanged="ProjectList_OnSelectionChanged" MouseDoubleClick="ProjectList_OnMouseDoubleClick">
+                     AllowDrop="True" DragOver="ProjectList_OnDragOver" Drop="ProjectList_OnDrop"
+                     SelectionChanged="ProjectList_OnSelectionChanged" MouseDoubleClick="ProjectList_OnMouseDoubleClick"
+                     PreviewMouseLeftButtonDown="ProjectList_OnPreviewMouseLeftButtonDown">
                 <ListBox.ItemTemplate>
                     <DataTemplate DataType="{x:Type local:ProjectExplorerItem}">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -110,7 +127,9 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
-            <ScrollViewer x:Name="ProjectGridScroll" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <ScrollViewer x:Name="ProjectGridScroll" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          AllowDrop="True" DragOver="ProjectGridScroll_OnDragOver" Drop="ProjectGridScroll_OnDrop"
+                          PreviewMouseLeftButtonDown="ProjectGridScroll_OnPreviewMouseLeftButtonDown" Background="Transparent">
                 <ItemsControl x:Name="ProjectGrid" Background="Transparent">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -130,6 +149,7 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </ScrollViewer>
+            </Grid>
         </Grid>
         <Border Grid.Row="5" x:Name="PreviewPanel" MinHeight="90" MaxHeight="160" Background="#21262d" BorderBrush="#30363d" BorderThickness="0,1,0,0" Padding="8">
             <Grid>

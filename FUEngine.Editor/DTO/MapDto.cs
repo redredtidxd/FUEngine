@@ -30,6 +30,13 @@ public class LayerDto
     public bool RenderAbovePlayer { get; set; }
     public string? BackgroundTexturePath { get; set; }
     public string? TilesetAssetPath { get; set; }
+
+    /// <summary>Ruta .lua relativa al proyecto (script de capa).</summary>
+    public string? LayerScriptId { get; set; }
+
+    public bool LayerScriptEnabled { get; set; } = true;
+
+    public List<ScriptPropertyEntryDto> LayerScriptProperties { get; set; } = new();
 }
 
 public class ChunkDto

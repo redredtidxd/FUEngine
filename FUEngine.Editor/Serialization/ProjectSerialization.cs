@@ -48,6 +48,7 @@ public static class ProjectSerialization
             AssetsRootFolder = project.AssetsRootFolder ?? "Assets",
             ProjectGridSnapPx = project.ProjectGridSnapPx,
             DefaultFirstSceneBackgroundColor = project.DefaultFirstSceneBackgroundColor,
+            EditorMapCanvasBackgroundColor = project.EditorMapCanvasBackgroundColor,
             HUDColor = project.HUDColor,
             HUDStyle = project.HUDStyle ?? "Minimal",
             GameFontFamily = project.GameFontFamily,
@@ -64,6 +65,9 @@ public static class ProjectSerialization
             ProtagonistInstanceId = project.ProtagonistInstanceId,
             UseNativeInput = project.UseNativeInput,
             UseNativeCameraFollow = project.UseNativeCameraFollow,
+            EditorViewportCenterWorldX = project.EditorViewportCenterWorldX,
+            EditorViewportCenterWorldY = project.EditorViewportCenterWorldY,
+            KeepEmbeddedPlayRunningWithMapTab = project.KeepEmbeddedPlayRunningWithMapTab,
             NativeCameraSmoothing = project.NativeCameraSmoothing,
             NativeMoveSpeedTilesPerSecond = project.NativeMoveSpeedTilesPerSecond,
             AutoFlipSprite = project.AutoFlipSprite,
@@ -82,6 +86,9 @@ public static class ProjectSerialization
             RuntimeRandomSeed = project.RuntimeRandomSeed,
             BootstrapScriptId = project.BootstrapScriptId,
             PixelPerfect = project.PixelPerfect,
+            RenderAntiAliasMode = project.RenderAntiAliasMode ?? ProjectRenderSettings.AntiAliasNone,
+            MsaaSampleCount = project.MsaaSampleCount,
+            TextureFilterMode = project.TextureFilterMode ?? ProjectRenderSettings.FilterNearest,
             InitialZoom = project.InitialZoom,
             LightShadowDefault = project.LightShadowDefault,
             DebugMode = project.DebugMode,
@@ -111,11 +118,16 @@ public static class ProjectSerialization
             }).ToList(),
             CreatedWithFUEngine = true,
             EngineVersion = FUEngine.Core.EngineVersion.Current,
+            ProjectFormatVersion = project.ProjectFormatVersion,
             ScriptingLanguage = project.ScriptingLanguage ?? "Lua",
+            AdsExportProvider = project.AdsExportProvider,
             Splash = new SplashConfigDto()
         };
         var json = JsonSerializer.Serialize(dto, SerializationDefaults.Options);
         File.WriteAllText(path, json);
+        var dir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(dir))
+            SceneDescriptorSync.WriteAll(project, dir);
     }
 
     public static ProjectInfo Load(string path)
@@ -195,7 +207,8 @@ public static class ProjectSerialization
             GameResolutionHeight = dto.GameResolutionHeight,
             AssetsRootFolder = dto.AssetsRootFolder ?? "Assets",
             ProjectGridSnapPx = dto.ProjectGridSnapPx,
-            DefaultFirstSceneBackgroundColor = dto.DefaultFirstSceneBackgroundColor ?? "#1a1a2e",
+            DefaultFirstSceneBackgroundColor = dto.DefaultFirstSceneBackgroundColor ?? "#FFFFFF",
+            EditorMapCanvasBackgroundColor = dto.EditorMapCanvasBackgroundColor ?? "#21262d",
             HUDColor = dto.HUDColor,
             HUDStyle = dto.HUDStyle ?? "Minimal",
             GameFontFamily = dto.GameFontFamily,
@@ -212,6 +225,9 @@ public static class ProjectSerialization
             ProtagonistInstanceId = dto.ProtagonistInstanceId,
             UseNativeInput = dto.UseNativeInput,
             UseNativeCameraFollow = dto.UseNativeCameraFollow,
+            EditorViewportCenterWorldX = dto.EditorViewportCenterWorldX,
+            EditorViewportCenterWorldY = dto.EditorViewportCenterWorldY,
+            KeepEmbeddedPlayRunningWithMapTab = dto.KeepEmbeddedPlayRunningWithMapTab,
             NativeCameraSmoothing = dto.NativeCameraSmoothing < 0 ? 8f : dto.NativeCameraSmoothing,
             NativeMoveSpeedTilesPerSecond = dto.NativeMoveSpeedTilesPerSecond > 0 ? dto.NativeMoveSpeedTilesPerSecond : 4f,
             AutoFlipSprite = dto.AutoFlipSprite,
@@ -230,6 +246,9 @@ public static class ProjectSerialization
             RuntimeRandomSeed = dto.RuntimeRandomSeed,
             BootstrapScriptId = dto.BootstrapScriptId,
             PixelPerfect = dto.PixelPerfect,
+            RenderAntiAliasMode = ProjectRenderSettings.NormalizeAntiAliasMode(dto.RenderAntiAliasMode),
+            MsaaSampleCount = ProjectRenderSettings.NormalizeMsaaSamples(dto.MsaaSampleCount),
+            TextureFilterMode = ProjectRenderSettings.NormalizeTextureFilter(dto.TextureFilterMode),
             InitialZoom = dto.InitialZoom,
             LightShadowDefault = dto.LightShadowDefault,
             DebugMode = dto.DebugMode,
@@ -258,7 +277,9 @@ public static class ProjectSerialization
                 DefaultTabKinds = s.DefaultTabKinds ?? new List<string>()
             }).ToList(),
             EngineVersion = dto.EngineVersion,
-            ScriptingLanguage = dto.ScriptingLanguage ?? "Lua"
+            ProjectFormatVersion = dto.ProjectFormatVersion,
+            ScriptingLanguage = dto.ScriptingLanguage ?? "Lua",
+            AdsExportProvider = dto.AdsExportProvider
         };
     }
 

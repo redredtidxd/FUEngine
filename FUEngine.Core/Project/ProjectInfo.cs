@@ -20,7 +20,9 @@ public class ProjectInfo
     public int MapHeight { get; set; } = 64;
     public bool Infinite { get; set; } = true;
     public int ChunkSize { get; set; } = 32;
+    /// <summary>Cantidad de chunks en X para plantillas y límites de integridad; casillas mapa ≈ esto × <see cref="ChunkSize"/> (si el mapa finito coincide con el proyecto).</summary>
     public int InitialChunksW { get; set; } = 4;
+    /// <summary>Cantidad de chunks en Y; casillas ≈ esto × <see cref="ChunkSize"/>.</summary>
     public int InitialChunksH { get; set; } = 4;
     /// <summary>Radio de chunks alrededor de la cámara a cargar (1-4).</summary>
     public int ChunkLoadRadius { get; set; } = 2;
@@ -49,7 +51,9 @@ public class ProjectInfo
     public int GameResolutionHeight { get; set; } = 180;
     public string AssetsRootFolder { get; set; } = "Assets";
     public int ProjectGridSnapPx { get; set; } = 0;
-    public string DefaultFirstSceneBackgroundColor { get; set; } = "#1a1a2e";
+    public string DefaultFirstSceneBackgroundColor { get; set; } = "#FFFFFF";
+    /// <summary>Color de fondo del lienzo del mapa en el editor (hex #RRGGBB).</summary>
+    public string EditorMapCanvasBackgroundColor { get; set; } = "#21262d";
     public string? HUDColor { get; set; }
     public string HUDStyle { get; set; } = "Minimal";
     public string? GameFontFamily { get; set; }
@@ -69,6 +73,15 @@ public class ProjectInfo
     public bool UseNativeInput { get; set; }
     /// <summary>La cámara del visor sigue al protagonista con suavizado (tras Lua/física).</summary>
     public bool UseNativeCameraFollow { get; set; }
+
+    /// <summary>Centro de la cámara en casillas mundo (esquina sup.-izq. del mundo = 0); el marco azul se centra aquí. Mapas finitos: suele iniciarse en el centro geométrico del mapa (<c>MapWidth/2</c>, <c>MapHeight/2</c>).</summary>
+    public double EditorViewportCenterWorldX { get; set; }
+
+    /// <summary>Centro de la cámara en casillas mundo (eje Y).</summary>
+    public double EditorViewportCenterWorldY { get; set; }
+
+    /// <summary>Si true, el sandbox del tab Juego no se pausa al pasar a la pestaña Mapa (edición + vista Play a la vez).</summary>
+    public bool KeepEmbeddedPlayRunningWithMapTab { get; set; } = true;
     /// <summary>Factor de suavizado de cámara (≈ velocidad hacia el objetivo; 0 = instantáneo).</summary>
     public float NativeCameraSmoothing { get; set; } = 8f;
     /// <summary>Velocidad de movimiento nativo en casillas por segundo.</summary>
@@ -96,6 +109,16 @@ public class ProjectInfo
     public int? RuntimeRandomSeed { get; set; }
     public string? BootstrapScriptId { get; set; }
     public bool PixelPerfect { get; set; } = true;
+
+    /// <summary>Antialiasing global previsto para el visor/juego: <c>none</c>, <c>fxaa</c>, <c>msaa</c>. Pixel art: <c>none</c>.</summary>
+    public string RenderAntiAliasMode { get; set; } = ProjectRenderSettings.AntiAliasNone;
+
+    /// <summary>Muestras MSAA cuando <see cref="RenderAntiAliasMode"/> es <c>msaa</c>: 0, 2, 4 u 8.</summary>
+    public int MsaaSampleCount { get; set; }
+
+    /// <summary>Filtrado de texturas: <c>nearest</c> (pixel art) o <c>bilinear</c>.</summary>
+    public string TextureFilterMode { get; set; } = ProjectRenderSettings.FilterNearest;
+
     public double InitialZoom { get; set; } = 1.0;
     public bool LightShadowDefault { get; set; } = false;
     public bool DebugMode { get; set; } = false;
@@ -117,6 +140,8 @@ public class ProjectInfo
     public bool DangerMeterEnabled { get; set; }
     /// <summary>Lenguaje de scripting del proyecto (ej: "Lua"). Permite cambiar en el futuro (ej: "RedLanguage").</summary>
     public string ScriptingLanguage { get; set; } = "Lua";
+    /// <summary>Proveedor de anuncios para metadatos de export (Android/iOS): null o "simulated" = editor; "google_mobile_ads" = integración nativa prevista.</summary>
+    public string? AdsExportProvider { get; set; }
     /// <summary>Nombres de capas (suelo, decorativo, interactivo, animatrónicos…). El índice es LayerId.</summary>
     public List<string> LayerNames { get; set; } = new() { "Suelo" };
     public string ProjectDirectory { get; set; } = "";
@@ -133,6 +158,9 @@ public class ProjectInfo
     public List<SceneDefinition>? Scenes { get; set; }
     /// <summary>Versión de FUEngine con la que se guardó el proyecto (si está en proyecto.json).</summary>
     public string? EngineVersion { get; set; }
+
+    /// <summary>Versión de esquema del archivo de proyecto (<see cref="ProjectSchema.CurrentFormatVersion"/>). 0 = JSON sin campo (proyectos anteriores).</summary>
+    public int ProjectFormatVersion { get; set; }
     /// <summary>Ruta del mapa principal: con Scenes usa el primero; si no, MapPathRelative.</summary>
     public string MapPath => GetSceneMapPath(0);
     /// <summary>Ruta de objetos principal: con Scenes usa el primero; si no, objetos.json.</summary>

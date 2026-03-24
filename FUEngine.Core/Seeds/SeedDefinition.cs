@@ -23,4 +23,7 @@ public class SeedObjectEntry
     public double OffsetY { get; set; }
     public double Rotation { get; set; }
     public string? Nombre { get; set; }
+
+    /// <summary>JSON opcional con datos completos de instancia (ObjectInstanceDto del editor) para reconstruir componentes.</summary>
+    public string? SerializedInstanceJson { get; set; }
 }

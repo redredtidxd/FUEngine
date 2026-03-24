@@ -22,7 +22,8 @@ public static class SeedSerialization
                     OffsetX = o.OffsetX,
                     OffsetY = o.OffsetY,
                     Rotation = o.Rotation,
-                    Nombre = o.Nombre
+                    Nombre = o.Nombre,
+                    SerializedInstanceJson = o.SerializedInstanceJson
                 }).ToList(),
                 Tags = p.Tags ?? new List<string>()
             }).ToList()
@@ -81,7 +82,8 @@ public static class SeedSerialization
                 OffsetX = o.OffsetX,
                 OffsetY = o.OffsetY,
                 Rotation = o.Rotation,
-                Nombre = o.Nombre
+                Nombre = o.Nombre,
+                SerializedInstanceJson = o.SerializedInstanceJson
             }).ToList(),
             Tags = p.Tags ?? new List<string>()
         }).ToList();

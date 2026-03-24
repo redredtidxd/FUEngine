@@ -7,5 +7,7 @@ public enum UIElementKind
     Button,
     Text,
     Image,
-    Panel
+    Panel,
+    /// <summary>Contenedor de pestañas (Lua + propiedades en inspector).</summary>
+    TabControl
 }

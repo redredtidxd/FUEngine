@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Windows;
@@ -84,6 +85,8 @@ public partial class ProjectConfigWindow : Window
         UpdateAutoSaveResolvedPath();
 
         FillDropdowns();
+        PopulateRenderCombosIfNeeded();
+        ApplyRenderSettingsToCombos();
         TxtTileSizeDisplay!.Text = _project.TileSize switch { 8 => "8×8 px", 32 => "32×32 px", 64 => "64×64 px", 128 => "128×128 px", _ => "16×16 px" };
         var resStr = _project.GameResolutionWidth <= 0 || _project.GameResolutionHeight <= 0 ? "Auto" : $"{_project.GameResolutionWidth}×{_project.GameResolutionHeight}";
         TxtResolutionDisplay!.Text = ResolutionPresets.FirstOrDefault(r => string.Equals(r.value, resStr, StringComparison.OrdinalIgnoreCase)).display ?? resStr;
@@ -102,7 +105,8 @@ public partial class ProjectConfigWindow : Window
         if (ChkDebugMode != null) ChkDebugMode.IsChecked = _project.DebugMode;
         if (TxtAssetsRoot != null) TxtAssetsRoot.Text = _project.AssetsRootFolder ?? "Assets";
         if (TxtProjectGridSnap != null) TxtProjectGridSnap.Text = _project.ProjectGridSnapPx.ToString();
-        if (TxtDefaultSceneBg != null) TxtDefaultSceneBg.Text = _project.DefaultFirstSceneBackgroundColor ?? "#1a1a2e";
+        if (TxtDefaultSceneBg != null) TxtDefaultSceneBg.Text = _project.DefaultFirstSceneBackgroundColor ?? "#FFFFFF";
+        if (TxtEditorMapCanvasBg != null) TxtEditorMapCanvasBg.Text = _project.EditorMapCanvasBackgroundColor ?? "#21262d";
         if (TxtNamingObjects != null) TxtNamingObjects.Text = _project.NamingRuleObjects ?? "libre";
         if (TxtNamingSeeds != null) TxtNamingSeeds.Text = _project.NamingRuleSeeds ?? "libre";
         if (TxtCameraW != null) TxtCameraW.Text = _project.CameraSizeWidth.ToString();
@@ -437,6 +441,33 @@ public partial class ProjectConfigWindow : Window
         if (ListExportAudio.SelectedItem is DropItem d) { TxtExportAudioDisplay.Text = d.Display; PopupExportAudio.IsOpen = false; }
     }
 
+    private void BtnPickDefaultSceneBg_OnClick(object sender, RoutedEventArgs e) => PickColorIntoTextBox(TxtDefaultSceneBg, "#FFFFFF");
+
+    private void BtnPickEditorMapCanvasBg_OnClick(object sender, RoutedEventArgs e) => PickColorIntoTextBox(TxtEditorMapCanvasBg, "#21262d");
+
+    private static void PickColorIntoTextBox(System.Windows.Controls.TextBox? tb, string fallbackHex)
+    {
+        if (tb == null) return;
+        using var dlg = new System.Windows.Forms.ColorDialog { FullOpen = true };
+        if (TryParseHexToDrawingColor(tb.Text, out var c)) dlg.Color = c;
+        else if (TryParseHexToDrawingColor(fallbackHex, out c)) dlg.Color = c;
+        if (dlg.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+        tb.Text = $"#{dlg.Color.R:X2}{dlg.Color.G:X2}{dlg.Color.B:X2}";
+    }
+
+    private static bool TryParseHexToDrawingColor(string? hex, out System.Drawing.Color color)
+    {
+        color = System.Drawing.Color.Black;
+        var s = (hex ?? "").Trim();
+        if (s.StartsWith("#", StringComparison.Ordinal)) s = s[1..];
+        if (s.Length == 6 && uint.TryParse(s, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var u))
+        {
+            color = System.Drawing.Color.FromArgb(255, (int)(u >> 16) & 0xff, (int)(u >> 8) & 0xff, (int)u & 0xff);
+            return true;
+        }
+        return false;
+    }
+
     private void BtnBrowseFont_OnClick(object sender, RoutedEventArgs e)
     {
         using var dlg = new System.Windows.Forms.OpenFileDialog
@@ -535,7 +566,8 @@ public partial class ProjectConfigWindow : Window
         if (ChkDebugMode != null) _project.DebugMode = ChkDebugMode.IsChecked == true;
         if (TxtAssetsRoot != null) _project.AssetsRootFolder = string.IsNullOrWhiteSpace(TxtAssetsRoot.Text) ? "Assets" : TxtAssetsRoot.Text.Trim();
         if (TxtProjectGridSnap != null && int.TryParse(TxtProjectGridSnap.Text, out var pgs)) _project.ProjectGridSnapPx = Math.Max(0, pgs);
-        if (TxtDefaultSceneBg != null) _project.DefaultFirstSceneBackgroundColor = string.IsNullOrWhiteSpace(TxtDefaultSceneBg.Text) ? "#1a1a2e" : TxtDefaultSceneBg.Text.Trim();
+        if (TxtDefaultSceneBg != null) _project.DefaultFirstSceneBackgroundColor = string.IsNullOrWhiteSpace(TxtDefaultSceneBg.Text) ? "#FFFFFF" : TxtDefaultSceneBg.Text.Trim();
+        if (TxtEditorMapCanvasBg != null) _project.EditorMapCanvasBackgroundColor = string.IsNullOrWhiteSpace(TxtEditorMapCanvasBg.Text) ? "#21262d" : TxtEditorMapCanvasBg.Text.Trim();
         _project.ExportFormatImage = ListExportImage.SelectedItem is DropItem ei && ei.Value is string imgFmt ? imgFmt : "PNG";
         _project.ExportFormatAudio = ListExportAudio.SelectedItem is DropItem ea && ea.Value is string audFmt ? audFmt : "OGG";
         if (TxtNamingObjects != null) _project.NamingRuleObjects = string.IsNullOrWhiteSpace(TxtNamingObjects.Text) ? "libre" : TxtNamingObjects.Text.Trim();
@@ -578,6 +610,75 @@ public partial class ProjectConfigWindow : Window
         _project.MusicVolume = (float)Math.Clamp(SldMusicVolume?.Value ?? 0.7, 0, 1);
         _project.SfxVolume = (float)Math.Clamp(SldSfxVolume?.Value ?? 1, 0, 1);
 
+        if (CmbRenderAaMode?.SelectedItem is System.Windows.Controls.ComboBoxItem aai && aai.Tag is string aat)
+            _project.RenderAntiAliasMode = ProjectRenderSettings.NormalizeAntiAliasMode(aat);
+        if (CmbMsaaSamples?.SelectedItem is System.Windows.Controls.ComboBoxItem msi && msi.Tag is int msVal)
+            _project.MsaaSampleCount = ProjectRenderSettings.NormalizeMsaaSamples(msVal);
+        if (CmbTextureFilter?.SelectedItem is System.Windows.Controls.ComboBoxItem tfi && tfi.Tag is string tft)
+            _project.TextureFilterMode = ProjectRenderSettings.NormalizeTextureFilter(tft);
+
         return true;
+    }
+
+    private void PopulateRenderCombosIfNeeded()
+    {
+        if (CmbRenderAaMode != null && CmbRenderAaMode.Items.Count == 0)
+        {
+            void Aa(string c, string t) => CmbRenderAaMode.Items.Add(new System.Windows.Controls.ComboBoxItem { Content = c, Tag = t });
+            Aa("Ninguno (recomendado pixel art)", ProjectRenderSettings.AntiAliasNone);
+            Aa("FXAA — post-proceso (reservado)", ProjectRenderSettings.AntiAliasFxaa);
+            Aa("MSAA — multisample (reservado)", ProjectRenderSettings.AntiAliasMsaa);
+        }
+
+        if (CmbMsaaSamples != null && CmbMsaaSamples.Items.Count == 0)
+        {
+            void Ms(string c, int t) => CmbMsaaSamples.Items.Add(new System.Windows.Controls.ComboBoxItem { Content = c, Tag = t });
+            Ms("0 (sin MSAA)", 0);
+            Ms("2×", 2);
+            Ms("4×", 4);
+            Ms("8×", 8);
+        }
+
+        if (CmbTextureFilter != null && CmbTextureFilter.Items.Count == 0)
+        {
+            void Tf(string c, string t) => CmbTextureFilter.Items.Add(new System.Windows.Controls.ComboBoxItem { Content = c, Tag = t });
+            Tf("Point / nearest (pixel art)", ProjectRenderSettings.FilterNearest);
+            Tf("Bilinear (suavizado)", ProjectRenderSettings.FilterBilinear);
+        }
+    }
+
+    private void ApplyRenderSettingsToCombos()
+    {
+        SelectComboItemByTag(CmbRenderAaMode, ProjectRenderSettings.NormalizeAntiAliasMode(_project.RenderAntiAliasMode));
+        var ms = ProjectRenderSettings.NormalizeMsaaSamples(_project.MsaaSampleCount);
+        SelectComboItemByTag(CmbMsaaSamples, ms);
+        SelectComboItemByTag(CmbTextureFilter, ProjectRenderSettings.NormalizeTextureFilter(_project.TextureFilterMode));
+        UpdateMsaaComboEnabled();
+    }
+
+    private static void SelectComboItemByTag(System.Windows.Controls.ComboBox? cb, object tagValue)
+    {
+        if (cb == null) return;
+        foreach (var o in cb.Items)
+        {
+            if (o is System.Windows.Controls.ComboBoxItem ci && Equals(ci.Tag, tagValue))
+            {
+                cb.SelectedItem = o;
+                return;
+            }
+        }
+        if (cb.Items.Count > 0) cb.SelectedIndex = 0;
+    }
+
+    private void CmbRenderAaMode_OnSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        UpdateMsaaComboEnabled();
+    }
+
+    private void UpdateMsaaComboEnabled()
+    {
+        if (CmbMsaaSamples == null || CmbRenderAaMode?.SelectedItem is not System.Windows.Controls.ComboBoxItem ci) return;
+        var t = ci.Tag as string;
+        CmbMsaaSamples.IsEnabled = string.Equals(t, ProjectRenderSettings.AntiAliasMsaa, StringComparison.OrdinalIgnoreCase);
     }
 }

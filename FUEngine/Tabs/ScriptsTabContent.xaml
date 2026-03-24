@@ -18,7 +18,8 @@
                 <TextBlock Text="Scripts del proyecto" FontWeight="SemiBold" Foreground="#e6edf3" Margin="0,0,0,8"/>
                 <ListBox x:Name="ScriptsList" Grid.Row="1" Background="Transparent" Foreground="#e6edf3" 
                          SelectionChanged="ScriptsList_OnSelectionChanged"
-                         MouseDoubleClick="ScriptsList_OnMouseDoubleClick">
+                         MouseDoubleClick="ScriptsList_OnMouseDoubleClick"
+                         ContextMenuOpening="ScriptsList_ContextMenuOpening">
                     <ListBox.ContextMenu>
                         <ContextMenu>
                             <MenuItem Header="Abrir" Click="ScriptsContext_Open"/>

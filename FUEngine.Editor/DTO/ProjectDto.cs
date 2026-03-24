@@ -41,6 +41,7 @@ public class ProjectDto
     public string? AssetsRootFolder { get; set; } = "Assets";
     public int ProjectGridSnapPx { get; set; } = 0;
     public string? DefaultFirstSceneBackgroundColor { get; set; }
+    public string? EditorMapCanvasBackgroundColor { get; set; }
     public string? HUDColor { get; set; }
     public string? HUDStyle { get; set; }
     public string? GameFontFamily { get; set; }
@@ -57,6 +58,11 @@ public class ProjectDto
     public string? ProtagonistInstanceId { get; set; }
     public bool UseNativeInput { get; set; }
     public bool UseNativeCameraFollow { get; set; }
+    /// <summary>Centro del marco de resolución en el editor (casillas mundo).</summary>
+    public double EditorViewportCenterWorldX { get; set; }
+    public double EditorViewportCenterWorldY { get; set; }
+    /// <summary>No pausar Play embebido al editar en Mapa.</summary>
+    public bool KeepEmbeddedPlayRunningWithMapTab { get; set; } = true;
     public float NativeCameraSmoothing { get; set; } = 8f;
     public float NativeMoveSpeedTilesPerSecond { get; set; } = 4f;
     public bool AutoFlipSprite { get; set; }
@@ -79,6 +85,15 @@ public class ProjectDto
     public int? RuntimeRandomSeed { get; set; }
     public string? BootstrapScriptId { get; set; }
     public bool PixelPerfect { get; set; } = true;
+
+    /// <summary>none | fxaa | msaa</summary>
+    public string? RenderAntiAliasMode { get; set; }
+
+    public int MsaaSampleCount { get; set; }
+
+    /// <summary>nearest | bilinear</summary>
+    public string? TextureFilterMode { get; set; }
+
     public double InitialZoom { get; set; } = 1.0;
     public bool LightShadowDefault { get; set; } = false;
     public bool DebugMode { get; set; } = false;
@@ -117,8 +132,13 @@ public class ProjectDto
     public bool CreatedWithFUEngine { get; set; } = true;
     /// <summary>Versión de FUEngine con la que se guardó el proyecto (ej: 0.0.1).</summary>
     public string? EngineVersion { get; set; }
+
+    /// <summary>Versión de esquema del JSON del proyecto; ausente o 0 en archivos antiguos.</summary>
+    public int ProjectFormatVersion { get; set; }
     /// <summary>Lenguaje de scripting (ej: "Lua"). Por defecto "Lua".</summary>
     public string ScriptingLanguage { get; set; } = "Lua";
+    /// <summary>Proveedor de anuncios en exportación móvil: "simulated" o "google_mobile_ads" (metadatos en Data/ads_export.json).</summary>
+    public string? AdsExportProvider { get; set; }
     public SplashConfigDto? Splash { get; set; }
     /// <summary>Lista de escenas del proyecto (Start, End por defecto en proyecto nuevo).</summary>
     public List<SceneDto>? Scenes { get; set; }

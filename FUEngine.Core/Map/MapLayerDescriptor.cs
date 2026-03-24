@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace FUEngine.Core;
 
 /// <summary>
@@ -48,6 +50,15 @@ public class MapLayerDescriptor
     /// <summary>Ruta relativa al JSON del tileset (ej. Assets/Tilesets/terrain.tileset.json) para Lua/API por ID en esta capa.</summary>
     public string? TilesetAssetPath { get; set; }
 
+    /// <summary>Ruta relativa al proyecto del script Lua de capa (mismo criterio que ScriptComponent). Vacío = sin script.</summary>
+    public string? LayerScriptId { get; set; }
+
+    /// <summary>Si false, no se carga ni ejecuta el script de capa en Play.</summary>
+    public bool LayerScriptEnabled { get; set; } = true;
+
+    /// <summary>Propiedades inyectadas en el entorno Lua del script de capa (como en objetos).</summary>
+    public List<ScriptPropertyEntry> LayerScriptProperties { get; set; } = new();
+
     public MapLayerDescriptor Clone()
     {
         return new MapLayerDescriptor
@@ -68,7 +79,10 @@ public class MapLayerDescriptor
             CollisionMask = CollisionMask,
             RenderAbovePlayer = RenderAbovePlayer,
             BackgroundTexturePath = BackgroundTexturePath,
-            TilesetAssetPath = TilesetAssetPath
+            TilesetAssetPath = TilesetAssetPath,
+            LayerScriptId = LayerScriptId,
+            LayerScriptEnabled = LayerScriptEnabled,
+            LayerScriptProperties = LayerScriptProperties?.ConvertAll(p => new ScriptPropertyEntry { Key = p.Key, Type = p.Type, Value = p.Value }) ?? new List<ScriptPropertyEntry>()
         };
     }
 }

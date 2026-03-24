@@ -83,7 +83,7 @@ public static class UICanvasSerialization
         var e = new UIElement
         {
             Id = d.Id ?? "",
-            Kind = d.Kind >= 0 && d.Kind <= (int)UIElementKind.Panel ? (UIElementKind)d.Kind : UIElementKind.Panel,
+            Kind = d.Kind >= 0 && d.Kind <= (int)UIElementKind.TabControl ? (UIElementKind)d.Kind : UIElementKind.Panel,
             Rect = new UIRect { X = d.X, Y = d.Y, Width = d.Width, Height = d.Height },
             Anchors = new UIAnchors { MinX = d.AnchorMinX, MinY = d.AnchorMinY, MaxX = d.AnchorMaxX, MaxY = d.AnchorMaxY },
             Text = d.Text ?? "",

@@ -1,8 +1,10 @@
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using FUEngine.Core;
 
 namespace FUEngine;
@@ -27,9 +29,92 @@ public partial class ScriptsTabContent : System.Windows.Controls.UserControl
     {
         _scripts = scripts?.ToList();
         ScriptsList.Items.Clear();
-        if (_scripts == null) return;
-        foreach (var s in _scripts)
-            ScriptsList.Items.Add(new ScriptListItem { Id = s.Id, Display = $"{s.Nombre} ({s.Id})" });
+
+        static string NormRel(string rel) => rel.Replace('\\', '/').TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+
+        static string GetScriptRelativePath(ScriptDefinition s)
+        {
+            if (!string.IsNullOrWhiteSpace(s.Path))
+                return NormRel(s.Path.Trim());
+            return NormRel(Path.Combine("Scripts", s.Id + ".lua"));
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var rows = new List<ScriptListItem>();
+
+        if (_scripts != null)
+        {
+            foreach (var s in _scripts)
+            {
+                var rel = GetScriptRelativePath(s);
+                seen.Add(rel);
+                var fileName = Path.GetFileName(rel);
+                rows.Add(new ScriptListItem { Id = s.Id, Display = $"{s.Nombre} · {fileName}", OpenRelativePath = null });
+            }
+        }
+
+        if (!string.IsNullOrEmpty(_projectDirectory))
+        {
+            var rootJson = Path.Combine(_projectDirectory, "scripts.json");
+            if (File.Exists(rootJson) && !seen.Contains("scripts.json"))
+            {
+                rows.Insert(0, new ScriptListItem
+                {
+                    Id = "__file_scripts_json__",
+                    Display = "scripts.json · registro",
+                    OpenRelativePath = "scripts.json"
+                });
+                seen.Add("scripts.json");
+            }
+
+            var scriptsDir = Path.Combine(_projectDirectory, "Scripts");
+            if (Directory.Exists(scriptsDir))
+            {
+                foreach (var full in Directory.EnumerateFiles(scriptsDir, "*.json", SearchOption.TopDirectoryOnly).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+                {
+                    var rel = NormRel(Path.GetRelativePath(_projectDirectory, full));
+                    if (seen.Contains(rel)) continue;
+                    seen.Add(rel);
+                    var name = Path.GetFileName(full);
+                    rows.Add(new ScriptListItem
+                    {
+                        Id = "__json_" + rel,
+                        Display = $"{name} · JSON",
+                        OpenRelativePath = rel
+                    });
+                }
+                foreach (var full in Directory.EnumerateFiles(scriptsDir, "*.lua", SearchOption.TopDirectoryOnly).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+                {
+                    var rel = NormRel(Path.GetRelativePath(_projectDirectory, full));
+                    if (seen.Contains(rel)) continue;
+                    seen.Add(rel);
+                    var name = Path.GetFileName(full);
+                    rows.Add(new ScriptListItem
+                    {
+                        Id = "__lua_" + rel,
+                        Display = $"{name} · Lua",
+                        OpenRelativePath = rel
+                    });
+                }
+                foreach (var full in Directory.EnumerateFiles(scriptsDir, "*.script", SearchOption.TopDirectoryOnly).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+                {
+                    var rel = NormRel(Path.GetRelativePath(_projectDirectory, full));
+                    if (seen.Contains(rel)) continue;
+                    seen.Add(rel);
+                    var name = Path.GetFileName(full);
+                    rows.Add(new ScriptListItem
+                    {
+                        Id = "__script_" + rel,
+                        Display = $"{name} · script",
+                        OpenRelativePath = rel
+                    });
+                }
+            }
+        }
+
+        foreach (var r in rows)
+            ScriptsList.Items.Add(r);
+
         ScriptsList.DisplayMemberPath = "Display";
 
         if (!string.IsNullOrEmpty(selectScriptId))
@@ -94,14 +179,41 @@ public partial class ScriptsTabContent : System.Windows.Controls.UserControl
         OpenSelectedScript();
     }
 
+    private void ScriptsList_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (e.OriginalSource is not System.Windows.DependencyObject dep) return;
+        var lbi = FindParentListBoxItem(dep);
+        if (lbi?.DataContext is ScriptListItem item)
+            ScriptsList.SelectedItem = item;
+    }
+
+    private static ListBoxItem? FindParentListBoxItem(System.Windows.DependencyObject? dep)
+    {
+        while (dep != null)
+        {
+            if (dep is ListBoxItem lbi) return lbi;
+            dep = VisualTreeHelper.GetParent(dep);
+        }
+        return null;
+    }
+
     private void OpenSelectedScript()
     {
-        if (ScriptsList.SelectedItem is not ScriptListItem item || _scripts == null) return;
+        if (ScriptsList.SelectedItem is not ScriptListItem item) return;
+        if (!string.IsNullOrEmpty(item.OpenRelativePath))
+        {
+            var pathJson = Path.Combine(_projectDirectory, item.OpenRelativePath);
+            if (!File.Exists(pathJson)) return;
+            var tabName = Path.GetFileName(item.OpenRelativePath);
+            OpenOrSelectTab(pathJson, tabName);
+            return;
+        }
+        if (_scripts == null) return;
         var script = _scripts.FirstOrDefault(s => s.Id == item.Id);
         if (script == null) return;
         var relPath = !string.IsNullOrWhiteSpace(script.Path) ? script.Path : Path.Combine("Scripts", script.Id + ".lua");
-        var fullPath = Path.Combine(_projectDirectory, relPath);
-        OpenOrSelectTab(fullPath, script.Nombre);
+        var pathLua = Path.Combine(_projectDirectory, relPath);
+        OpenOrSelectTab(pathLua, Path.GetFileName(relPath));
     }
 
     private void ScriptsContext_Open(object sender, RoutedEventArgs e)
@@ -111,12 +223,8 @@ public partial class ScriptsTabContent : System.Windows.Controls.UserControl
 
     private void ScriptsContext_OpenInExplorer(object sender, RoutedEventArgs e)
     {
-        if (ScriptsList.SelectedItem is not ScriptListItem item || _scripts == null) return;
-        var script = _scripts.FirstOrDefault(s => s.Id == item.Id);
-        if (script == null) return;
-        var relPath = !string.IsNullOrWhiteSpace(script.Path) ? script.Path : Path.Combine("Scripts", script.Id + ".lua");
-        var fullPath = Path.Combine(_projectDirectory, relPath);
-        if (File.Exists(fullPath))
+        var fullPath = TryGetSelectedScriptFullPath();
+        if (fullPath != null && File.Exists(fullPath))
         {
             try
             {
@@ -128,13 +236,8 @@ public partial class ScriptsTabContent : System.Windows.Controls.UserControl
 
     private void ScriptsContext_OpenInExternalEditor(object sender, RoutedEventArgs e)
     {
-        if (ScriptsList.SelectedItem is not ScriptListItem item || _scripts == null) return;
-        var script = _scripts.FirstOrDefault(s => s.Id == item.Id);
-        if (script == null) return;
-
-        var relPath = !string.IsNullOrWhiteSpace(script.Path) ? script.Path : Path.Combine("Scripts", script.Id + ".lua");
-        var fullPath = Path.Combine(_projectDirectory, relPath);
-        if (!File.Exists(fullPath)) return;
+        var fullPath = TryGetSelectedScriptFullPath();
+        if (fullPath == null || !File.Exists(fullPath)) return;
 
         var settings = EngineSettings.Load();
         var editorExePath = settings.ExternalCodeEditorPath?.Trim() ?? "";
@@ -142,7 +245,16 @@ public partial class ScriptsTabContent : System.Windows.Controls.UserControl
 
         if (!hasValidExe)
         {
-            ScriptsContext_OpenInExplorer(sender, e);
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "notepad.exe",
+                    Arguments = $"\"{fullPath}\"",
+                    UseShellExecute = true
+                });
+            }
+            catch { /* ignore */ }
             return;
         }
 
@@ -160,6 +272,18 @@ public partial class ScriptsTabContent : System.Windows.Controls.UserControl
             // Fallback si el editor configurado falla al arrancar o no acepta la línea de comandos.
             ScriptsContext_OpenInExplorer(sender, e);
         }
+    }
+
+    private string? TryGetSelectedScriptFullPath()
+    {
+        if (ScriptsList.SelectedItem is not ScriptListItem item) return null;
+        if (!string.IsNullOrEmpty(item.OpenRelativePath))
+            return Path.Combine(_projectDirectory, item.OpenRelativePath);
+        if (_scripts == null) return null;
+        var script = _scripts.FirstOrDefault(s => s.Id == item.Id);
+        if (script == null) return null;
+        var relPath = !string.IsNullOrWhiteSpace(script.Path) ? script.Path : Path.Combine("Scripts", script.Id + ".lua");
+        return Path.Combine(_projectDirectory, relPath);
     }
 
     private void OpenOrSelectTab(string fullPath, string displayName)
@@ -249,5 +373,7 @@ public partial class ScriptsTabContent : System.Windows.Controls.UserControl
     {
         public string Id { get; set; } = "";
         public string Display { get; set; } = "";
+        /// <summary>Ruta relativa al proyecto para abrir sin pasar por scripts.json (p. ej. scripts.json o JSON sueltos en Scripts/).</summary>
+        public string? OpenRelativePath { get; set; }
     }
 }

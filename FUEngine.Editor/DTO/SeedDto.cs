@@ -24,4 +24,5 @@ public class SeedObjectEntryDto
     public double OffsetY { get; set; }
     public double Rotation { get; set; }
     public string? Nombre { get; set; }
+    public string? SerializedInstanceJson { get; set; }
 }

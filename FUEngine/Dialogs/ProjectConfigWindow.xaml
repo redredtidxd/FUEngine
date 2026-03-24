@@ -259,6 +259,24 @@
                                 </Border>
                             </Popup>
                         </Grid>
+                        <TextBlock Text="Render (calidad / pixel art)" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,16,0,6"
+                                   ToolTip="Opciones guardadas en proyecto.json; el runtime Vulkan las consumirá cuando haya soporte."/>
+                        <TextBlock Text="Antialiasing global" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Ninguno mantiene píxeles nítidos; FXAA/MSAA son rutas previstas para arte HD o bordes suaves."/>
+                        <ComboBox x:Name="CmbRenderAaMode" Margin="0,0,0,8" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                  SelectionChanged="CmbRenderAaMode_OnSelectionChanged"
+                                  ToolTip="none: sin AA (pixel art). fxaa/msaa: reservados para implementación futura en el visor de juego."/>
+                        <TextBlock Text="Muestras MSAA" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Solo tiene efecto cuando el modo AA es MSAA y el backend lo implemente."/>
+                        <ComboBox x:Name="CmbMsaaSamples" Margin="0,0,0,8" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                  ToolTip="2×, 4× u 8× son valores típicos."/>
+                        <TextBlock Text="Filtrado de texturas" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Nearest = punto (pixel art); Bilinear = suavizado entre texels."/>
+                        <ComboBox x:Name="CmbTextureFilter" Margin="0,0,0,8" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                  ToolTip="nearest: muestreo de punto. bilinear: interpolación (puede suavizar demasiado el pixel art)."/>
+                        <TextBlock Foreground="#6e7681" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"
+                                   Text="Para estética retro: AA en Ninguno, filtro Point/nearest, resolución interna fija y «Pixel perfect» en proyecto. Subpíxeles: evita escalas no enteras al ampliar a pantalla para reducir parpadeo en scroll."
+                                   ToolTip="Resumen de buenas prácticas; el checklist Pixel perfect ya existe en datos del proyecto."/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -420,8 +438,22 @@
                                  ToolTip="Entero en píxeles; útil para alinear props a sub-tiles."/>
                         <TextBlock Text="Fondo por defecto primera escena (hex)" Foreground="#e6edf3" Margin="0,0,0,4"
                                    ToolTip="Color de borrado de pantalla al crear la primera escena (hex #RRGGBB)."/>
-                        <TextBox x:Name="TxtDefaultSceneBg" Width="100" HorizontalAlignment="Left" Margin="0,0,0,12" Padding="6,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
-                                 ToolTip="Ej.: #1a1a2e — color de fondo del viewport en juego."/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBox x:Name="TxtDefaultSceneBg" Width="100" Padding="6,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                     ToolTip="Ej.: #1a1a2e — color de fondo del viewport en juego."/>
+                            <Button x:Name="BtnPickDefaultSceneBg" Content="…" MinWidth="40" Margin="8,0,0,0" Padding="8,4" Click="BtnPickDefaultSceneBg_OnClick"
+                                    Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                    ToolTip="Elegir color (Windows)"/>
+                        </StackPanel>
+                        <TextBlock Text="Fondo del lienzo del mapa en el editor (hex)" Foreground="#e6edf3" Margin="0,0,0,4"
+                                   ToolTip="Color del lienzo detrás del mapa en la pestaña Mapa (proyecto.json)."/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <TextBox x:Name="TxtEditorMapCanvasBg" Width="100" Padding="6,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                     ToolTip="Ej.: #21262d — fondo del área de edición del mapa."/>
+                            <Button x:Name="BtnPickEditorMapCanvasBg" Content="…" MinWidth="40" Margin="8,0,0,0" Padding="8,4" Click="BtnPickEditorMapCanvasBg_OnClick"
+                                    Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                    ToolTip="Elegir color (Windows)"/>
+                        </StackPanel>
                         <TextBlock Text="Formato exportación: imágenes / audio" Foreground="#e6edf3" Margin="0,0,0,4"
                                    ToolTip="Formato de archivo al exportar o empaquetar texturas y sonidos de este proyecto."/>
                         <Grid Margin="0,0,0,4">

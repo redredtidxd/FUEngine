@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json.Serialization;
 
 namespace FUEngine;
@@ -208,7 +209,86 @@ public class EngineSettings
     public List<string> DefaultVisiblePanels { get; set; } = new() { "Consola", "Inspector", "Scene", "Map" };
 
     [JsonPropertyName("defaultSceneBackgroundColor")]
-    public string DefaultSceneBackgroundColor { get; set; } = "#1a1a2e";
+    public string DefaultSceneBackgroundColor { get; set; } = "#FFFFFF";
+
+    /// <summary>
+    /// Orden de carpetas en la raíz al marcar «Generar jerarquía estándar» en el asistente de proyecto.
+    /// <c>default</c> = <see cref="DefaultNewProjectRootFolderOrder"/>; <c>custom</c> = <see cref="CustomNewProjectRootFolderOrder"/>.
+    /// </summary>
+    [JsonPropertyName("newProjectRootFolderOrderPresetId")]
+    public string NewProjectRootFolderOrderPresetId { get; set; } = "default";
+
+    /// <summary>Una carpeta por entrada; solo se usa si el preset es <c>custom</c>.</summary>
+    [JsonPropertyName("customNewProjectRootFolderOrder")]
+    public List<string> CustomNewProjectRootFolderOrder { get; set; } = new();
+
+    /// <summary>
+    /// Carpetas **adicionales** en la raíz al crear proyecto con «Generar jerarquía estándar».
+    /// No sustituyen el orden Sprites/Maps/…; se crean además (nombres de una sola carpeta, sin rutas).
+    /// </summary>
+    [JsonPropertyName("extraNewProjectRootFolders")]
+    public List<string> ExtraNewProjectRootFolders { get; set; } = new();
+
+    /// <summary>
+    /// Tema que añade carpetas extra predefinidas (se combina con <see cref="ExtraNewProjectRootFolders"/>):
+    /// <c>none</c>, <c>ui</c>, <c>jam</c>, <c>content</c>.
+    /// </summary>
+    [JsonPropertyName("newProjectExplorerThemeId")]
+    public string NewProjectExplorerThemeId { get; set; } = "none";
+
+    /// <summary>«Modo depuración» marcado por defecto en el asistente de nuevo proyecto.</summary>
+    [JsonPropertyName("defaultNewProjectDebugMode")]
+    public bool DefaultNewProjectDebugMode { get; set; } = true;
+
+    /// <summary>Orden predefinido del motor (raíz del proyecto).</summary>
+    public static readonly string[] DefaultNewProjectRootFolderOrder = { "Sprites", "Maps", "Scripts", "Audio", "Seeds" };
+
+    /// <summary>Resuelve la lista ordenada de carpetas raíz para proyectos nuevos según esta configuración.</summary>
+    public IReadOnlyList<string> GetResolvedNewProjectStandardRootFolders()
+    {
+        if (string.Equals(NewProjectRootFolderOrderPresetId?.Trim(), "custom", StringComparison.OrdinalIgnoreCase))
+        {
+            var list = CustomNewProjectRootFolderOrder?
+                .Select(s => s?.Trim() ?? "")
+                .Where(s => s.Length > 0)
+                .ToList() ?? new List<string>();
+            if (list.Count > 0) return list;
+        }
+        return DefaultNewProjectRootFolderOrder;
+    }
+
+    /// <summary>Carpetas extra (tema + lista manual) para proyectos nuevos; sin duplicados.</summary>
+    public IReadOnlyList<string> GetResolvedExtraNewProjectRootFolders()
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        void TryAdd(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return;
+            var t = name.Trim();
+            if (t.Length == 0 || t is "." or ".." || t.Contains('/') || t.Contains('\\')) return;
+            if (t.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0) return;
+            set.Add(t);
+        }
+        foreach (var x in ExtraNewProjectRootFolders ?? new List<string>())
+            TryAdd(x);
+        switch ((NewProjectExplorerThemeId ?? "none").Trim().ToLowerInvariant())
+        {
+            case "ui":
+                TryAdd("UI");
+                TryAdd("Prefabs");
+                break;
+            case "jam":
+                TryAdd("Screenshots");
+                TryAdd("Build");
+                break;
+            case "content":
+                TryAdd("UI");
+                TryAdd("Plugins");
+                TryAdd("StreamingAssets");
+                break;
+        }
+        return set.ToList();
+    }
 
     [JsonPropertyName("thumbnailPreviewEnabled")]
     public bool ThumbnailPreviewEnabled { get; set; } = true;
@@ -290,7 +370,7 @@ public class EngineSettings
     public string AiIntegrationPath { get; set; } = "";
 
     [JsonPropertyName("autoLogsEnabled")]
-    public bool AutoLogsEnabled { get; set; } = false;
+    public bool AutoLogsEnabled { get; set; } = true;
 
     [JsonPropertyName("autoLogsPath")]
     public string AutoLogsPath { get; set; } = "";

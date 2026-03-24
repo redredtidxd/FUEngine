@@ -4,6 +4,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 
@@ -41,6 +42,9 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
     /// <summary>Tras mutar scripts.json (borrar/renombrar/duplicar script, carpeta de scripts, etc.).</summary>
     public event EventHandler? ScriptsRegistryChanged;
 
+    /// <summary>Arrastrar un objeto desde la jerarquía/inspector sobre una carpeta del explorador: guardar como .seed en esa ruta.</summary>
+    public event EventHandler<(string InstanceId, string TargetFolderPath)>? RequestExportObjectAsSeed;
+
     /// <summary>Crear desde menú contextual del explorador: capas, triggers, objetos.</summary>
     public event EventHandler? RequestCreateTileLayer;
     public event EventHandler? RequestCreateObjectLayer;
@@ -66,6 +70,7 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
     {
         _projectDirectory = projectDirectory ?? "";
         _projectName = projectName ?? "Proyecto";
+        _gridCurrentFolderPath = _projectDirectory;
         RefreshTree();
         ApplyCompactMode();
     }
@@ -306,7 +311,10 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
     private int _restoreVersion;
 
     private List<ProjectExplorerItem> _flatItems = new();
+    private readonly List<ProjectExplorerItem> _gridFolderItems = new();
     private string _viewMode = "Tree";
+    /// <summary>Carpeta mostrada en vista Grid (ruta absoluta bajo el proyecto).</summary>
+    private string _gridCurrentFolderPath = "";
 
     public void RefreshTree()
     {
@@ -335,7 +343,115 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
         _flatItems.Clear();
         if (viewRoot != null) FlattenInto(viewRoot, _flatItems);
         if (ProjectList != null) { ProjectList.ItemsSource = null; ProjectList.ItemsSource = _flatItems; }
-        if (ProjectGrid != null) { ProjectGrid.ItemsSource = null; ProjectGrid.ItemsSource = _flatItems; }
+        if (ProjectGrid != null)
+        {
+            _gridFolderItems.Clear();
+            foreach (var it in BuildGridFolderItems(viewRoot))
+                _gridFolderItems.Add(it);
+            ProjectGrid.ItemsSource = null;
+            ProjectGrid.ItemsSource = _gridFolderItems;
+        }
+        UpdateGridBreadcrumb();
+    }
+
+    private IEnumerable<ProjectExplorerItem> BuildGridFolderItems(ProjectExplorerItem? viewRoot)
+    {
+        _ = viewRoot;
+        if (_rootFull == null || string.IsNullOrEmpty(_projectDirectory)) yield break;
+        var folder = string.IsNullOrEmpty(_gridCurrentFolderPath) ? _projectDirectory : _gridCurrentFolderPath;
+        if (!folder.StartsWith(_projectDirectory, StringComparison.OrdinalIgnoreCase))
+            folder = _projectDirectory;
+        if (!Directory.Exists(folder))
+            folder = _projectDirectory;
+        var node = FindItemByPath(_rootFull, folder);
+        if (node == null || !node.IsFolder)
+        {
+            folder = _projectDirectory;
+            _gridCurrentFolderPath = folder;
+            node = FindItemByPath(_rootFull, folder);
+        }
+        if (node == null) yield break;
+        foreach (var c in node.Children)
+        {
+            if (c.IsFolder)
+            {
+                yield return c;
+                continue;
+            }
+            if (_sceneUsedPaths != null && _sceneFilterMode != 0)
+            {
+                var used = _sceneUsedPaths.Contains(c.FullPath);
+                if (_sceneFilterMode == 1 && !used) continue;
+                if (_sceneFilterMode == 2 && used) continue;
+            }
+            if (MatchesFilter(c) && MatchesSearch(c))
+                yield return c;
+        }
+    }
+
+    private void UpdateGridBreadcrumb()
+    {
+        if (TxtGridFolder == null || BtnGridUp == null) return;
+        if (string.IsNullOrEmpty(_projectDirectory))
+        {
+            TxtGridFolder.Text = "";
+            BtnGridUp.IsEnabled = false;
+            return;
+        }
+        var folder = string.IsNullOrEmpty(_gridCurrentFolderPath) ? _projectDirectory : _gridCurrentFolderPath;
+        if (!folder.StartsWith(_projectDirectory, StringComparison.OrdinalIgnoreCase))
+            folder = _projectDirectory;
+        var rel = string.Equals(folder, _projectDirectory, StringComparison.OrdinalIgnoreCase)
+            ? "(raíz)"
+            : Path.GetRelativePath(_projectDirectory, folder).Replace('\\', '/');
+        TxtGridFolder.Text = rel;
+        BtnGridUp.IsEnabled = !string.Equals(folder, _projectDirectory, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void NavigateGridToFolder(string absoluteFolderPath)
+    {
+        if (string.IsNullOrEmpty(_projectDirectory)) return;
+        var p = absoluteFolderPath ?? _projectDirectory;
+        if (!p.StartsWith(_projectDirectory, StringComparison.OrdinalIgnoreCase))
+            p = _projectDirectory;
+        if (!Directory.Exists(p))
+            p = _projectDirectory;
+        _gridCurrentFolderPath = p;
+        if (_rootFull != null)
+        {
+            var viewRoot = FilterAndClone(_rootFull);
+            UpdateFlatList(viewRoot);
+        }
+        else
+            RefreshTree();
+    }
+
+    private void BtnGridRoot_OnClick(object sender, RoutedEventArgs e)
+    {
+        NavigateGridToFolder(_projectDirectory);
+    }
+
+    private void BtnGridUp_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(_projectDirectory)) return;
+        var folder = string.IsNullOrEmpty(_gridCurrentFolderPath) ? _projectDirectory : _gridCurrentFolderPath;
+        if (string.Equals(folder, _projectDirectory, StringComparison.OrdinalIgnoreCase)) return;
+        var parent = Path.GetDirectoryName(folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        if (string.IsNullOrEmpty(parent) || !parent.StartsWith(_projectDirectory, StringComparison.OrdinalIgnoreCase))
+            parent = _projectDirectory;
+        NavigateGridToFolder(parent);
+    }
+
+    private static void ClearTreeViewSelection(System.Windows.Controls.ItemsControl parent)
+    {
+        foreach (var item in parent.Items)
+        {
+            if (parent.ItemContainerGenerator.ContainerFromItem(item) is System.Windows.Controls.TreeViewItem tvi)
+            {
+                tvi.IsSelected = false;
+                ClearTreeViewSelection(tvi);
+            }
+        }
     }
 
     public void SetViewMode(string mode)
@@ -344,12 +460,44 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
         if (ProjectTree != null) ProjectTree.Visibility = _viewMode == "Tree" ? Visibility.Visible : Visibility.Collapsed;
         if (ProjectList != null) ProjectList.Visibility = _viewMode == "List" ? Visibility.Visible : Visibility.Collapsed;
         if (ProjectGridScroll != null) ProjectGridScroll.Visibility = _viewMode == "Grid" ? Visibility.Visible : Visibility.Collapsed;
+        if (GridBreadcrumbPanel != null)
+            GridBreadcrumbPanel.Visibility = _viewMode == "Grid" ? Visibility.Visible : Visibility.Collapsed;
+        if (_viewMode == "Grid" && !string.IsNullOrEmpty(_projectDirectory))
+        {
+            if (string.IsNullOrEmpty(_gridCurrentFolderPath) || !Directory.Exists(_gridCurrentFolderPath))
+                _gridCurrentFolderPath = _projectDirectory;
+            if (_rootFull != null)
+            {
+                var viewRoot = FilterAndClone(_rootFull);
+                UpdateFlatList(viewRoot);
+            }
+        }
+        UpdateGridBreadcrumb();
     }
 
     private void ProjectList_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (ProjectList?.SelectedItem is ProjectExplorerItem item)
             SelectionChanged?.Invoke(this, item);
+        else
+        {
+            SelectionChanged?.Invoke(this, null);
+            UpdatePreview(null);
+        }
+    }
+
+    private void ProjectList_OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.ListBox lb) return;
+        var pos = e.GetPosition(lb);
+        var hit = VisualTreeHelper.HitTest(lb, pos);
+        DependencyObject? d = hit?.VisualHit;
+        while (d != null && d is not System.Windows.Controls.ListBoxItem)
+            d = VisualTreeHelper.GetParent(d);
+        if (d is System.Windows.Controls.ListBoxItem) return;
+        lb.SelectedItem = null;
+        SelectionChanged?.Invoke(this, null);
+        UpdatePreview(null);
     }
 
     private void ProjectList_OnMouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -360,11 +508,34 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
 
     private void ProjectGridItem_OnMouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (sender is System.Windows.FrameworkElement fe && fe.DataContext is ProjectExplorerItem item)
+        if (sender is not System.Windows.FrameworkElement fe || fe.DataContext is not ProjectExplorerItem item) return;
+        SelectionChanged?.Invoke(this, item);
+        UpdatePreview(item);
+        if (e.ClickCount != 2) return;
+        if (item.IsFolder && !string.IsNullOrEmpty(item.FullPath))
         {
-            SelectionChanged?.Invoke(this, item);
-            if (e.ClickCount == 2) OpenInEditor(item);
+            NavigateGridToFolder(item.FullPath);
+            e.Handled = true;
+            return;
         }
+        TryOpenExplorerItem(item);
+    }
+
+    private void ProjectGridScroll_OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (ProjectGrid == null) return;
+        var pos = e.GetPosition(ProjectGrid);
+        var hit = VisualTreeHelper.HitTest(ProjectGrid, pos);
+        if (hit?.VisualHit == null) return;
+        DependencyObject? d = hit.VisualHit;
+        while (d != null && d != ProjectGrid)
+        {
+            if (d is System.Windows.FrameworkElement { DataContext: ProjectExplorerItem })
+                return;
+            d = VisualTreeHelper.GetParent(d);
+        }
+        SelectionChanged?.Invoke(this, null);
+        UpdatePreview(null);
     }
 
     public void SetModified(string fullPath, bool modified)
@@ -457,7 +628,7 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
     }
 
     /// <summary>Orden preferido de carpetas en la raíz del proyecto.</summary>
-    private static readonly string[] PreferredFolderOrder = { "Assets", "Maps", "Scripts", "Seeds" };
+    private static readonly string[] PreferredFolderOrder = { "Assets", "Scenes", "Maps", "Scripts", "Seeds" };
 
     /// <summary>Orden preferido de archivos en la raíz del proyecto.</summary>
     private static readonly string[] PreferredFileOrder = { "Project.FUE", "Project.json", "Settings.json", "proyecto.json", "mapa.json", "objetos.json", "scripts.json", "animaciones.json" };
@@ -495,6 +666,7 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
                 "animaciones.json" => ProjectFileType.Animations,
                 _ when ext == ".png" || ext == ".jpg" || ext == ".jpeg" => ProjectFileType.Sprite,
                 _ when ext == ".json" => ProjectFileType.Generic,
+                _ when ext == ".scene" => ProjectFileType.Scene,
                 _ when ext == ".wav" || ext == ".ogg" || ext == ".mp3" => ProjectFileType.Sound,
                 _ => ProjectFileType.Generic
             };
@@ -505,6 +677,7 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
                 ProjectFileType.Objects => "📦",
                 ProjectFileType.Scripts => "📜",
                 ProjectFileType.Animations => "🎬",
+                ProjectFileType.Scene => "🎞",
                 ProjectFileType.Sprite => "🖼",
                 ProjectFileType.Sound => "🔊",
                 _ => name.EndsWith("Settings.json", StringComparison.OrdinalIgnoreCase) ? "⚙" : "📄"
@@ -586,10 +759,12 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
                     ".wav" or ".ogg" or ".mp3" => ProjectFileType.Sound,
                     ".json" when isMapsFolder => ProjectFileType.Map,
                     ".json" => ProjectFileType.Generic,
+                    ".scene" => ProjectFileType.Scene,
                     _ => ProjectFileType.Generic
                 };
                 var icon = type == ProjectFileType.Map ? "🗺" : type switch
                 {
+                    ProjectFileType.Scene => "🎞",
                     ProjectFileType.Sprite => "🖼",
                     ProjectFileType.Sound => "🔊",
                     _ => "📄"
@@ -674,10 +849,16 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
     private void ProjectTree_OnMouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         var item = GetSelectedItem();
+        TryOpenExplorerItem(item);
+    }
+
+    /// <summary>Abre en el editor según tipo (misma lógica que doble clic en árbol).</summary>
+    public void TryOpenExplorerItem(ProjectExplorerItem? item)
+    {
         if (item == null || item.IsFolder || string.IsNullOrEmpty(item.FullPath)) return;
-        _metadataService?.RecordRecent(item.FullPath);
         var ext = Path.GetExtension(item.FullPath).ToLowerInvariant();
-        // Creative Suite: image opens in TileEditor, PaintEditor, or Collisions Editor
+        if (ext == ".fue" || ext == ".seed") return;
+        _metadataService?.RecordRecent(item.FullPath);
         if (CreativeSuiteMetadata.IsImagePath(item.FullPath))
         {
             RequestOpenInEditor?.Invoke(this, item);
@@ -773,6 +954,7 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
                     ProjectFileType.Objects => "Definiciones e instancias de objetos",
                     ProjectFileType.Scripts => "Scripts y eventos",
                     ProjectFileType.Animations => "Animaciones por frames",
+                    ProjectFileType.Scene => "Descriptor de escena (.scene)",
                     ProjectFileType.Sprite => "Imagen / sprite",
                     ProjectFileType.TileSet => "TileSet",
                     _ => Path.GetFileName(item.FullPath ?? "")
@@ -794,6 +976,23 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
 
     private void ProjectTree_OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (sender is System.Windows.Controls.TreeView tv)
+        {
+            var pos = e.GetPosition(tv);
+            var hit = VisualTreeHelper.HitTest(tv, pos);
+            DependencyObject? d = hit?.VisualHit;
+            while (d != null && d is not System.Windows.Controls.TreeViewItem)
+                d = VisualTreeHelper.GetParent(d);
+            if (d is not System.Windows.Controls.TreeViewItem)
+            {
+                ClearTreeViewSelection(tv);
+                SelectionChanged?.Invoke(this, null);
+                UpdatePreview(null);
+                _dragStartItem = null;
+                _dragStartPoint = null;
+                return;
+            }
+        }
         _dragStartItem = ProjectTree?.SelectedItem as ProjectExplorerItem;
         _dragStartPoint = e.GetPosition(ProjectTree);
     }
@@ -845,6 +1044,7 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
         var ext = Path.GetExtension(item.FullPath).ToLowerInvariant();
         var name = Path.GetFileName(item.FullPath).ToLowerInvariant();
         if (ext == ".json" && (name.StartsWith("seed") || item.FullPath.Replace("\\", "/").IndexOf("/Seeds/", StringComparison.OrdinalIgnoreCase) >= 0 || name.Contains("tileset"))) return true;
+        if (ext == ".seed") return true;
         if (ext == ".png" || ext == ".jpg" || ext == ".jpeg") return true;
         return false;
     }
@@ -1452,6 +1652,103 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
         return ProjectTree?.SelectedItem as ProjectExplorerItem;
     }
 
+    private string? ResolveDropFolderForTree(ProjectExplorerItem? target)
+    {
+        if (string.IsNullOrEmpty(_projectDirectory)) return null;
+        if (target == null) return _projectDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (target.IsFolder && !string.IsNullOrEmpty(target.FullPath))
+            return target.FullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (!string.IsNullOrEmpty(target.FullPath))
+            return Path.GetDirectoryName(target.FullPath);
+        return _projectDirectory;
+    }
+
+    private string? ResolveDropFolderForGrid(System.Windows.Point positionOnGrid)
+    {
+        if (string.IsNullOrEmpty(_projectDirectory) || ProjectGrid == null) return null;
+        var hit = VisualTreeHelper.HitTest(ProjectGrid, positionOnGrid);
+        DependencyObject? d = hit?.VisualHit;
+        while (d != null && d != ProjectGrid)
+        {
+            if (d is System.Windows.FrameworkElement fe && fe.DataContext is ProjectExplorerItem item)
+            {
+                if (item.IsFolder && !string.IsNullOrEmpty(item.FullPath))
+                    return item.FullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                if (!item.IsFolder && !string.IsNullOrEmpty(item.FullPath))
+                    return Path.GetDirectoryName(item.FullPath);
+            }
+            d = VisualTreeHelper.GetParent(d);
+        }
+        var folder = string.IsNullOrEmpty(_gridCurrentFolderPath) ? _projectDirectory : _gridCurrentFolderPath;
+        return folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    }
+
+    private static ProjectExplorerItem? GetListItemAtPosition(System.Windows.Controls.ListBox lb, System.Windows.Point position)
+    {
+        var dep = VisualTreeHelper.HitTest(lb, position)?.VisualHit;
+        while (dep != null)
+        {
+            if (dep is System.Windows.Controls.ListBoxItem lbi && lbi.DataContext is ProjectExplorerItem item)
+                return item;
+            dep = VisualTreeHelper.GetParent(dep);
+        }
+        return null;
+    }
+
+    private void ProjectList_OnDragOver(object sender, System.Windows.DragEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.ListBox lb) return;
+        if (e.Data.GetDataPresent(ObjectInspectorPanel.DataFormatObjectInstanceId))
+        {
+            var target = GetListItemAtPosition(lb, e.GetPosition(lb));
+            var dropFolder = ResolveDropFolderForTree(target);
+            e.Effects = !string.IsNullOrEmpty(dropFolder) && Directory.Exists(dropFolder) ? System.Windows.DragDropEffects.Copy : System.Windows.DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
+        e.Effects = System.Windows.DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void ProjectList_OnDrop(object sender, System.Windows.DragEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.ListBox lb) return;
+        if (!e.Data.GetDataPresent(ObjectInspectorPanel.DataFormatObjectInstanceId)) return;
+        var id = e.Data.GetData(ObjectInspectorPanel.DataFormatObjectInstanceId) as string;
+        var target = GetListItemAtPosition(lb, e.GetPosition(lb));
+        var dropFolder = ResolveDropFolderForTree(target);
+        if (!string.IsNullOrEmpty(id) && !string.IsNullOrEmpty(dropFolder))
+            RequestExportObjectAsSeed?.Invoke(this, (id, dropFolder));
+        e.Handled = true;
+    }
+
+    private void ProjectGridScroll_OnDragOver(object sender, System.Windows.DragEventArgs e)
+    {
+        if (ProjectGrid == null) return;
+        if (e.Data.GetDataPresent(ObjectInspectorPanel.DataFormatObjectInstanceId))
+        {
+            var pos = e.GetPosition(ProjectGrid);
+            var dropFolder = ResolveDropFolderForGrid(pos);
+            e.Effects = !string.IsNullOrEmpty(dropFolder) && Directory.Exists(dropFolder) ? System.Windows.DragDropEffects.Copy : System.Windows.DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
+        e.Effects = System.Windows.DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void ProjectGridScroll_OnDrop(object sender, System.Windows.DragEventArgs e)
+    {
+        if (ProjectGrid == null) return;
+        if (!e.Data.GetDataPresent(ObjectInspectorPanel.DataFormatObjectInstanceId)) return;
+        var id = e.Data.GetData(ObjectInspectorPanel.DataFormatObjectInstanceId) as string;
+        var pos = e.GetPosition(ProjectGrid);
+        var dropFolder = ResolveDropFolderForGrid(pos);
+        if (!string.IsNullOrEmpty(id) && !string.IsNullOrEmpty(dropFolder))
+            RequestExportObjectAsSeed?.Invoke(this, (id, dropFolder));
+        e.Handled = true;
+    }
+
     private void ProjectTree_OnDragOver(object sender, System.Windows.DragEventArgs e)
     {
         if (e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop))
@@ -1469,6 +1766,14 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
                 !paths.Any(p => string.Equals(p.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), targetDir, StringComparison.OrdinalIgnoreCase)) &&
                 !paths.Any(p => targetDir.StartsWith(p.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
             e.Effects = allowed ? System.Windows.DragDropEffects.Move : System.Windows.DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
+        if (e.Data.GetDataPresent(ObjectInspectorPanel.DataFormatObjectInstanceId))
+        {
+            var target = GetItemAtPosition(ProjectTree, e.GetPosition(ProjectTree));
+            var dropFolder = ResolveDropFolderForTree(target);
+            e.Effects = !string.IsNullOrEmpty(dropFolder) && Directory.Exists(dropFolder) ? System.Windows.DragDropEffects.Copy : System.Windows.DragDropEffects.None;
             e.Handled = true;
             return;
         }
@@ -1490,6 +1795,16 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
 
     private void ProjectTree_OnDrop(object sender, System.Windows.DragEventArgs e)
     {
+        if (e.Data.GetDataPresent(ObjectInspectorPanel.DataFormatObjectInstanceId))
+        {
+            var id = e.Data.GetData(ObjectInspectorPanel.DataFormatObjectInstanceId) as string;
+            var target = GetItemAtPosition(ProjectTree, e.GetPosition(ProjectTree));
+            var dropFolder = ResolveDropFolderForTree(target);
+            if (!string.IsNullOrEmpty(id) && !string.IsNullOrEmpty(dropFolder))
+                RequestExportObjectAsSeed?.Invoke(this, (id, dropFolder));
+            e.Handled = true;
+            return;
+        }
         if (e.Data.GetDataPresent(DataFormatExplorerItem))
         {
             var paths = e.Data.GetData(DataFormatExplorerItem) as string[];

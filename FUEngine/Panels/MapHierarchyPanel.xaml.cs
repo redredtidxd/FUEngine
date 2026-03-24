@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using FUEngine.Core;
 using FUEngine.Editor;
 using UIElementCore = FUEngine.Core.UIElement;
@@ -23,7 +24,10 @@ public class LayerIndexToVisibilityConverter : IValueConverter
 /// <summary>Tipo de nodo en la jerarquía del mapa.</summary>
 public enum MapHierarchyNodeKind
 {
-    MapRoot,
+    /// <summary>Raíz: escena actual (hermano del mapa con objetos/triggers/UI).</summary>
+    SceneRoot,
+    /// <summary>Contenedor del tilemap: solo hijo Layers (capas de tiles).</summary>
+    MapNode,
     LayersFolder,
     TileLayer,
     ObjectLayer,
@@ -72,6 +76,7 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
     private Action? _saveTriggers;
     private UIRoot? _uiRoot;
     private MapHierarchyItem? _dragStartLayerItem;
+    private MapHierarchyItem? _dragObjectItem;
     private System.Windows.Point? _dragStartPoint;
     public const string DataFormatLayerReorder = "FUEngine.HierarchyLayerReorder";
 
@@ -90,21 +95,33 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
     }
 
     /// <summary>
-    /// Construye la jerarquía: nombre del mapa, Layers, Objects, Groups, Triggers, UI (Canvas).
+    /// Construye la jerarquía: raíz escena → nodo Map (solo Layers) → hermanos Objetos, Groups, Triggers, UI.
     /// </summary>
+    /// <param name="sceneDisplayName">Nombre de la escena (p. ej. Start).</param>
+    /// <param name="mapDisplayName">Nombre del archivo de mapa sin extensión.</param>
     /// <param name="visibleLayerIndices">Índices de capas visibles (si null, todas visibles).</param>
     /// <param name="uiRoot">Raíz UI de la escena (Canvas). Si null, no se muestra nodo UI.</param>
-    public void SetMapStructure(string mapDisplayName, IReadOnlyList<string>? layerNames, ObjectLayer? layer, IList<TriggerZone>? triggers = null, IReadOnlySet<int>? visibleLayerIndices = null, UIRoot? uiRoot = null)
+    public void SetMapStructure(string sceneDisplayName, string mapDisplayName, IReadOnlyList<string>? layerNames, ObjectLayer? layer, IList<TriggerZone>? triggers = null, IReadOnlySet<int>? visibleLayerIndices = null, UIRoot? uiRoot = null)
     {
         _objectLayer = layer;
         if (triggers != null) _triggers = triggers;
         _uiRoot = uiRoot;
 
-        var root = new MapHierarchyItem
+        var sceneTitle = string.IsNullOrWhiteSpace(sceneDisplayName) ? "Escena" : sceneDisplayName.Trim();
+        var mapTitle = string.IsNullOrWhiteSpace(mapDisplayName) ? "Mapa" : mapDisplayName.Trim();
+
+        var sceneRoot = new MapHierarchyItem
         {
-            DisplayName = string.IsNullOrWhiteSpace(mapDisplayName) ? "Mapa" : mapDisplayName,
+            DisplayName = $"Scene: {sceneTitle}",
+            Icon = "🎬",
+            NodeKind = MapHierarchyNodeKind.SceneRoot
+        };
+
+        var mapNode = new MapHierarchyItem
+        {
+            DisplayName = $"Map · {mapTitle}",
             Icon = "🗺",
-            NodeKind = MapHierarchyNodeKind.MapRoot
+            NodeKind = MapHierarchyNodeKind.MapNode
         };
 
         var layersFolder = new MapHierarchyItem { DisplayName = "Layers", Icon = "📑", NodeKind = MapHierarchyNodeKind.LayersFolder };
@@ -124,16 +141,16 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
                 IsVisible = visibleLayerIndices == null || visibleLayerIndices.Contains(i)
             });
         }
-        root.Children.Add(layersFolder);
+        mapNode.Children.Add(layersFolder);
+        sceneRoot.Children.Add(mapNode);
 
-        var objectsFolder = new MapHierarchyItem { DisplayName = "Objetos", Icon = "📦", NodeKind = MapHierarchyNodeKind.ObjectsFolder };
         if (layer != null)
         {
             foreach (var inst in layer.Instances)
             {
                 var def = layer.GetDefinition(inst.DefinitionId);
                 var name = string.IsNullOrWhiteSpace(inst.Nombre) ? (def?.Nombre ?? inst.InstanceId) : inst.Nombre;
-                objectsFolder.Children.Add(new MapHierarchyItem
+                sceneRoot.Children.Add(new MapHierarchyItem
                 {
                     DisplayName = name,
                     Icon = "◆",
@@ -142,16 +159,14 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
                 });
             }
         }
-        root.Children.Add(objectsFolder);
 
         var groupsFolder = new MapHierarchyItem { DisplayName = "Groups", Icon = "📁", NodeKind = MapHierarchyNodeKind.GroupsFolder };
         groupsFolder.Children.Add(new MapHierarchyItem { DisplayName = "DefaultGroup", Icon = "◇", NodeKind = MapHierarchyNodeKind.PixelGroup });
-        root.Children.Add(groupsFolder);
+        sceneRoot.Children.Add(groupsFolder);
 
-        var triggersFolder = new MapHierarchyItem { DisplayName = "Triggers", Icon = "⚡", NodeKind = MapHierarchyNodeKind.TriggersFolder };
         foreach (var t in _triggers ?? Array.Empty<TriggerZone>())
         {
-            triggersFolder.Children.Add(new MapHierarchyItem
+            sceneRoot.Children.Add(new MapHierarchyItem
             {
                 DisplayName = string.IsNullOrWhiteSpace(t.Nombre) ? t.Id : t.Nombre,
                 Icon = "⚡",
@@ -159,11 +174,9 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
                 TriggerZone = t
             });
         }
-        root.Children.Add(triggersFolder);
 
-        if (_uiRoot != null && _uiRoot.Canvases.Count >= 0)
+        if (_uiRoot != null)
         {
-            var uiFolder = new MapHierarchyItem { DisplayName = "UI", Icon = "🖼", NodeKind = MapHierarchyNodeKind.UIFolder };
             foreach (var canvas in _uiRoot.Canvases)
             {
                 var canvasItem = new MapHierarchyItem
@@ -175,17 +188,41 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
                 };
                 foreach (var child in canvas.Children)
                     canvasItem.Children.Add(BuildUIElementItem(child));
-                uiFolder.Children.Add(canvasItem);
+                sceneRoot.Children.Add(canvasItem);
             }
-            root.Children.Add(uiFolder);
         }
 
-        HierarchyTree.ItemsSource = new[] { root };
+        HierarchyTree.ItemsSource = new[] { sceneRoot };
+        Dispatcher.BeginInvoke(new Action(ExpandSceneHierarchy), DispatcherPriority.Loaded);
+    }
+
+    private void ExpandSceneHierarchy()
+    {
+        if (HierarchyTree == null || HierarchyTree.Items.Count == 0) return;
+        var sceneRoot = HierarchyTree.Items[0] as MapHierarchyItem;
+        if (sceneRoot == null) return;
+        HierarchyTree.UpdateLayout();
+        if (HierarchyTree.ItemContainerGenerator.ContainerFromItem(sceneRoot) is not TreeViewItem rootTvi)
+            return;
+        rootTvi.IsExpanded = true;
+        foreach (var child in sceneRoot.Children)
+        {
+            if (HierarchyTree.ItemContainerGenerator.ContainerFromItem(child) is TreeViewItem chTvi)
+                chTvi.IsExpanded = true;
+        }
     }
 
     private static MapHierarchyItem BuildUIElementItem(UIElementCore e)
     {
-        var icon = e.Kind switch { UIElementKind.Button => "🔘", UIElementKind.Text => "T", UIElementKind.Image => "🖼", UIElementKind.Panel => "▦", _ => "▢" };
+        var icon = e.Kind switch
+        {
+            UIElementKind.Button => "🔘",
+            UIElementKind.Text => "T",
+            UIElementKind.Image => "🖼",
+            UIElementKind.Panel => "▦",
+            UIElementKind.TabControl => "📑",
+            _ => "▢"
+        };
         var name = string.IsNullOrEmpty(e.Id) ? e.Kind.ToString() : e.Id;
         var item = new MapHierarchyItem
         {
@@ -204,7 +241,7 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
     /// </summary>
     public void SetObjects(ObjectLayer? layer)
     {
-        SetMapStructure("Mapa", NewProjectStructure.DefaultLayerNames, layer);
+        SetMapStructure("Escena", "Mapa", NewProjectStructure.DefaultLayerNames, layer);
     }
 
     private void HierarchyTree_OnSelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
@@ -226,12 +263,28 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
     private void HierarchyTree_OnMouseRightButtonUp(object sender, MouseButtonEventArgs e)
     {
         if (HierarchyTree == null) return;
+        var pt = e.GetPosition(HierarchyTree);
+        var hitObj = VisualTreeHelper.HitTest(HierarchyTree, pt)?.VisualHit as DependencyObject;
+        var onTreeViewItem = hitObj != null && FindParentTreeViewItem(hitObj) != null;
+
+        if (!onTreeViewItem)
+        {
+            var sceneMenu = BuildContextMenuForSceneRoot();
+            if (sceneMenu != null)
+            {
+                HierarchyTree.ContextMenu = sceneMenu;
+                sceneMenu.PlacementTarget = HierarchyTree;
+                sceneMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
+                sceneMenu.IsOpen = true;
+                e.Handled = true;
+            }
+            return;
+        }
+
         var item = HierarchyTree.SelectedItem as MapHierarchyItem;
         if (item == null)
         {
-            var pt = e.GetPosition(HierarchyTree);
-            var hit = VisualTreeHelper.HitTest(HierarchyTree, pt);
-            if (hit?.VisualHit is DependencyObject dep)
+            if (hitObj is DependencyObject dep)
             {
                 var tvi = FindParentTreeViewItem(dep);
                 if (tvi != null)
@@ -286,15 +339,14 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
     {
         if (HierarchyTree == null) { e.Handled = true; return; }
         var item = HierarchyTree.SelectedItem as MapHierarchyItem;
-        if (item == null) { e.Handled = true; return; }
-        var menu = BuildContextMenu(item);
+        var menu = item != null ? BuildContextMenu(item) : BuildContextMenuForSceneRoot();
         if (menu == null) { e.Handled = true; return; }
         HierarchyTree.ContextMenu = menu;
     }
 
-    private ContextMenu? BuildContextMenu(MapHierarchyItem item)
+    private static ContextMenu NewHierarchyContextMenu()
     {
-        var menu = new ContextMenu
+        return new ContextMenu
         {
             Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x21, 0x26, 0x2d)),
             Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xe6, 0xed, 0xf3)),
@@ -303,19 +355,56 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
             Padding = new Thickness(2),
             HasDropShadow = false
         };
+    }
+
+    private ContextMenu? BuildContextMenuForSceneRoot()
+    {
+        var menu = NewHierarchyContextMenu();
+        AppendSceneRootCreateItems(menu);
+        return menu;
+    }
+
+    private void AppendSceneRootCreateItems(ContextMenu menu)
+    {
+        AddMenuItem(menu, "Crear", null!, false);
+        AddSubMenuItem(menu, "Crear", "Nuevo Objeto", (s, _) => OnRequestCreateObject());
+        AddSubMenuItem(menu, "Crear", "Nuevo Trigger Zone", (s, _) => OnRequestCreateTrigger());
+        AddSubMenuItem(menu, "Crear", "Nuevo Grupo de pixeles/tiles", (s, _) => OnRequestAddPixelGroup());
+        AddSubMenuItem(menu, "Crear", "Nuevo Mapa", (s, _) => OnRequestNewMap());
+        AddSubMenuItem(menu, "Crear", "UI", null!, false);
+        AddSubSubMenuItem(menu, "Crear", "UI", "Canvas", (s, _) => RequestCreateUICanvas?.Invoke(this, EventArgs.Empty));
+        AddSubSubMenuItem(menu, "Crear", "UI", "Text", (s, _) => RequestEnsureCanvasAndCreateElement?.Invoke(this, UIElementKind.Text));
+        AddSubSubMenuItem(menu, "Crear", "UI", "Button", (s, _) => RequestEnsureCanvasAndCreateElement?.Invoke(this, UIElementKind.Button));
+        AddSubSubMenuItem(menu, "Crear", "UI", "Panel", (s, _) => RequestEnsureCanvasAndCreateElement?.Invoke(this, UIElementKind.Panel));
+        AddSubSubMenuItem(menu, "Crear", "UI", "TabControl", (s, _) => RequestEnsureCanvasAndCreateElement?.Invoke(this, UIElementKind.TabControl));
+    }
+
+    private void OnRequestNewMap() => RequestNewMap?.Invoke(this, EventArgs.Empty);
+
+    public event EventHandler? RequestNewMap;
+    /// <summary>Si no hay Canvas en la escena, crea uno y luego el elemento UI indicado (manejado en EditorWindow).</summary>
+    public event EventHandler<UIElementKind>? RequestEnsureCanvasAndCreateElement;
+
+    private void AppendMapLayersCreateItems(ContextMenu menu)
+    {
+        AddMenuItem(menu, "Crear", null!, false);
+        AddSubMenuItem(menu, "Crear", "Nuevo Tile Layer", (s, _) => OnRequestAddTileLayer());
+        AddSubMenuItem(menu, "Crear", "Nuevo Object Layer", (s, _) => OnRequestAddObjectLayer());
+        AddSubMenuItem(menu, "Crear", "Nuevo Grupo de pixeles/tiles", (s, _) => OnRequestAddPixelGroup());
+    }
+
+    private ContextMenu? BuildContextMenu(MapHierarchyItem item)
+    {
+        var menu = NewHierarchyContextMenu();
 
         switch (item.NodeKind)
         {
-            case MapHierarchyNodeKind.MapRoot:
+            case MapHierarchyNodeKind.SceneRoot:
+                AppendSceneRootCreateItems(menu);
+                break;
+            case MapHierarchyNodeKind.MapNode:
             case MapHierarchyNodeKind.LayersFolder:
-                AddMenuItem(menu, "Crear", null!, false);
-                AddSubMenuItem(menu, "Crear", "Nuevo Tile Layer", (s, _) => OnRequestAddTileLayer());
-                AddSubMenuItem(menu, "Crear", "Nuevo Object Layer", (s, _) => OnRequestAddObjectLayer());
-                AddSubMenuItem(menu, "Crear", "Nuevo Grupo de pixeles/tiles", (s, _) => OnRequestAddPixelGroup());
-                AddSubMenuItem(menu, "Crear", "Nuevo Trigger Zone", (s, _) => OnRequestCreateTrigger());
-                AddSubMenuItem(menu, "Crear", "Nuevo Objeto", (s, _) => OnRequestCreateObject());
-                AddSubMenuItem(menu, "Crear", "UI", null!, false);
-                AddSubSubMenuItem(menu, "Crear", "UI", "Canvas", (s, _) => RequestCreateUICanvas?.Invoke(this, EventArgs.Empty));
+                AppendMapLayersCreateItems(menu);
                 break;
             case MapHierarchyNodeKind.TileLayer:
             case MapHierarchyNodeKind.ObjectLayer:
@@ -326,7 +415,7 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
                 break;
             case MapHierarchyNodeKind.ObjectsFolder:
                 AddMenuItem(menu, "Nuevo Objeto", (s, _) => OnRequestCreateObject());
-                break;
+                break; // compat: no se genera en el árbol actual
             case MapHierarchyNodeKind.ObjectInstance:
                 AddMenuItem(menu, "Duplicar", (s, _) => OnRequestDuplicateObject(item));
                 AddMenuItem(menu, "Eliminar", (s, _) => OnRequestDeleteObject(item));
@@ -379,6 +468,7 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
                         AddSubSubMenuItem(menu, "Crear", "UI", "Text", (s, _) => RequestCreateUIElement?.Invoke(this, (canvas, item.UIElement!, UIElementKind.Text)));
                         AddSubSubMenuItem(menu, "Crear", "UI", "Image", (s, _) => RequestCreateUIElement?.Invoke(this, (canvas, item.UIElement!, UIElementKind.Image)));
                         AddSubSubMenuItem(menu, "Crear", "UI", "Panel", (s, _) => RequestCreateUIElement?.Invoke(this, (canvas, item.UIElement!, UIElementKind.Panel)));
+                        AddSubSubMenuItem(menu, "Crear", "UI", "TabControl", (s, _) => RequestCreateUIElement?.Invoke(this, (canvas, item.UIElement!, UIElementKind.TabControl)));
                     }
                 }
                 AddMenuItem(menu, "Propiedades", (s, _) => UIElementSelected?.Invoke(this, item.UIElement));
@@ -590,19 +680,33 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
         var tree = sender as System.Windows.Controls.TreeView;
         if (tree == null) return;
         _dragStartPoint = e.GetPosition(tree);
-        _dragStartLayerItem = GetHierarchyItemAtPosition(tree, _dragStartPoint.Value);
+        var hi = GetHierarchyItemAtPosition(tree, _dragStartPoint.Value);
+        _dragObjectItem = hi?.NodeKind == MapHierarchyNodeKind.ObjectInstance && hi.ObjectInstance != null ? hi : null;
+        _dragStartLayerItem = hi;
         if (_dragStartLayerItem == null || (_dragStartLayerItem.NodeKind != MapHierarchyNodeKind.TileLayer && _dragStartLayerItem.NodeKind != MapHierarchyNodeKind.ObjectLayer))
             _dragStartLayerItem = null;
     }
 
     private void HierarchyTree_OnPreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
     {
-        if (e.LeftButton != System.Windows.Input.MouseButtonState.Pressed || _dragStartLayerItem == null || !_dragStartLayerItem.LayerIndex.HasValue || HierarchyTree == null) return;
+        if (e.LeftButton != System.Windows.Input.MouseButtonState.Pressed || HierarchyTree == null) return;
         var pos = e.GetPosition(HierarchyTree);
         if (_dragStartPoint.HasValue && Math.Abs(pos.X - _dragStartPoint.Value.X) < 4 && Math.Abs(pos.Y - _dragStartPoint.Value.Y) < 4) return;
+
+        if (_dragObjectItem?.ObjectInstance != null)
+        {
+            var id = _dragObjectItem.ObjectInstance.InstanceId ?? "";
+            var data = new System.Windows.DataObject(ObjectInspectorPanel.DataFormatObjectInstanceId, id);
+            try { System.Windows.DragDrop.DoDragDrop(HierarchyTree, data, System.Windows.DragDropEffects.Copy); }
+            finally { _dragObjectItem = null; _dragStartLayerItem = null; _dragStartPoint = null; }
+            e.Handled = true;
+            return;
+        }
+
+        if (_dragStartLayerItem == null || !_dragStartLayerItem.LayerIndex.HasValue) return;
         var idx = _dragStartLayerItem.LayerIndex.Value;
-        var data = new System.Windows.DataObject(DataFormatLayerReorder, idx);
-        try { System.Windows.DragDrop.DoDragDrop(HierarchyTree, data, System.Windows.DragDropEffects.Move); }
+        var layerData = new System.Windows.DataObject(DataFormatLayerReorder, idx);
+        try { System.Windows.DragDrop.DoDragDrop(HierarchyTree, layerData, System.Windows.DragDropEffects.Move); }
         finally { _dragStartLayerItem = null; _dragStartPoint = null; }
         e.Handled = true;
     }
@@ -655,7 +759,8 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
         }
         if (!e.Data.GetDataPresent(ProjectExplorerPanel.DataFormatAssetPath)) return;
         var path = e.Data.GetData(ProjectExplorerPanel.DataFormatAssetPath) as string;
-        if (string.IsNullOrEmpty(path) || (target?.NodeKind != MapHierarchyNodeKind.ObjectsFolder && target?.NodeKind != MapHierarchyNodeKind.ObjectLayer))
+        if (string.IsNullOrEmpty(path) || (target?.NodeKind != MapHierarchyNodeKind.SceneRoot
+            && target?.NodeKind != MapHierarchyNodeKind.ObjectsFolder && target?.NodeKind != MapHierarchyNodeKind.ObjectLayer))
             return;
         RequestInstantiateAsset?.Invoke(this, path);
         e.Handled = true;

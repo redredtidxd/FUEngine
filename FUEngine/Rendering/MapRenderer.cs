@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Windows;
@@ -45,6 +46,8 @@ public sealed class MapRenderer
         DrawTriggers(canvas, ctx, tileSize);
         DrawSelectionOverlay(canvas, ctx, tileSize);
         DrawToolOverlays(canvas, ctx, tileSize);
+        if (!ctx.Project.Infinite)
+            DrawFiniteMapBorderAndExpandZones(canvas, ctx, tileSize);
         if (ctx.ShowVisibleArea)
             DrawVisibleAreaFrame(canvas, ctx, tileSize);
         if (ctx.ShowStreamingGizmos && ctx.Project.ChunkSize > 0)
@@ -55,8 +58,10 @@ public sealed class MapRenderer
 
     private void DrawBackgroundLayers(Canvas canvas, MapRenderContext ctx)
     {
-        var projectDir = ctx.Project?.ProjectDirectory;
+        if (ctx.Project == null) return;
+        var projectDir = ctx.Project.ProjectDirectory;
         if (string.IsNullOrEmpty(projectDir)) return;
+        double ts = Math.Max(1, ctx.Project.TileSize);
         for (int i = 0; i < ctx.TileMap.Layers.Count; i++)
         {
             var descriptor = ctx.TileMap.Layers[i];
@@ -71,17 +76,30 @@ public sealed class MapRenderer
                 bitmap.CacheOption = BitmapCacheOption.OnLoad;
                 bitmap.EndInit();
                 bitmap.Freeze();
+                double imgW = canvas.Width;
+                double imgH = canvas.Height;
+                double left = 0;
+                double top = 0;
+                if (!ctx.Project.Infinite)
+                {
+                    int mw = Math.Max(1, ctx.Project.MapWidth);
+                    int mh = Math.Max(1, ctx.Project.MapHeight);
+                    imgW = mw * ts;
+                    imgH = mh * ts;
+                    left = (0 - ctx.CanvasMinWx) * ts;
+                    top = (0 - ctx.CanvasMinWy) * ts;
+                }
                 var img = new System.Windows.Controls.Image
                 {
                     Source = bitmap,
                     Stretch = Stretch.UniformToFill,
-                    Width = canvas.Width,
-                    Height = canvas.Height,
+                    Width = imgW,
+                    Height = imgH,
                     Opacity = descriptor.Opacity / 100.0,
                     IsHitTestVisible = false
                 };
-                Canvas.SetLeft(img, 0);
-                Canvas.SetTop(img, 0);
+                Canvas.SetLeft(img, left);
+                Canvas.SetTop(img, top);
                 canvas.Children.Add(img);
             }
             catch { /* ignore load errors */ }
@@ -137,10 +155,7 @@ public sealed class MapRenderer
     {
         int cs = ctx.Project.ChunkSize;
         if (cs <= 0) return;
-        int minTx = ctx.CanvasMinWx;
-        int minTy = ctx.CanvasMinWy;
-        int maxTx = minTx + (int)Math.Ceiling(canvas.Width / tileSize);
-        int maxTy = minTy + (int)Math.Ceiling(canvas.Height / tileSize);
+        GetClampedTileRangeForDrawing(canvas, ctx, tileSize, out int minTx, out int minTy, out int maxTx, out int maxTy);
         int startCx = (int)Math.Floor((double)minTx / cs);
         int endCx = (int)Math.Ceiling((double)maxTx / cs);
         int startCy = (int)Math.Floor((double)minTy / cs);
@@ -178,80 +193,322 @@ public sealed class MapRenderer
 
     private void DrawVisibleAreaFrame(Canvas canvas, MapRenderContext ctx, double tileSize)
     {
-        GameViewportMath.GetEffectiveResolutionPixels(ctx.Project, out int gwPx, out int ghPx);
-        int tsProj = Math.Max(1, ctx.Project.TileSize);
-        double widthCanvas = gwPx / (double)tsProj * tileSize;
-        double heightCanvas = ghPx / (double)tsProj * tileSize;
-        double left = (0 - ctx.CanvasMinWx) * tileSize;
-        double top = (0 - ctx.CanvasMinWy) * tileSize;
+        double camX = ctx.Project.EditorViewportCenterWorldX;
+        double camY = ctx.Project.EditorViewportCenterWorldY;
+        GameViewportMath.GetCameraViewportRectInEditorCanvasPixels(ctx.Project, camX, camY, ctx.CanvasMinWx, ctx.CanvasMinWy,
+            out double leftRaw, out double topRaw, out int gwPx, out int ghPx,
+            ctx.EditorViewportWidth, ctx.EditorViewportHeight, ctx.EditorZoom);
+        // Marco = resolución interna del juego (cámara/render); en Auto usa el viewport del scroll del editor.
+        double left = leftRaw;
+        double top = topRaw;
+        double widthCanvas = Math.Max(1, gwPx);
+        double heightCanvas = Math.Max(1, ghPx);
+        GameViewportMath.GetVisibleWorldRectFromCenter(ctx.Project, camX, camY, out double leftWx, out double topWy, out double worldWTiles, out double worldHTiles,
+            ctx.EditorViewportWidth, ctx.EditorViewportHeight, ctx.EditorZoom);
         var rect = new Rectangle
         {
             Width = widthCanvas,
             Height = heightCanvas,
             Fill = Brushes.Transparent,
-            Stroke = new SolidColorBrush(System.Windows.Media.Color.FromArgb(200, 0x58, 0xa6, 0xff)),
-            StrokeThickness = 2,
+            Stroke = new SolidColorBrush(System.Windows.Media.Color.FromArgb(220, 0x58, 0xa6, 0xff)),
+            StrokeThickness = 1,
             StrokeDashArray = new System.Windows.Media.DoubleCollection(new[] { 4.0, 4.0 }),
-            IsHitTestVisible = false
+            IsHitTestVisible = false,
+            SnapsToDevicePixels = true
         };
+        RenderOptions.SetEdgeMode(rect, EdgeMode.Aliased);
         Canvas.SetLeft(rect, left);
         Canvas.SetTop(rect, top);
         canvas.Children.Add(rect);
+
+        string line = $"{gwPx}×{ghPx} px  ·  {worldWTiles:F1}×{worldHTiles:F1} casillas";
+        var lbl = new TextBlock
+        {
+            Text = line,
+            FontSize = 10,
+            Foreground = new SolidColorBrush(System.Windows.Media.Color.FromArgb(230, 0xe6, 0xed, 0xf3)),
+            Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(180, 0x13, 0x17, 0x1c)),
+            Padding = new Thickness(4, 2, 4, 2),
+            TextWrapping = TextWrapping.NoWrap,
+            MaxWidth = Math.Max(160, widthCanvas - 8),
+            IsHitTestVisible = false
+        };
+        Canvas.SetLeft(lbl, left + 4);
+        Canvas.SetTop(lbl, top + 4);
+        canvas.Children.Add(lbl);
     }
 
     private int _lastMinWx;
     private int _lastMinWy;
+    /// <summary>Mapas infinitos: el tamaño del lienzo no se reduce para evitar que el thumb del scroll cambie de tamaño al moverse.</summary>
+    private int _infiniteStickyCanvasW;
+    private int _infiniteStickyCanvasH;
+
+    /// <summary>Reinicia la extensión acumulada del lienzo (p. ej. al cargar otro proyecto).</summary>
+    public void ResetInfiniteScrollExtent()
+    {
+        _infiniteStickyCanvasW = 0;
+        _infiniteStickyCanvasH = 0;
+    }
 
     private void ComputeCanvasBounds(MapRenderContext ctx, out int canvasW, out int canvasH)
     {
-        var tileSize = ctx.Project.TileSize;
+        var tileSize = Math.Max(1, ctx.Project.TileSize);
         var tileMap = ctx.TileMap;
         if (ctx.Project.Infinite)
         {
-            int minWx = 0, minWy = 0, maxWx = 0, maxWy = 0;
-            var coords = tileMap.EnumerateChunkCoords().ToList();
-            if (coords.Count > 0)
+            // Ventana deslizante: solo viewport (scroll) + cámara (marco azul) + padding por chunks.
+            // Nunca unir todo el bounding box del mapa (provoca lienzos gigantes y cuelgue de WPF).
+            int cs = Math.Max(1, tileMap.ChunkSize);
+            int margin = Math.Max(1, cs / 4);
+            int padChunks = Math.Clamp(ctx.Project.ChunkLoadRadius, 2, 8);
+            int padTiles = padChunks * cs;
+            const int MaxTilesPerAxis = 384;
+
+            double z = ctx.EditorZoom > 0 ? ctx.EditorZoom : 1.0;
+            double leftPx = ctx.EditorScrollHorizontalOffset / z;
+            double topPx = ctx.EditorScrollVerticalOffset / z;
+            double visW = Math.Max(1, ctx.EditorViewportWidth / z);
+            double visH = Math.Max(1, ctx.EditorViewportHeight / z);
+
+            // Esquina superior izquierda del viewport en coordenadas mundo (float), sin depender de desbordes int.
+            double worldLeftX = ctx.PreviousCanvasMinWx + leftPx / tileSize;
+            double worldTopY = ctx.PreviousCanvasMinWy + topPx / tileSize;
+
+            int vLeftTx = (int)Math.Floor(worldLeftX);
+            int vTopTy = (int)Math.Floor(worldTopY);
+            int vRightTx = (int)Math.Floor(worldLeftX + visW / tileSize - 1e-6);
+            int vBottomTy = (int)Math.Floor(worldTopY + visH / tileSize - 1e-6);
+            if (vRightTx < vLeftTx) vRightTx = vLeftTx;
+            if (vBottomTy < vTopTy) vBottomTy = vTopTy;
+
+            int worldMinX = vLeftTx - padTiles;
+            int worldMinY = vTopTy - padTiles;
+            int worldMaxX = vRightTx + padTiles;
+            int worldMaxY = vBottomTy + padTiles;
+
+            GameViewportMath.GetVisibleWorldRectFromCenter(ctx.Project,
+                ctx.Project.EditorViewportCenterWorldX, ctx.Project.EditorViewportCenterWorldY,
+                out double camLeftWx, out double camTopWy, out double camWTiles, out double camHTiles,
+                ctx.EditorViewportWidth, ctx.EditorViewportHeight, ctx.EditorZoom);
+            int camMinX = (int)Math.Floor(camLeftWx) - padTiles;
+            int camMinY = (int)Math.Floor(camTopWy) - padTiles;
+            int camMaxX = (int)Math.Ceiling(camLeftWx + camWTiles) - 1 + padTiles;
+            int camMaxY = (int)Math.Ceiling(camTopWy + camHTiles) - 1 + padTiles;
+
+            worldMinX = Math.Min(worldMinX, camMinX);
+            worldMinY = Math.Min(worldMinY, camMinY);
+            worldMaxX = Math.Max(worldMaxX, camMaxX);
+            worldMaxY = Math.Max(worldMaxY, camMaxY);
+
+            int spanX = worldMaxX - worldMinX + 1;
+            int spanY = worldMaxY - worldMinY + 1;
+            // Si el unión viewport+cámara supera el tope, no centrar en el "medio global" (desplaza viewport y rompe el scroll).
+            // Prioridad: ventana centrada en lo que el usuario está viendo; luego desplazar lo mínimo para incluir el marco de cámara.
+            if (spanX > MaxTilesPerAxis)
             {
-                int minCx = coords.Min(c => c.cx), maxCx = coords.Max(c => c.cx);
-                int minCy = coords.Min(c => c.cy), maxCy = coords.Max(c => c.cy);
-                int cs = tileMap.ChunkSize;
-                minWx = minCx * cs;
-                minWy = minCy * cs;
-                maxWx = (maxCx + 1) * cs - 1;
-                maxWy = (maxCy + 1) * cs - 1;
+                int half = MaxTilesPerAxis / 2;
+                int vMid = (vLeftTx + vRightTx) / 2;
+                worldMinX = vMid - half;
+                worldMaxX = worldMinX + MaxTilesPerAxis - 1;
+                if (camMinX < worldMinX)
+                {
+                    int shift = camMinX - worldMinX;
+                    worldMinX += shift;
+                    worldMaxX += shift;
+                }
+                else if (camMaxX > worldMaxX)
+                {
+                    int shift = camMaxX - worldMaxX;
+                    worldMinX += shift;
+                    worldMaxX += shift;
+                }
             }
-            int margin = Math.Max(2, tileMap.ChunkSize * 2);
-            if (coords.Count == 0)
+            if (spanY > MaxTilesPerAxis)
             {
-                // Mapa infinito vacío: centrar el lienzo en el origen del mundo (0,0) como en el visor de juego.
-                int tilesW = Math.Max((int)Math.Ceiling(800.0 / tileSize), Math.Max(16, ctx.Project.MapWidth));
-                int tilesH = Math.Max((int)Math.Ceiling(600.0 / tileSize), Math.Max(12, ctx.Project.MapHeight));
-                _lastMinWx = -(tilesW / 2);
-                _lastMinWy = -(tilesH / 2);
-                canvasW = Math.Max(tilesW * tileSize, 800);
-                canvasH = Math.Max(tilesH * tileSize, 600);
+                int half = MaxTilesPerAxis / 2;
+                int vMid = (vTopTy + vBottomTy) / 2;
+                worldMinY = vMid - half;
+                worldMaxY = worldMinY + MaxTilesPerAxis - 1;
+                if (camMinY < worldMinY)
+                {
+                    int shift = camMinY - worldMinY;
+                    worldMinY += shift;
+                    worldMaxY += shift;
+                }
+                else if (camMaxY > worldMaxY)
+                {
+                    int shift = camMaxY - worldMaxY;
+                    worldMinY += shift;
+                    worldMaxY += shift;
+                }
             }
-            else
-            {
-                _lastMinWx = minWx - margin;
-                _lastMinWy = minWy - margin;
-                int rangeX = (maxWx - minWx + 1) + margin * 2;
-                int rangeY = (maxWy - minWy + 1) + margin * 2;
-                canvasW = Math.Max(rangeX * tileSize, 800);
-                canvasH = Math.Max(rangeY * tileSize, 600);
-            }
+
+            _lastMinWx = worldMinX - margin;
+            _lastMinWy = worldMinY - margin;
+            int rangeX = (worldMaxX - worldMinX + 1) + margin * 2;
+            int rangeY = (worldMaxY - worldMinY + 1) + margin * 2;
+            int minW = (int)Math.Ceiling(visW);
+            int minH = (int)Math.Ceiling(visH);
+            int computedW = Math.Max(rangeX * tileSize, minW);
+            int computedH = Math.Max(rangeY * tileSize, minH);
+            canvasW = Math.Max(computedW, _infiniteStickyCanvasW);
+            canvasH = Math.Max(computedH, _infiniteStickyCanvasH);
+            _infiniteStickyCanvasW = canvasW;
+            _infiniteStickyCanvasH = canvasH;
         }
         else
         {
-            _lastMinWx = 0;
-            _lastMinWy = 0;
-            canvasW = Math.Max(ctx.Project.MapWidth * tileSize, 800);
-            canvasH = Math.Max(ctx.Project.MapHeight * tileSize, 600);
+            // Un chunk de margen alrededor para dibujar bordes y botones «+» fuera del área jugable [0..MapWidth) × [0..MapHeight).
+            int cs = Math.Max(1, ctx.Project.ChunkSize);
+            int mw = Math.Max(1, ctx.Project.MapWidth);
+            int mh = Math.Max(1, ctx.Project.MapHeight);
+            _lastMinWx = -cs;
+            _lastMinWy = -cs;
+            canvasW = Math.Max((mw + 2 * cs) * tileSize, 800);
+            canvasH = Math.Max((mh + 2 * cs) * tileSize, 600);
+        }
+    }
+
+    /// <summary>Marco del mapa finito y zonas «+» (un chunk) fuera de cada lado para expandir.</summary>
+    private void DrawFiniteMapBorderAndExpandZones(Canvas canvas, MapRenderContext ctx, double tileSize)
+    {
+        int cs = Math.Max(1, ctx.Project.ChunkSize);
+        int mw = Math.Max(1, ctx.Project.MapWidth);
+        int mh = Math.Max(1, ctx.Project.MapHeight);
+        double innerLeft = ToCanvasX(ctx, 0);
+        double innerTop = ToCanvasY(ctx, 0);
+        double innerW = mw * tileSize;
+        double innerH = mh * tileSize;
+        var border = new Rectangle
+        {
+            Width = innerW,
+            Height = innerH,
+            Fill = Brushes.Transparent,
+            Stroke = new SolidColorBrush(System.Windows.Media.Color.FromArgb(230, 0x58, 0xa6, 0xff)),
+            StrokeThickness = 2,
+            IsHitTestVisible = false
+        };
+        Canvas.SetLeft(border, innerLeft);
+        Canvas.SetTop(border, innerTop);
+        canvas.Children.Add(border);
+
+        // Franjas de grosor 1 chunk: un clic añade exactamente ChunkSize casillas en esa dirección.
+        void addZone(int wx, int wy, int wTiles, int hTiles, string arrow, string toolTip)
+        {
+            double zl = ToCanvasX(ctx, wx);
+            double zt = ToCanvasY(ctx, wy);
+            double zw = wTiles * tileSize;
+            double zh = hTiles * tileSize;
+            var zr = new Rectangle
+            {
+                Width = zw,
+                Height = zh,
+                Fill = new SolidColorBrush(System.Windows.Media.Color.FromArgb(130, 0x38, 0x8b, 0xfd)),
+                Stroke = new SolidColorBrush(System.Windows.Media.Color.FromArgb(230, 0x58, 0xa6, 0xff)),
+                StrokeThickness = 2,
+                RadiusX = 3,
+                RadiusY = 3,
+                IsHitTestVisible = false,
+                ToolTip = toolTip
+            };
+            Canvas.SetLeft(zr, zl);
+            Canvas.SetTop(zr, zt);
+            canvas.Children.Add(zr);
+            var sp = new System.Windows.Controls.StackPanel { Orientation = System.Windows.Controls.Orientation.Vertical, IsHitTestVisible = false };
+            sp.Children.Add(new System.Windows.Controls.TextBlock
+            {
+                Text = "+1 chunk",
+                FontSize = Math.Max(10, Math.Min(13, tileSize * 0.28)),
+                FontWeight = System.Windows.FontWeights.SemiBold,
+                Foreground = Brushes.White,
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Center
+            });
+            sp.Children.Add(new System.Windows.Controls.TextBlock
+            {
+                Text = arrow,
+                FontSize = Math.Max(14, tileSize * 0.4),
+                Foreground = Brushes.White,
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                Margin = new Thickness(0, -2, 0, 0)
+            });
+            Canvas.SetLeft(sp, zl + zw * 0.5 - 36);
+            Canvas.SetTop(sp, zt + zh * 0.5 - 18);
+            canvas.Children.Add(sp);
+        }
+
+        // Un área de clic de tamaño chunk×chunk (p. ej. 16×16), centrada en cada lado del rectángulo jugable.
+        int ww = Math.Min(cs, mw);
+        int wx0 = (mw - ww) / 2;
+        int hh = Math.Min(cs, mh);
+        int wy0 = (mh - hh) / 2;
+        string tipN = $"Añade {cs} casillas al norte (1 chunk). Mapa: {mw}×{mh} → {mw}×{mh + cs}.";
+        string tipS = $"Añade {cs} casillas al sur (1 chunk). Mapa: {mw}×{mh} → {mw}×{mh + cs}.";
+        string tipW = $"Añade {cs} casillas al oeste (1 chunk). Mapa: {mw}×{mh} → {mw + cs}×{mh}.";
+        string tipE = $"Añade {cs} casillas al este (1 chunk). Mapa: {mw}×{mh} → {mw + cs}×{mh}.";
+        addZone(wx0, -cs, ww, cs, "▲", tipN);
+        addZone(wx0, mh, ww, cs, "▼", tipS);
+        addZone(-cs, wy0, cs, hh, "◀", tipW);
+        addZone(mw, wy0, cs, hh, "▶", tipE);
+    }
+
+    /// <summary>Solo chunks existentes en la capa que intersectan el rectángulo mundo [minTx,maxTx]×[minTy,maxTy] (evita O(n²) en mapas infinitos vacíos).</summary>
+    private static IEnumerable<(int cx, int cy)> EnumerateLayerChunksOverlapping(TileMap map, int layerIndex, int minTx, int maxTx, int minTy, int maxTy)
+    {
+        int cs = Math.Max(1, map.ChunkSize);
+        foreach (var (cx, cy) in map.EnumerateChunkCoords(layerIndex))
+        {
+            int wx0 = cx * cs;
+            int wy0 = cy * cs;
+            int wx1 = wx0 + cs - 1;
+            int wy1 = wy0 + cs - 1;
+            if (wx1 < minTx || wx0 > maxTx || wy1 < minTy || wy0 > maxTy) continue;
+            yield return (cx, cy);
         }
     }
 
     private double ToCanvasX(MapRenderContext ctx, int wx) => (wx - ctx.CanvasMinWx) * ctx.Project.TileSize;
     private double ToCanvasY(MapRenderContext ctx, int wy) => (wy - ctx.CanvasMinWy) * ctx.Project.TileSize;
+
+    /// <summary>
+    /// Mapa infinito: el lienzo puede ser más grande que la región dibujada (extensión sticky); las iteraciones solo deben
+    /// cubrir tiles visibles más margen, no todo el ancho/alto del canvas.
+    /// </summary>
+    private void GetClampedTileRangeForDrawing(Canvas canvas, MapRenderContext ctx, double tileSize, out int minTx, out int minTy, out int maxTx, out int maxTy)
+    {
+        minTx = ctx.CanvasMinWx;
+        minTy = ctx.CanvasMinWy;
+        maxTx = minTx + (int)Math.Ceiling(canvas.Width / tileSize);
+        maxTy = minTy + (int)Math.Ceiling(canvas.Height / tileSize);
+        if (!ctx.Project.Infinite)
+        {
+            int mw = Math.Max(1, ctx.Project.MapWidth);
+            int mh = Math.Max(1, ctx.Project.MapHeight);
+            minTx = Math.Max(minTx, 0);
+            minTy = Math.Max(minTy, 0);
+            maxTx = Math.Min(maxTx, mw - 1);
+            maxTy = Math.Min(maxTy, mh - 1);
+            if (maxTx < minTx) maxTx = minTx;
+            if (maxTy < minTy) maxTy = minTy;
+            return;
+        }
+        double z = ctx.EditorZoom > 0 ? ctx.EditorZoom : 1.0;
+        double leftPx = ctx.EditorScrollHorizontalOffset / z;
+        double topPx = ctx.EditorScrollVerticalOffset / z;
+        double visW = Math.Max(1, ctx.EditorViewportWidth / z);
+        double visH = Math.Max(1, ctx.EditorViewportHeight / z);
+        const int padTiles = 64;
+        int vtMinTx = ctx.CanvasMinWx + (int)Math.Floor(leftPx / tileSize) - padTiles;
+        int vtMinTy = ctx.CanvasMinWy + (int)Math.Floor(topPx / tileSize) - padTiles;
+        int vtMaxTx = ctx.CanvasMinWx + (int)Math.Ceiling((leftPx + visW) / tileSize) + padTiles;
+        int vtMaxTy = ctx.CanvasMinWy + (int)Math.Ceiling((topPx + visH) / tileSize) + padTiles;
+        minTx = Math.Max(minTx, vtMinTx);
+        minTy = Math.Max(minTy, vtMinTy);
+        maxTx = Math.Min(maxTx, vtMaxTx);
+        maxTy = Math.Min(maxTy, vtMaxTy);
+        if (maxTx < minTx) maxTx = minTx;
+        if (maxTy < minTy) maxTy = minTy;
+    }
 
     private void DrawGrid(Canvas canvas, MapRenderContext ctx, double tileSize)
     {
@@ -266,16 +523,34 @@ public sealed class MapRenderer
             Opacity = 0.5,
             Drawing = new GeometryDrawing(null, new System.Windows.Media.Pen(new SolidColorBrush(ctx.GridColor), 0.5), gridGeom)
         };
-        var gridRect = new Rectangle
+        if (!ctx.Project.Infinite)
+        {
+            int mw = Math.Max(1, ctx.Project.MapWidth);
+            int mh = Math.Max(1, ctx.Project.MapHeight);
+            double w = mw * tileSize;
+            double h = mh * tileSize;
+            var gridRect = new Rectangle
+            {
+                Width = w,
+                Height = h,
+                Fill = gridBrush,
+                IsHitTestVisible = false
+            };
+            Canvas.SetLeft(gridRect, ToCanvasX(ctx, 0));
+            Canvas.SetTop(gridRect, ToCanvasY(ctx, 0));
+            canvas.Children.Add(gridRect);
+            return;
+        }
+        var gridFull = new Rectangle
         {
             Width = canvas.Width,
             Height = canvas.Height,
             Fill = gridBrush,
             IsHitTestVisible = false
         };
-        Canvas.SetLeft(gridRect, 0);
-        Canvas.SetTop(gridRect, 0);
-        canvas.Children.Add(gridRect);
+        Canvas.SetLeft(gridFull, 0);
+        Canvas.SetTop(gridFull, 0);
+        canvas.Children.Add(gridFull);
     }
 
     private void DrawTiles(Canvas canvas, MapRenderContext ctx, double tileSize)
@@ -288,15 +563,7 @@ public sealed class MapRenderer
             [TileType.Especial] = new SolidColorBrush(System.Windows.Media.Color.FromRgb(100, 60, 100))
         };
 
-        int cs = ctx.TileMap.ChunkSize;
-        int minTx = ctx.CanvasMinWx;
-        int minTy = ctx.CanvasMinWy;
-        int maxTx = minTx + (int)Math.Ceiling(canvas.Width / tileSize);
-        int maxTy = minTy + (int)Math.Ceiling(canvas.Height / tileSize);
-        int startCx = (int)Math.Floor((double)minTx / cs) - 1;
-        int endCx = (int)Math.Ceiling((double)maxTx / cs) + 1;
-        int startCy = (int)Math.Floor((double)minTy / cs) - 1;
-        int endCy = (int)Math.Ceiling((double)maxTy / cs) + 1;
+        GetClampedTileRangeForDrawing(canvas, ctx, tileSize, out int minTx, out int minTy, out int maxTx, out int maxTy);
 
         for (int layerIndex = 0; layerIndex < ctx.TileMap.Layers.Count; layerIndex++)
         {
@@ -310,8 +577,7 @@ public sealed class MapRenderer
             double offsetX = descriptor.OffsetX;
             double offsetY = descriptor.OffsetY;
 
-            for (int cx = startCx; cx <= endCx; cx++)
-            for (int cy = startCy; cy <= endCy; cy++)
+            foreach (var (cx, cy) in EnumerateLayerChunksOverlapping(ctx.TileMap, layerIndex, minTx, maxTx, minTy, maxTy))
             {
                 var chunk = ctx.TileMap.GetChunk(layerIndex, cx, cy);
                 if (chunk == null) continue;
@@ -319,6 +585,12 @@ public sealed class MapRenderer
                 {
                     int wx = cx * ctx.TileMap.ChunkSize + lx;
                     int wy = cy * ctx.TileMap.ChunkSize + ly;
+                    if (!ctx.Project.Infinite)
+                    {
+                        int mw = Math.Max(1, ctx.Project.MapWidth);
+                        int mh = Math.Max(1, ctx.Project.MapHeight);
+                        if (wx < 0 || wx >= mw || wy < 0 || wy >= mh) continue;
+                    }
                     var isInteractive = data.Interactivo || !string.IsNullOrEmpty(data.ScriptId);
                     if (ctx.MaskColision && !data.Colision) continue;
                     if (ctx.MaskScripts && !isInteractive) continue;
@@ -393,9 +665,17 @@ public sealed class MapRenderer
     {
         double posX = ToCanvasX(ctx, wx) + offsetX;
         double posY = ToCanvasY(ctx, wy) + offsetY;
+        string label;
+        if (!ctx.Project.Infinite && ctx.Project != null)
+        {
+            GameViewportMath.GetTileCoordsRelativeToFiniteMapCenter(ctx.Project, wx, wy, out var rx, out var ry);
+            label = $"{rx},{ry}";
+        }
+        else
+            label = $"{wx},{wy}";
         var txt = new TextBlock
         {
-            Text = $"{wx},{wy}",
+            Text = label,
             FontSize = Math.Max(7, Math.Min(10, tileSize * 0.4)),
             Foreground = Brushes.White,
             Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(140, 0, 0, 0)),
@@ -408,18 +688,12 @@ public sealed class MapRenderer
 
     private void DrawCollisionOverlay(Canvas canvas, MapRenderContext ctx, double tileSize)
     {
-        var projectDir = ctx.Project?.ProjectDirectory;
+        if (ctx.Project == null) return;
+        var projectDir = ctx.Project.ProjectDirectory;
         if (string.IsNullOrEmpty(projectDir)) return;
+        var project = ctx.Project;
 
-        int cs = ctx.TileMap.ChunkSize;
-        int minTx = ctx.CanvasMinWx;
-        int minTy = ctx.CanvasMinWy;
-        int maxTx = minTx + (int)Math.Ceiling(canvas.Width / tileSize);
-        int maxTy = minTy + (int)Math.Ceiling(canvas.Height / tileSize);
-        int startCx = (int)Math.Floor((double)minTx / cs) - 1;
-        int endCx = (int)Math.Ceiling((double)maxTx / cs) + 1;
-        int startCy = (int)Math.Floor((double)minTy / cs) - 1;
-        int endCy = (int)Math.Ceiling((double)maxTy / cs) + 1;
+        GetClampedTileRangeForDrawing(canvas, ctx, tileSize, out int minTx, out int minTy, out int maxTx, out int maxTy);
 
         var solidBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(180, 0x3f, 0xb9, 0x50));
         var triggerBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(200, 0xd2, 0x99, 0x22));
@@ -433,13 +707,20 @@ public sealed class MapRenderer
             double offsetX = descriptor.OffsetX;
             double offsetY = descriptor.OffsetY;
 
-            for (int cx = startCx; cx <= endCx; cx++)
-            for (int cy = startCy; cy <= endCy; cy++)
+            foreach (var (cx, cy) in EnumerateLayerChunksOverlapping(ctx.TileMap, layerIndex, minTx, maxTx, minTy, maxTy))
             {
                 var chunk = ctx.TileMap.GetChunk(layerIndex, cx, cy);
                 if (chunk == null) continue;
                 foreach (var (lx, ly, data) in chunk.EnumerateTiles())
                 {
+                    int wx = cx * ctx.TileMap.ChunkSize + lx;
+                    int wy = cy * ctx.TileMap.ChunkSize + ly;
+                    if (!project.Infinite)
+                    {
+                        int mw = Math.Max(1, project.MapWidth);
+                        int mh = Math.Max(1, project.MapHeight);
+                        if (wx < 0 || wx >= mw || wy < 0 || wy >= mh) continue;
+                    }
                     if (string.IsNullOrWhiteSpace(data.SourceImagePath)) continue;
                     var fullPath = System.IO.Path.Combine(projectDir, data.SourceImagePath);
                     var tiledataPath = TileDataFile.GetTileDataPath(fullPath);
@@ -447,8 +728,6 @@ public sealed class MapRenderer
                     var shapes = dto?.CollisionShapes;
                     if (shapes == null || shapes.Count == 0) continue;
 
-                    int wx = cx * ctx.TileMap.ChunkSize + lx;
-                    int wy = cy * ctx.TileMap.ChunkSize + ly;
                     double posX = ToCanvasX(ctx, wx) + offsetX;
                     double posY = ToCanvasY(ctx, wy) + offsetY;
                     int gridSize = dto!.GridSize > 0 ? dto.GridSize : 16;
@@ -520,11 +799,28 @@ public sealed class MapRenderer
 
     private void DrawObjects(Canvas canvas, MapRenderContext ctx, double tileSize)
     {
+        GetClampedTileRangeForDrawing(canvas, ctx, tileSize, out int tMinTx, out int tMinTy, out int tMaxTx, out int tMaxTy);
+        double minWx = tMinTx;
+        double maxWx = tMaxTx + 2;
+        double minWy = tMinTy;
+        double maxWy = tMaxTy + 2;
+
         foreach (var inst in ctx.ObjectLayer.Instances)
         {
             var def = ctx.ObjectLayer.GetDefinition(inst.DefinitionId);
-            var w = (def?.Width ?? 1) * tileSize;
-            var h = (def?.Height ?? 1) * tileSize;
+            var wTiles = def?.Width ?? 1;
+            var hTiles = def?.Height ?? 1;
+            if (!ctx.Project.Infinite)
+            {
+                int mw = Math.Max(1, ctx.Project.MapWidth);
+                int mh = Math.Max(1, ctx.Project.MapHeight);
+                if (inst.X + wTiles <= 0 || inst.X >= mw || inst.Y + hTiles <= 0 || inst.Y >= mh) continue;
+            }
+            if (inst.X + wTiles < minWx || inst.X > maxWx) continue;
+            if (inst.Y + hTiles < minWy || inst.Y > maxWy) continue;
+
+            var w = wTiles * tileSize;
+            var h = hTiles * tileSize;
             bool selected = ctx.SelectedObjectIds.Contains(inst.InstanceId);
             var strokeBrush = selected ? Brushes.Yellow : new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x58, 0xa6, 0xff));
             var strokeThick = selected ? 2 : 1;
@@ -575,8 +871,23 @@ public sealed class MapRenderer
 
     private void DrawTriggers(Canvas canvas, MapRenderContext ctx, double tileSize)
     {
+        GetClampedTileRangeForDrawing(canvas, ctx, tileSize, out int tMinTx, out int tMinTy, out int tMaxTx, out int tMaxTy);
+        double minWx = tMinTx;
+        double maxWx = tMaxTx + 2;
+        double minWy = tMinTy;
+        double maxWy = tMaxTy + 2;
+
         foreach (var z in ctx.TriggerZones)
         {
+            if (!ctx.Project.Infinite)
+            {
+                int mw = Math.Max(1, ctx.Project.MapWidth);
+                int mh = Math.Max(1, ctx.Project.MapHeight);
+                if (z.X + z.Width <= 0 || z.X >= mw || z.Y + z.Height <= 0 || z.Y >= mh) continue;
+            }
+            if (z.X + z.Width < minWx || z.X > maxWx) continue;
+            if (z.Y + z.Height < minWy || z.Y > maxWy) continue;
+
             bool selected = ctx.SelectedTriggerId == z.Id;
             var trRect = new Rectangle
             {

@@ -34,6 +34,7 @@ public sealed class PlayNaudioAudioEngine : IDisposable
     private int _sfxClock;
 
     private bool _disposed;
+    private readonly object _disposeLock = new();
 
     public PlayNaudioAudioEngine(string projectRoot, Dispatcher dispatcher)
     {
@@ -128,6 +129,12 @@ public sealed class PlayNaudioAudioEngine : IDisposable
     public void StopAll()
     {
         ThrowIfDisposed();
+        StopAllInternal();
+    }
+
+    /// <summary>Detiene música y SFX sin comprobar disposed (uso desde <see cref="Dispose"/> y limpieza interna).</summary>
+    private void StopAllInternal()
+    {
         StopMusicInternal(immediate: true);
         for (var i = 0; i < SfxVoiceCount; i++)
             ClearSfxSlot(i);
@@ -135,14 +142,17 @@ public sealed class PlayNaudioAudioEngine : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
-        if (_fadeTimer != null)
+        lock (_disposeLock)
         {
-            _fadeTimer.Stop();
-            _fadeTimer.Tick -= OnFadeTick;
+            if (_disposed) return;
+            if (_fadeTimer != null)
+            {
+                _fadeTimer.Stop();
+                _fadeTimer.Tick -= OnFadeTick;
+            }
+            StopAllInternal();
+            _disposed = true;
         }
-        StopAll();
     }
 
     private void StartMusicFromFile(string absolutePath, float clipVolume, bool loop)

@@ -1,13 +1,14 @@
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Text.Json;
 using FUEngine.Core;
 using FUEngine.Editor;
 
 namespace FUEngine;
 
 /// <summary>
-/// Empaqueta el ejecutable actual (carpeta del motor) + copia del proyecto en <c>Data/</c> para distribución.
+/// Empaqueta el ejecutable actual (carpeta del motor) + copia del proyecto en <c>Data/</c> para distribuci?n.
 /// </summary>
 public sealed class ProjectBuildService
 {
@@ -30,9 +31,9 @@ public sealed class ProjectBuildService
     {
         log ??= _ => { };
         if (string.IsNullOrWhiteSpace(projectRootDirectory) || !Directory.Exists(projectRootDirectory))
-            throw new ArgumentException("Carpeta del proyecto no válida.", nameof(projectRootDirectory));
+            throw new ArgumentException("Carpeta del proyecto no v?lida.", nameof(projectRootDirectory));
         if (string.IsNullOrWhiteSpace(outputDirectory))
-            throw new ArgumentException("Carpeta de salida no válida.", nameof(outputDirectory));
+            throw new ArgumentException("Carpeta de salida no v?lida.", nameof(outputDirectory));
         executableBaseName = SanitizeExeName(executableBaseName);
         if (string.IsNullOrEmpty(executableBaseName))
             executableBaseName = "Game";
@@ -47,7 +48,7 @@ public sealed class ProjectBuildService
         if (useDotnetPublish)
         {
             if (!TryPublishSelfContainedTo(outputDirectory, log))
-                throw new InvalidOperationException("dotnet publish no se completó correctamente.");
+                throw new InvalidOperationException("dotnet publish no se complet? correctamente.");
         }
         else
         {
@@ -69,7 +70,7 @@ public sealed class ProjectBuildService
         var dstExe = Path.Combine(outputDirectory, executableBaseName + ".exe");
         if (!File.Exists(srcExe))
         {
-            log("Aviso: no se encontró FUEngine.exe para renombrar.");
+            log("Aviso: no se encontr? FUEngine.exe para renombrar.");
             return;
         }
 
@@ -96,6 +97,33 @@ public sealed class ProjectBuildService
         var exportJson = Path.Combine(dataDir, "proyecto.json");
         ProjectExportHelper.WriteExportProjectJson(project, exportJson, sceneIndex);
         log($"Proyecto export: {exportJson}");
+        WriteAdsExportMetadata(project, dataDir, log);
+    }
+
+    private static void WriteAdsExportMetadata(ProjectInfo project, string dataDir, Action<string> log)
+    {
+        try
+        {
+            var provider = string.IsNullOrWhiteSpace(project.AdsExportProvider)
+                ? "simulated"
+                : project.AdsExportProvider!.Trim();
+            var path = Path.Combine(dataDir, "ads_export.json");
+            var dto = new
+            {
+                provider,
+                editorRuntime = "SimulatedAdsApi",
+                nativeNote = string.Equals(provider, "google_mobile_ads", StringComparison.OrdinalIgnoreCase)
+                    ? "Host Android/iOS: registrar GoogleMobileAdsApi (SDK) en lugar del simulador; ver FUEngine.Runtime/GoogleMobileAdsApi.cs y LICENSE.md."
+                    : (string?)null,
+                generatedUtc = DateTime.UtcNow
+            };
+            File.WriteAllText(path, JsonSerializer.Serialize(dto, new JsonSerializerOptions { WriteIndented = true }));
+            log($"Ads export: {path} (provider={provider})");
+        }
+        catch (Exception ex)
+        {
+            log($"Aviso: no se pudo escribir ads_export.json: {ex.Message}");
+        }
     }
 
     private static void WriteReadme(string outputDirectory, string exeName, Action<string> log)
@@ -104,7 +132,7 @@ public sealed class ProjectBuildService
         try
         {
             File.WriteAllText(readme,
-                $"FUEngine — build exportada\r\n\r\n" +
+                $"FUEngine ��� build exportada\r\n\r\n" +
                 $"Ejecuta {exeName}.exe para iniciar el juego.\r\n" +
                 $"La carpeta \"Data\" debe permanecer junto al ejecutable (contiene el proyecto y assets).\r\n" +
                 $"Requisito: .NET 8 Runtime (Windows) si el build no es self-contained.\r\n");
@@ -115,7 +143,7 @@ public sealed class ProjectBuildService
         }
     }
 
-    /// <summary>Nombre de archivo exe sin extensión (caracteres inválidos eliminados).</summary>
+    /// <summary>Nombre de archivo exe sin extensi?n (caracteres inv?lidos eliminados).</summary>
     public static string SanitizeExecutableBaseName(string? raw) => SanitizeExeName(raw ?? "");
 
     private static string SanitizeExeName(string name)
@@ -186,14 +214,14 @@ public sealed class ProjectBuildService
         }
     }
 
-    /// <summary>Intenta publicar con <c>dotnet publish</c> (opcional, si existe el .csproj en el árbol superior al exe).</summary>
+    /// <summary>Intenta publicar con <c>dotnet publish</c> (opcional, si existe el .csproj en el ?rbol superior al exe).</summary>
     public static bool TryPublishSelfContainedTo(string outputDir, Action<string> log)
     {
         log ??= _ => { };
         var csproj = FindFUEngineCsproj();
         if (string.IsNullOrEmpty(csproj))
         {
-            log("No se encontró FUEngine.csproj (publish omitido; se usó la carpeta del exe).");
+            log("No se encontr? FUEngine.csproj (publish omitido; se us? la carpeta del exe).");
             return false;
         }
 
@@ -223,7 +251,7 @@ public sealed class ProjectBuildService
             p.WaitForExit();
             if (p.ExitCode != 0)
             {
-                log($"dotnet publish falló ({p.ExitCode}): {err}");
+                log($"dotnet publish fall? ({p.ExitCode}): {err}");
                 return false;
             }
             if (!string.IsNullOrWhiteSpace(stdout)) log(stdout.Trim());

@@ -28,6 +28,8 @@ public static class KnownEvents
     public const string OnUpdate = "onUpdate";
     /// <summary>Actualización tras onUpdate de todos los objetos.</summary>
     public const string OnLateUpdate = "onLateUpdate";
+    /// <summary>Script de capa del mapa: una vez por frame (offset/parallax, etc.). Tabla Lua <c>layer</c>.</summary>
+    public const string OnLayerUpdate = "onLayerUpdate";
     /// <summary>Entró en un trigger/colisión tipo trigger.</summary>
     public const string OnTriggerEnter = "onTriggerEnter";
     /// <summary>Salió de un trigger.</summary>
@@ -65,6 +67,7 @@ public static class KnownEvents
         OnHack,
         OnUpdate,
         OnLateUpdate,
+        OnLayerUpdate,
         OnTriggerEnter,
         OnTriggerExit,
         OnTrigger,

@@ -255,6 +255,34 @@ public class TileMap
             _layerDescriptors[i].SortOrder = i;
     }
 
+    /// <summary>
+    /// Desplaza todas las casillas en coordenadas mundo (p. ej. al expandir el mapa hacia norte u oeste).
+    /// </summary>
+    public void ShiftAllWorldTiles(int deltaWorldX, int deltaWorldY)
+    {
+        if (deltaWorldX == 0 && deltaWorldY == 0) return;
+        var copies = new List<(int layer, int wx, int wy, TileData data)>();
+        for (int li = 0; li < _layerChunks.Count; li++)
+        {
+            foreach (var (cx, cy) in EnumerateChunkCoords(li))
+            {
+                var ch = GetChunk(li, cx, cy);
+                if (ch == null) continue;
+                foreach (var (lx, ly, data) in ch.EnumerateTiles())
+                {
+                    int wx = cx * ChunkSize + lx;
+                    int wy = cy * ChunkSize + ly;
+                    copies.Add((li, wx + deltaWorldX, wy + deltaWorldY, data.Clone()));
+                }
+            }
+        }
+        for (int li = 0; li < _layerChunks.Count; li++)
+            _layerChunks[li].Clear();
+        _runtimeTouchedChunks.Clear();
+        foreach (var (li, wx, wy, data) in copies)
+            SetTile(li, wx, wy, data);
+    }
+
     /// <summary>Reemplaza todas las capas por la lista dada (para carga desde DTO).</summary>
     public void ReplaceLayers(IReadOnlyList<MapLayerDescriptor> descriptors)
     {

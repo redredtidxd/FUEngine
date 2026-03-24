@@ -77,8 +77,37 @@ public class RecentProjectInfo : INotifyPropertyChanged
     public DateTime LastModified { get; set; }
     /// <summary>Tamaño total del proyecto en bytes (rellenado al cargar).</summary>
     public long ProjectSizeBytes { get; set; }
+    private int _sceneCount;
     /// <summary>Número de escenas (rellenado al cargar).</summary>
-    public int SceneCount { get; set; }
+    public int SceneCount
+    {
+        get => _sceneCount;
+        set
+        {
+            if (_sceneCount == value) return;
+            _sceneCount = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SceneObjectsSummaryDisplay));
+        }
+    }
+
+    private int _objectCount;
+    /// <summary>Instancias de objeto sumadas en todas las escenas (rellenado al cargar).</summary>
+    public int ObjectCount
+    {
+        get => _objectCount;
+        set
+        {
+            if (_objectCount == value) return;
+            _objectCount = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SceneObjectsSummaryDisplay));
+        }
+    }
+
+    /// <summary>Resumen compacto para el Hub (p. ej. «3 escenas, 128 objetos»). Null si no hay datos.</summary>
+    public string? SceneObjectsSummaryDisplay =>
+        SceneCount == 0 && ObjectCount == 0 ? null : $"{SceneCount} escenas · {ObjectCount} objetos";
     /// <summary>Tamaño total de assets en bytes (rellenado al cargar).</summary>
     public long AssetsSizeBytes { get; set; }
 

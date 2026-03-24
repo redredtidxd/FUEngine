@@ -19,10 +19,15 @@
                     <TextBlock Text="Consola global" Foreground="#e6edf3" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     <Button x:Name="BtnClear" Content="Limpiar" Margin="12,0,0,0" Padding="8,2" Click="BtnClear_OnClick"
                             Background="#30363d" Foreground="#e6edf3" BorderBrush="#484f58"/>
+                    <Button x:Name="BtnStressTest" Content="Probar consola" Margin="8,0,0,0" Padding="8,2" Click="BtnStressTest_OnClick"
+                            Background="#30363d" Foreground="#e6edf3" BorderBrush="#484f58"
+                            ToolTip="Emite un mensaje de cada nivel (incl. JSON simulado) para verificar filtros y colores."/>
                     <TextBlock Text="Nivel:" Foreground="#6e7681" FontSize="11" VerticalAlignment="Center" Margin="14,0,4,0"/>
                     <CheckBox x:Name="ChkFilterInfo" Content="ℹ Info" Foreground="#e6edf3" IsChecked="True" VerticalAlignment="Center" Margin="2,0" Checked="Filter_OnChanged" Unchecked="Filter_OnChanged"/>
                     <CheckBox x:Name="ChkFilterWarning" Content="⚠ Aviso" Foreground="#e6edf3" IsChecked="True" VerticalAlignment="Center" Margin="2,0" Checked="Filter_OnChanged" Unchecked="Filter_OnChanged"/>
                     <CheckBox x:Name="ChkFilterError" Content="✕ Error" Foreground="#e6edf3" IsChecked="True" VerticalAlignment="Center" Margin="2,0" Checked="Filter_OnChanged" Unchecked="Filter_OnChanged"/>
+                    <CheckBox x:Name="ChkFilterCritical" Content="‼ Crítico" Foreground="#e6edf3" IsChecked="True" VerticalAlignment="Center" Margin="2,0" Checked="Filter_OnChanged" Unchecked="Filter_OnChanged"/>
+                    <CheckBox x:Name="ChkFilterLua" Content="Lua print" Foreground="#e6edf3" IsChecked="True" VerticalAlignment="Center" Margin="2,0" Checked="Filter_OnChanged" Unchecked="Filter_OnChanged"/>
                     <TextBlock Text="Origen:" Foreground="#6e7681" FontSize="11" VerticalAlignment="Center" Margin="12,0,4,0"/>
                     <ComboBox x:Name="CmbFilterSource" Width="100" VerticalAlignment="Center" SelectionChanged="Filter_OnChanged"
                               Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" FontSize="11">
@@ -42,11 +47,19 @@
                 </DockPanel>
             </Grid>
         </Border>
-        <TextBlock Grid.Row="1" Text="Doble clic: abre script en la línea (si el error incluye archivo y línea)." Foreground="#6e7681" FontSize="10" Margin="6,4,6,2" TextWrapping="Wrap"/>
+        <TextBlock Grid.Row="1" Text="Doble clic: abre script en la línea (si aplica). Clic derecho: copiar línea; si el mensaje incluye ruta de archivo, también «Copiar ruta del archivo»; en ‼ Crítico, «Copiar reporte para soporte»." Foreground="#6e7681" FontSize="10" Margin="6,4,6,2" TextWrapping="Wrap"/>
         <ListView Grid.Row="2" x:Name="LogList" Background="Transparent" Foreground="#e6edf3" BorderThickness="0"
                   MouseDoubleClick="LogList_OnMouseDoubleClick"
+                  PreviewMouseRightButtonDown="LogList_OnPreviewMouseRightButtonDown"
                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
                   ScrollViewer.VerticalScrollBarVisibility="Auto">
+            <ListView.ContextMenu>
+                <ContextMenu Opened="LogContextMenu_OnOpened">
+                    <MenuItem Header="Copiar línea" Click="LogContextMenu_CopyLine_OnClick"/>
+                    <MenuItem x:Name="MenuCopyFilePath" Header="Copiar ruta del archivo" Click="LogContextMenu_CopyFilePath_OnClick"/>
+                    <MenuItem x:Name="MenuCopyCriticalSupport" Header="Copiar reporte para soporte" Click="LogContextMenu_CopyCriticalSupport_OnClick"/>
+                </ContextMenu>
+            </ListView.ContextMenu>
             <ListView.ItemContainerStyle>
                 <Style TargetType="ListViewItem">
                     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -89,6 +102,16 @@
                         </DataTrigger>
                         <DataTrigger Binding="{Binding Level}" Value="Info">
                             <Setter TargetName="IconBlock" Property="Foreground" Value="#58a6ff"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Level}" Value="Critical">
+                            <Setter TargetName="IconBlock" Property="Text" Value="‼"/>
+                            <Setter TargetName="IconBlock" Property="ToolTip" Value="Crítico"/>
+                            <Setter TargetName="IconBlock" Property="Foreground" Value="#ff7b72"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Level}" Value="Lua">
+                            <Setter TargetName="IconBlock" Property="Text" Value="●"/>
+                            <Setter TargetName="IconBlock" Property="ToolTip" Value="Lua print"/>
+                            <Setter TargetName="IconBlock" Property="Foreground" Value="#a5d6ff"/>
                         </DataTrigger>
                         <DataTrigger Binding="{Binding Source}" Value="Lua">
                             <Setter TargetName="SourceBlock" Property="Foreground" Value="#79c0ff"/>

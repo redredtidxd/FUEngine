@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Text.Json;
 using FUEngine.Core;
 
@@ -63,7 +65,11 @@ public static class MapSerialization
                 CollisionMask = desc.CollisionMask,
                 RenderAbovePlayer = desc.RenderAbovePlayer,
                 BackgroundTexturePath = desc.BackgroundTexturePath,
-                TilesetAssetPath = desc.TilesetAssetPath
+                TilesetAssetPath = desc.TilesetAssetPath,
+                LayerScriptId = desc.LayerScriptId,
+                LayerScriptEnabled = desc.LayerScriptEnabled,
+                LayerScriptProperties = (desc.LayerScriptProperties ?? new List<ScriptPropertyEntry>())
+                    .Select(p => new ScriptPropertyEntryDto { Key = p.Key, Type = p.Type ?? "string", Value = p.Value ?? "" }).ToList()
             });
         }
 
@@ -132,12 +138,14 @@ public static class MapSerialization
         // Formato con capas: vincular por LayerId.
         if (dto.Layers == null) return map;
         var descriptors = new List<MapLayerDescriptor>();
-        foreach (var ld in dto.Layers)
+        for (int li = 0; li < dto.Layers.Count; li++)
         {
+            var ld = dto.Layers[li];
+            var layerName = string.IsNullOrWhiteSpace(ld.Name) ? $"Capa {li}" : ld.Name!;
             descriptors.Add(new MapLayerDescriptor
             {
                 Id = ld.Id ?? Guid.NewGuid().ToString("N"),
-                Name = ld.Name,
+                Name = layerName,
                 LayerType = (LayerType)ld.LayerType,
                 SortOrder = ld.SortOrder,
                 IsVisible = ld.IsVisible,
@@ -152,7 +160,11 @@ public static class MapSerialization
                 CollisionMask = ld.CollisionMask,
                 RenderAbovePlayer = ld.RenderAbovePlayer,
                 BackgroundTexturePath = ld.BackgroundTexturePath,
-                TilesetAssetPath = ld.TilesetAssetPath
+                TilesetAssetPath = ld.TilesetAssetPath,
+                LayerScriptId = ld.LayerScriptId,
+                LayerScriptEnabled = ld.LayerScriptEnabled,
+                LayerScriptProperties = (ld.LayerScriptProperties ?? new List<ScriptPropertyEntryDto>())
+                    .Select(p => new ScriptPropertyEntry { Key = p.Key, Type = p.Type ?? "string", Value = p.Value ?? "" }).ToList()
             });
         }
         map.ReplaceLayers(descriptors);

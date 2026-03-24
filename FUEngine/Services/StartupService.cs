@@ -125,6 +125,7 @@ public static class StartupService
                 item.ProjectSizeBytes = fi.Length;
             }
             item.SceneCount = 0;
+            item.ObjectCount = 0;
             item.AssetsSizeBytes = 0;
             if (Directory.Exists(projectDir))
             {
@@ -139,6 +140,7 @@ public static class StartupService
                         item.Resolution = $"{w.GetInt32()}×{h.GetInt32()}";
                     if (item.Fps == null && root.TryGetProperty("fps", out var fpsEl))
                         item.Fps = fpsEl.GetInt32();
+                    item.ObjectCount = CountObjectInstancesInProjectJson(root, projectDir);
                 }
                 catch { /* use 0 */ }
                 foreach (var dir in new[] { "Assets", "Sprites", "Maps", "Scripts", "Seeds" })
@@ -244,5 +246,55 @@ public static class StartupService
                 byPath[d.Path] = d;
         }
         return byPath.Values.OrderByDescending(x => x.LastOpened).ToList();
+    }
+
+    /// <summary>Suma instancias en <c>objetos.json</c> de cada escena (o legacy único).</summary>
+    private static int CountObjectInstancesInProjectJson(JsonElement root, string projectDir)
+    {
+        var total = 0;
+        try
+        {
+            if (root.TryGetProperty("scenes", out var scenes) && scenes.ValueKind == JsonValueKind.Array && scenes.GetArrayLength() > 0)
+            {
+                foreach (var sc in scenes.EnumerateArray())
+                {
+                    if (!sc.TryGetProperty("objectsPathRelative", out var op)) continue;
+                    var rel = op.GetString();
+                    if (string.IsNullOrWhiteSpace(rel)) continue;
+                    var path = Path.Combine(projectDir, rel.Replace('/', Path.DirectorySeparatorChar));
+                    total += CountInstancesInObjectsFile(path);
+                }
+                return total;
+            }
+            if (root.TryGetProperty("mainObjectsPath", out var mp))
+            {
+                var rel = mp.GetString();
+                if (!string.IsNullOrWhiteSpace(rel))
+                {
+                    var path = Path.Combine(projectDir, rel.Replace('/', Path.DirectorySeparatorChar));
+                    total += CountInstancesInObjectsFile(path);
+                }
+            }
+            if (total == 0)
+            {
+                var legacy = Path.Combine(projectDir, "objetos.json");
+                total += CountInstancesInObjectsFile(legacy);
+            }
+        }
+        catch { /* ignore */ }
+        return total;
+    }
+
+    private static int CountInstancesInObjectsFile(string path)
+    {
+        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return 0;
+        try
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            if (doc.RootElement.TryGetProperty("instances", out var inst) && inst.ValueKind == JsonValueKind.Array)
+                return inst.GetArrayLength();
+        }
+        catch { /* ignore */ }
+        return 0;
     }
 }

@@ -27,6 +27,9 @@ public interface IWorldContext
 
     /// <summary>Opcional: busca por ruta jerárquica (ej: "Root/Enemy/Weapon"). Si no se implementa, puede resolverse desde raíz.</summary>
     GameObject? FindByPath(string path) => null;
+
+    /// <summary>Busca por <see cref="GameObject.InstanceId"/> (id de instancia en objetos.json).</summary>
+    GameObject? GetObjectByInstanceId(string instanceId) => null;
 }
 
 /// <summary>Implementación simple de IWorldContext sobre una lista de GameObjects (para pruebas o modo Play).</summary>
@@ -118,5 +121,20 @@ public sealed class WorldContextFromList : IWorldContext
         var root = GetObjectByName(parts[0]);
         if (root == null || parts.Length == 1) return root;
         return root.FindInHierarchy(string.Join("/", parts.Skip(1)));
+    }
+
+    public GameObject? GetObjectByInstanceId(string instanceId)
+    {
+        if (string.IsNullOrWhiteSpace(instanceId)) return null;
+        var key = instanceId.Trim();
+        foreach (var o in _objects)
+        {
+            if (!IsLive(o)) continue;
+            if (string.IsNullOrEmpty(o.InstanceId)) continue;
+            if (string.Equals(o.InstanceId, key, StringComparison.OrdinalIgnoreCase))
+                return o;
+        }
+
+        return null;
     }
 }

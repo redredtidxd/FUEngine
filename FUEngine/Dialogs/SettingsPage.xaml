@@ -306,6 +306,33 @@
                 </StackPanel>
             </ScrollViewer>
         </TabItem>
+        <TabItem Header="Explorador" ToolTip="Carpetas raíz al crear proyectos: orden estándar, extras y tema. No sustituye Mapa/Assets del motor; añade carpetas.">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8" ToolTip="Se guarda en settings.json.">
+                <StackPanel>
+                    <TextBlock TextWrapping="Wrap" Foreground="#8b949e" FontSize="11" Margin="0,0,0,10"
+                               Text="Al marcar «Generar jerarquía estándar» en el asistente, el motor crea el orden Sprites/Maps/… (o tu lista personalizada). Las carpetas adicionales de abajo se crean siempre además, sin borrar las del motor."/>
+                    <TextBlock Text="Orden en la raíz del proyecto" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <ComboBox x:Name="CmbNewProjectFolderOrderPreset" Width="420" HorizontalAlignment="Left" Margin="0,0,0,12"
+                              Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              ToolTip="Predeterminado: Sprites, Maps, Scripts, Audio, Seeds. Personalizado: una carpeta por línea (reemplaza solo ese orden)."/>
+                    <TextBlock Text="Lista personalizada (solo si elige Personalizado arriba)" Foreground="#8b949e" Margin="0,0,0,4"/>
+                    <TextBox x:Name="TxtCustomNewProjectFolderOrder" Height="80" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
+                             Margin="0,0,0,8" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                             ToolTip="Una carpeta por línea. Reemplaza el orden predeterminado cuando está activo «Personalizado»."/>
+                    <TextBlock Text="Tema de carpetas extra (se suman a la lista inferior)" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,8,0,6"/>
+                    <ComboBox x:Name="CmbNewProjectExplorerTheme" Width="420" HorizontalAlignment="Left" Margin="0,0,0,12"
+                              Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                              ToolTip="Añade conjuntos predefinidos (UI, Prefabs, etc.) además de las líneas que escribas."/>
+                    <TextBlock Text="Carpetas adicionales en la raíz (una por línea)" Foreground="#8b949e" Margin="0,0,0,4"
+                               ToolTip="P. ej. Jadhjda o Docs. Se crean al generar jerarquía estándar, junto a Sprites/Maps…"/>
+                    <TextBox x:Name="TxtExtraNewProjectRootFolders" Height="100" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
+                             Margin="0,0,0,8" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                             ToolTip="Nombres simples, sin rutas. Se combinan con el tema."/>
+                    <CheckBox x:Name="ChkDefaultNewProjectDebugMode" Content="Asistente de nuevo proyecto: «Modo depuración» activado por defecto" Foreground="#e6edf3" Margin="0,0,0,0"
+                              ToolTip="El checkbox del asistente hereda este valor; puedes desactivarlo al crear proyecto."/>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
         <TabItem Header="Assets y scripting" ToolTip="Scripts sugeridos, editor integrado/externo y carpeta de placeholders.">
             <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8" ToolTip="Desplázate para ver todas las opciones en esta pestaña.">
                 <StackPanel>

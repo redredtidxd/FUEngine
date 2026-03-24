@@ -15,14 +15,21 @@
         <ListBox x:Name="LayersList" Grid.Row="1" Margin="4,4,4,4" Background="Transparent" Foreground="#e6edf3"
                  BorderThickness="0" SelectionMode="Single"
                  SelectionChanged="LayersList_OnSelectionChanged"
+                 PreviewMouseLeftButtonDown="LayersList_OnPreviewMouseLeftButtonDown"
                  MouseDoubleClick="LayersList_OnMouseDoubleClick"
                  ContextMenuOpening="LayersList_OnContextMenuOpening">
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Focusable="False"/>
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
             <ListBox.ItemContainerStyle>
                 <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
                     <Setter Property="Foreground" Value="#e6edf3"/>
                     <Setter Property="Background" Value="Transparent"/>
                     <Setter Property="Padding" Value="6,6"/>
                     <Setter Property="MinHeight" Value="32"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                     <Style.Triggers>
                         <Trigger Property="IsSelected" Value="True">
                             <Setter Property="Background" Value="#388bfd"/>
@@ -33,28 +40,77 @@
             </ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate>
                 <DataTemplate DataType="{x:Type local:LayerListItem}">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button x:Name="BtnVisible" Width="24" Height="24" Margin="0,0,4,0" Padding="0" ToolTip="Mostrar/Ocultar"
-                                Click="BtnVisible_OnClick" Background="Transparent" BorderThickness="0" Cursor="Hand"
-                                Content="{Binding VisibilityIcon}" FontSize="12"/>
-                        <Button x:Name="BtnLock" Width="24" Height="24" Margin="0,0,4,0" Padding="0" ToolTip="Bloquear/Desbloquear"
-                                Click="BtnLock_OnClick" Background="Transparent" BorderThickness="0" Cursor="Hand"
-                                Content="{Binding LockIcon}" FontSize="12"/>
-                        <TextBlock x:Name="TxtName" Text="{Binding DisplayName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="180" Margin="4,0,0,0"/>
-                    </StackPanel>
+                    <Grid VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="BtnVisible" Grid.Column="0" Width="26" Height="26" Margin="0,0,4,0" Padding="0" ToolTip="Clic: alternar visible u oculta en el mapa"
+                                Click="BtnVisible_OnClick" Background="#21262d" BorderBrush="#30363d" BorderThickness="1" Cursor="Hand"
+                                Content="{Binding VisibilityIcon}" FontSize="12" FontWeight="SemiBold">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Foreground" Value="#3fb950"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding VisibilityIcon}" Value="✕">
+                                            <Setter Property="Foreground" Value="#f85149"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Button x:Name="BtnLock" Grid.Column="1" Width="26" Height="26" Margin="0,0,8,0" Padding="0" ToolTip="Bloquear edición de tiles"
+                                Click="BtnLock_OnClick" Background="#21262d" BorderBrush="#30363d" BorderThickness="1" Cursor="Hand"
+                                Content="{Binding LockIcon}" FontSize="12" Foreground="#e6edf3"/>
+                        <Grid Grid.Column="2" MinWidth="40" VerticalAlignment="Center" HorizontalAlignment="Stretch">
+                            <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                       IsHitTestVisible="False">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#e6edf3"/>
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=IsSelected}" Value="True">
+                                                <Setter Property="Foreground" Value="#ffffff"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsEditingName}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBox Text="{Binding DisplayName, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" MinWidth="40"
+                                     Padding="2,2" Background="#21262d" Foreground="#e6edf3" BorderBrush="#58a6ff" BorderThickness="1"
+                                     VerticalContentAlignment="Center" Visibility="Collapsed" LostFocus="LayerNameEdit_OnLostFocus"
+                                     PreviewKeyDown="LayerNameEdit_OnPreviewKeyDown" HorizontalAlignment="Stretch">
+                                <TextBox.Style>
+                                    <Style TargetType="TextBox">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsEditingName}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBox.Style>
+                            </TextBox>
+                        </Grid>
+                    </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
-        <Border Grid.Row="2" Background="#21262d" Padding="6,6" BorderBrush="#30363d" BorderThickness="0,1,0,0">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <Button x:Name="BtnAdd" Content="+ Capa de tiles" Width="120" Height="26" Margin="2,0" ToolTip="Añadir capa de tiles (Suelo, Paredes, etc.)" Click="BtnAdd_OnClick"
-                        Background="#238636" Foreground="White" BorderThickness="0" FontWeight="SemiBold" FontSize="11"/>
-                <Button x:Name="BtnRemove" Content="−" Width="28" Height="26" Margin="2,0" ToolTip="Eliminar capa" Click="BtnRemove_OnClick"
-                        Background="#da3633" Foreground="White" BorderThickness="0" FontWeight="Bold" FontSize="14"/>
-                <Button x:Name="BtnMoveUp" Content="▲" Width="28" Height="26" Margin="2,0" ToolTip="Subir capa" Click="BtnMoveUp_OnClick"
-                        Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
-                <Button x:Name="BtnMoveDown" Content="▼" Width="28" Height="26" Margin="2,0" ToolTip="Bajar capa" Click="BtnMoveDown_OnClick"
-                        Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+        <Border Grid.Row="2" Background="#21262d" Padding="6,8" BorderBrush="#30363d" BorderThickness="0,1,0,0">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Button x:Name="BtnAdd" Content="Añadir capa" MinWidth="120" MinHeight="32" Padding="8,6" Margin="2,0" ToolTip="Añadir capa de tiles (Suelo, Paredes, etc.)" Click="BtnAdd_OnClick"
+                            Background="#238636" Foreground="White" BorderThickness="0" FontWeight="SemiBold" FontSize="11"
+                            VerticalContentAlignment="Center"/>
+                    <Button x:Name="BtnRemove" Content="Quitar" Width="52" MinHeight="32" Padding="6,6" Margin="2,0" ToolTip="Eliminar capa seleccionada" Click="BtnRemove_OnClick"
+                            Background="#da3633" Foreground="White" BorderThickness="0" FontSize="11" FontWeight="SemiBold"
+                            VerticalContentAlignment="Center"/>
+                </StackPanel>
             </StackPanel>
         </Border>
     </Grid>

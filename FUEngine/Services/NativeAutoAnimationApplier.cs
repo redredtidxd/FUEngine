@@ -34,6 +34,26 @@ internal static class NativeAutoAnimationApplier
         sprite.NativeAutoAnimationKey = target;
     }
 
+    /// <summary>Aplica un clip de <c>animaciones.json</c> por id o nombre (p. ej. desde <c>self.playAnimation</c> o instancia).</summary>
+    public static bool TryApplyClipForGameObject(
+        ProjectInfo project,
+        GameObject go,
+        string clipName,
+        IReadOnlyList<AnimationDefinition>? anims,
+        TextureAssetCache? texCache)
+    {
+        if (string.IsNullOrWhiteSpace(clipName) || anims == null || anims.Count == 0) return false;
+        var sprite = go.GetComponent<SpriteComponent>();
+        if (sprite == null) return false;
+        var clip = FindClip(anims, clipName.Trim());
+        if (clip == null) return false;
+        int tileSize = Math.Max(1, project.TileSize);
+        if (!TryApplyClip(sprite, clip, project.DefaultAnimationFps, tileSize, texCache, clipName.Trim()))
+            return false;
+        sprite.NativeAutoAnimationKey = clipName.Trim();
+        return true;
+    }
+
     private static AnimationDefinition? FindClip(IReadOnlyList<AnimationDefinition> anims, string name)
     {
         foreach (var a in anims)

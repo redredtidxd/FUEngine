@@ -245,6 +245,20 @@ public partial class SettingsWindow : Window
         if (CmbBuildRuntime != null) CmbBuildRuntime.ItemsSource = new[] { "net8.0-windows", "net9.0-windows", "net6.0-windows" };
         if (CmbBuildResolution != null) CmbBuildResolution.ItemsSource = new[] { "1920x1080", "1280x720", "800x600", "640x360" };
         if (CmbShortcutPreset != null) CmbShortcutPreset.ItemsSource = EditorShortcutPresets.ComboChoices;
+        if (CmbNewProjectFolderOrderPreset != null)
+        {
+            CmbNewProjectFolderOrderPreset.Items.Clear();
+            CmbNewProjectFolderOrderPreset.Items.Add(new ComboBoxItem { Content = "Predeterminado (Sprites, Maps, Scripts, Audio, Seeds)", Tag = "default" });
+            CmbNewProjectFolderOrderPreset.Items.Add(new ComboBoxItem { Content = "Personalizado (lista inferior)", Tag = "custom" });
+        }
+        if (CmbNewProjectExplorerTheme != null)
+        {
+            CmbNewProjectExplorerTheme.Items.Clear();
+            CmbNewProjectExplorerTheme.Items.Add(new ComboBoxItem { Content = "Ninguno (solo lista manual abajo)", Tag = "none" });
+            CmbNewProjectExplorerTheme.Items.Add(new ComboBoxItem { Content = "UI + Prefabs", Tag = "ui" });
+            CmbNewProjectExplorerTheme.Items.Add(new ComboBoxItem { Content = "Jam: Screenshots + Build", Tag = "jam" });
+            CmbNewProjectExplorerTheme.Items.Add(new ComboBoxItem { Content = "Contenido: UI + Plugins + StreamingAssets", Tag = "content" });
+        }
     }
 
     private void LoadSettings()
@@ -342,7 +356,7 @@ public partial class SettingsWindow : Window
         if (CmbGridSnap != null) CmbGridSnap.SelectedIndex = _settings.GridSnapPx switch { 1 => 1, 2 => 2, 4 => 3, _ => 0 };
         if (ChkGridVisible != null) ChkGridVisible.IsChecked = _settings.GridVisibleByDefault;
         if (ChkRulersVisible != null) ChkRulersVisible.IsChecked = _settings.RulersVisibleByDefault;
-        if (TxtDefaultSceneBgColor != null) TxtDefaultSceneBgColor.Text = _settings.DefaultSceneBackgroundColor ?? "#1a1a2e";
+        if (TxtDefaultSceneBgColor != null) TxtDefaultSceneBgColor.Text = _settings.DefaultSceneBackgroundColor ?? "#FFFFFF";
         if (ChkThumbnailPreview != null) ChkThumbnailPreview.IsChecked = _settings.ThumbnailPreviewEnabled;
         if (TxtDefaultPlugins != null) TxtDefaultPlugins.Text = _settings.DefaultEnabledPlugins != null ? string.Join(", ", _settings.DefaultEnabledPlugins) : "";
         if (ChkLightingPreview != null) ChkLightingPreview.IsChecked = _settings.LightingPreviewEnabled;
@@ -395,6 +409,25 @@ public partial class SettingsWindow : Window
         if (TxtAssetCacheMaxMb != null) TxtAssetCacheMaxMb.Text = _settings.AssetCacheMaxMb.ToString();
         if (ChkAssetCacheEnabled != null) ChkAssetCacheEnabled.IsChecked = _settings.AssetCacheEnabled;
 
+        if (CmbNewProjectFolderOrderPreset != null)
+            CmbNewProjectFolderOrderPreset.SelectedIndex = string.Equals(_settings.NewProjectRootFolderOrderPresetId?.Trim(), "custom", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+        if (TxtCustomNewProjectFolderOrder != null)
+            TxtCustomNewProjectFolderOrder.Text = string.Join(Environment.NewLine, _settings.CustomNewProjectRootFolderOrder ?? new List<string>());
+        if (TxtExtraNewProjectRootFolders != null)
+            TxtExtraNewProjectRootFolders.Text = string.Join(Environment.NewLine, _settings.ExtraNewProjectRootFolders ?? new List<string>());
+        if (CmbNewProjectExplorerTheme != null)
+        {
+            var tid = (_settings.NewProjectExplorerThemeId ?? "none").Trim().ToLowerInvariant();
+            CmbNewProjectExplorerTheme.SelectedIndex = 0;
+            for (int i = 0; i < CmbNewProjectExplorerTheme.Items.Count; i++)
+            {
+                if (CmbNewProjectExplorerTheme.Items[i] is ComboBoxItem cbi && cbi.Tag is string tg &&
+                    string.Equals(tg, tid, StringComparison.OrdinalIgnoreCase))
+                { CmbNewProjectExplorerTheme.SelectedIndex = i; break; }
+            }
+        }
+        if (ChkDefaultNewProjectDebugMode != null) ChkDefaultNewProjectDebugMode.IsChecked = _settings.DefaultNewProjectDebugMode;
+
         SyncShortcutPresetCombo();
         RebuildShortcutRows();
     }
@@ -436,7 +469,7 @@ public partial class SettingsWindow : Window
         _settings.GridSnapPx = (CmbGridSnap?.SelectedIndex ?? -1) switch { 1 => 1, 2 => 2, 3 => 4, _ => 0 };
         if (ChkGridVisible != null) _settings.GridVisibleByDefault = ChkGridVisible.IsChecked == true;
         if (ChkRulersVisible != null) _settings.RulersVisibleByDefault = ChkRulersVisible.IsChecked == true;
-        if (TxtDefaultSceneBgColor != null) _settings.DefaultSceneBackgroundColor = TxtDefaultSceneBgColor.Text?.Trim() ?? "#1a1a2e";
+        if (TxtDefaultSceneBgColor != null) _settings.DefaultSceneBackgroundColor = TxtDefaultSceneBgColor.Text?.Trim() ?? "#FFFFFF";
         if (ChkThumbnailPreview != null) _settings.ThumbnailPreviewEnabled = ChkThumbnailPreview.IsChecked == true;
         if (TxtDefaultPlugins != null) _settings.DefaultEnabledPlugins = (TxtDefaultPlugins.Text ?? "").Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
         if (ChkLightingPreview != null) _settings.LightingPreviewEnabled = ChkLightingPreview.IsChecked == true;
@@ -489,6 +522,20 @@ public partial class SettingsWindow : Window
         _settings.AutoLogsPath = TxtAutoLogsPath?.Text?.Trim() ?? "";
         if (TxtAssetCacheMaxMb != null && int.TryParse(TxtAssetCacheMaxMb.Text, out var cacheMb)) _settings.AssetCacheMaxMb = Math.Max(0, cacheMb);
         if (ChkAssetCacheEnabled != null) _settings.AssetCacheEnabled = ChkAssetCacheEnabled.IsChecked == true;
+
+        _settings.NewProjectRootFolderOrderPresetId = CmbNewProjectFolderOrderPreset?.SelectedIndex == 1 ? "custom" : "default";
+        _settings.CustomNewProjectRootFolderOrder = (TxtCustomNewProjectFolderOrder?.Text ?? "")
+            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(l => l.Trim())
+            .Where(l => l.Length > 0)
+            .ToList();
+        _settings.ExtraNewProjectRootFolders = (TxtExtraNewProjectRootFolders?.Text ?? "")
+            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(l => l.Trim())
+            .Where(l => l.Length > 0)
+            .ToList();
+        _settings.NewProjectExplorerThemeId = (CmbNewProjectExplorerTheme?.SelectedItem as ComboBoxItem)?.Tag as string ?? "none";
+        _settings.DefaultNewProjectDebugMode = ChkDefaultNewProjectDebugMode?.IsChecked != false;
 
         _settings.ShortcutBindings ??= new Dictionary<string, string>(StringComparer.Ordinal);
         if (CmbShortcutPreset?.SelectedItem is EditorShortcutPresets.Choice ch)

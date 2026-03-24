@@ -9,20 +9,26 @@ namespace FUEngine.Runtime;
 /// Proxy de GameObject expuesto a Lua como "self" o devuelto por world.find(), etc.
 /// API tipo Unity: getComponent (→ ComponentProxy), find, setParent, getChildren, addComponent, removeComponent, instantiate.
 /// </summary>
+[LuaVisible]
 public sealed class SelfProxy
 {
     private readonly GameObject _gameObject;
     private readonly string _instanceId;
     private readonly Func<GameObject, string?, string?, SelfProxy>? _createProxyFor;
     private readonly WorldApi? _worldApi;
+    private readonly Func<GameObject, string, bool>? _playAnimationClip;
+    private readonly Action<GameObject>? _stopAnimation;
 
     public SelfProxy(GameObject gameObject, string? instanceId = null,
-        Func<GameObject, string?, string?, SelfProxy>? createProxyFor = null, WorldApi? worldApi = null)
+        Func<GameObject, string?, string?, SelfProxy>? createProxyFor = null, WorldApi? worldApi = null,
+        Func<GameObject, string, bool>? playAnimationClip = null, Action<GameObject>? stopAnimation = null)
     {
         _gameObject = gameObject ?? throw new ArgumentNullException(nameof(gameObject));
         _instanceId = instanceId ?? gameObject.Name;
         _createProxyFor = createProxyFor;
         _worldApi = worldApi;
+        _playAnimationClip = playAnimationClip;
+        _stopAnimation = stopAnimation;
     }
 
     public string id => _instanceId;
@@ -80,13 +86,14 @@ public sealed class SelfProxy
 
     public void playAnimation(string name)
     {
-        // Stub: el motor puede enlazar con AnimationController
-        _ = name;
+        if (string.IsNullOrWhiteSpace(name)) return;
+        if (_playAnimationClip != null && _playAnimationClip(_gameObject, name.Trim()))
+            return;
     }
 
     public void stopAnimation()
     {
-        // Stub
+        _stopAnimation?.Invoke(_gameObject);
     }
 
     /// <summary>Ruta de textura del sprite (relativa al proyecto). Crea <see cref="SpriteComponent"/> si no existe.</summary>
@@ -171,6 +178,15 @@ public sealed class SelfProxy
         return s;
     }
 
+    /// <summary>Tinte multiplicador RGB del sprite (0–1+). Lua: <c>self:setSpriteTint(1,0.5,0.2)</c>.</summary>
+    public void setSpriteTint(double r, double g, double b)
+    {
+        var s = EnsureSpriteComponent();
+        s.ColorTintR = (float)r;
+        s.ColorTintG = (float)g;
+        s.ColorTintB = (float)b;
+    }
+
     /// <summary>Devuelve un ComponentProxy para invocar métodos desde Lua (ej: getComponent("Health"):invoke("takeDamage", 10)).</summary>
     public object? getComponent(string typeName)
     {
@@ -241,7 +257,7 @@ public sealed class SelfProxy
     {
         if (_createProxyFor != null)
             return _createProxyFor(go, go.Name, null);
-        return new SelfProxy(go, go.Name, null, _worldApi);
+        return new SelfProxy(go, go.Name, null, _worldApi, _playAnimationClip, _stopAnimation);
     }
 
     internal GameObject GameObject => _gameObject;

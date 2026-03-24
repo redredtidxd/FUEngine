@@ -21,6 +21,8 @@
       <Word>false</Word>
       <Word>for</Word>
       <Word>function</Word>
+      <Word>global</Word>
+      <Word>goto</Word>
       <Word>if</Word>
       <Word>in</Word>
       <Word>local</Word>

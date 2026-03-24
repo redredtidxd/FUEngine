@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -172,9 +173,15 @@ public partial class EditorWindow : Window
     private int _canvasMinWy;
     private bool _showTileCoordinates = true;
     private bool _showVisibleArea = true;
+    private bool _viewportFrameDragging;
+    private System.Windows.Point _viewportDragLastPos;
+    private bool _suppressKeepPlayCheckbox;
     private bool _showStreamingGizmos;
     private bool _showColliders;
     private readonly MapRenderer _mapRenderer = new();
+    private bool _drawMapReentrancyGuard;
+    /// <summary>Si no había estado guardado del editor, centrar una vez el scroll del mapa finito según el centro del visor.</summary>
+    private bool _finiteMapScrollPending;
     private TriggerZoneInspectorPanel? _cachedTriggerPanel;
     private ObjectInspectorPanel? _cachedObjectPanel;
     private UIElementInspectorPanel? _cachedUIElementPanel;
@@ -208,7 +215,7 @@ public partial class EditorWindow : Window
         if (runtime != null)
         {
             runtime.ScriptError = (path, line, msg) => EditorLog.Error(line > 0 ? $"{path}:{line} {msg}" : $"{path} {msg}", "Lua", path, line > 0 ? line : null);
-            runtime.PrintOutput = msg => EditorLog.Info(msg ?? "", "Lua");
+            runtime.PrintOutput = msg => EditorLog.Log(msg ?? "", LogLevel.Lua, "Lua");
         }
     }
     private FUEngine.Runtime.LuaScriptRuntime? _luaScriptRuntimeForConsole;
@@ -237,6 +244,7 @@ public partial class EditorWindow : Window
         ApplyEngineCollisionMaskDefault();
         Title = $"Editor - {_project.Nombre}";
         LoadProjectData();
+        WireEmbeddedGameTab();
         _explorerMetadataService = new ExplorerMetadataService();
         _explorerMetadataService.Initialize(_project.ProjectDirectory ?? "");
         _audioAssetRegistry = new AudioAssetRegistry();
@@ -253,14 +261,15 @@ public partial class EditorWindow : Window
             LayersPanel.ActiveLayerChanged += LayersPanel_OnActiveLayerChanged;
             LayersPanel.LayerSelected += LayersPanel_OnLayerSelected;
             LayersPanel.LayerVisibilityToggled += LayersPanel_OnLayerVisibilityToggled;
-            LayersPanel.LayerRemoved += (_, _) => { SyncLayerComboFromTileMap(); SyncProjectLayerNamesFromTileMap(); MapHierarchy?.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot()); };
-            LayersPanel.LayersReordered += (_, _) => { SyncLayerComboFromTileMap(); SyncProjectLayerNamesFromTileMap(); MapHierarchy?.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot()); };
+            LayersPanel.LayerRemoved += (_, _) => { SyncLayerComboFromTileMap(); SyncProjectLayerNamesFromTileMap(); RefreshMapHierarchy(); };
+            LayersPanel.LayersReordered += (_, _) => { SyncLayerComboFromTileMap(); SyncProjectLayerNamesFromTileMap(); RefreshMapHierarchy(); };
         }
         BuildVisibleLayersFromTileMap();
         Activated += (_, _) => RefreshCoordinateUnitFromSettings();
         Loaded += async (_, _) =>
         {
             RefreshCoordinateUnitFromSettings();
+            SyncVisualOptionsFromProject();
             _mapAnimationTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(100) };
             _mapAnimationTimer.Tick += (_, _) => DrawMap();
             _mapAnimationTimer.Start();
@@ -276,12 +285,26 @@ public partial class EditorWindow : Window
             await LoadEditorStateAsync();
             WarnIfMultipleProjectFiles(_project.ProjectDirectory ?? "");
             await LoadEditorLayoutAsync();
+            if (_finiteMapScrollPending && !_project.Infinite)
+            {
+                ClampViewportCenterForCurrentMap();
+                TrySaveProjectInfo();
+                _ = Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    DrawMap();
+                    ScrollMapViewToCenterWorldTile(
+                        (int)Math.Round(_project.EditorViewportCenterWorldX),
+                        (int)Math.Round(_project.EditorViewportCenterWorldY));
+                    GetEmbeddedGameTab()?.RefreshViewport();
+                }), DispatcherPriority.Loaded);
+            }
             ApplyCurrentSceneOptionalTabs();
             if (_openScenes.Count > 0 && !string.IsNullOrEmpty(_openScenes[_currentSceneIndex].SelectedTabKind))
             {
                 var tab = GetTabByKind(_openScenes[_currentSceneIndex].SelectedTabKind!);
                 if (tab != null) tab.IsSelected = true;
             }
+            ApplyGameTabPausePolicy(MainTabs?.SelectedItem as TabItem);
             ConfigureAutoSave();
             UpdateCurrentTool();
         };
@@ -289,7 +312,7 @@ public partial class EditorWindow : Window
         RefreshInspector();
         if (MapHierarchy != null)
         {
-            MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+            RefreshMapHierarchy();
             MapHierarchy.SetTriggerData(_triggerZones, () => TriggerZoneSerialization.Save(_triggerZones, _project.TriggerZonesPath));
             MapHierarchy.ObjectSelected += MapHierarchy_OnObjectSelected;
             MapHierarchy.LayerVisibilityToggled += MapHierarchy_OnLayerVisibilityToggled;
@@ -304,6 +327,8 @@ public partial class EditorWindow : Window
             MapHierarchy.RequestReorderLayers += MapHierarchy_OnRequestReorderLayers;
             MapHierarchy.RequestCreateUICanvas += MapHierarchy_OnRequestCreateUICanvas;
             MapHierarchy.RequestCreateUIElement += MapHierarchy_OnRequestCreateUIElement;
+            MapHierarchy.RequestEnsureCanvasAndCreateElement += MapHierarchy_OnRequestEnsureCanvasAndCreateElement;
+            MapHierarchy.RequestNewMap += MapHierarchy_OnRequestNewMap;
             MapHierarchy.RequestOpenCanvasInTab += MapHierarchy_OnRequestOpenCanvasInTab;
             MapHierarchy.UICanvasSelected += MapHierarchy_OnUICanvasSelected;
             MapHierarchy.UIElementSelected += MapHierarchy_OnUIElementSelected;
@@ -324,6 +349,7 @@ public partial class EditorWindow : Window
             ProjectExplorer.RequestCreateObject += Explorer_OnRequestCreateObject;
             ProjectExplorer.LuaScriptRegistered += ProjectExplorer_OnLuaScriptRegistered;
             ProjectExplorer.ScriptsRegistryChanged += ProjectExplorer_OnScriptsRegistryChanged;
+            ProjectExplorer.RequestExportObjectAsSeed += ProjectExplorer_OnRequestExportObjectAsSeed;
             _explorerPanel = ProjectExplorer;
         }
         InitializeFixedTabs();
@@ -397,11 +423,27 @@ public partial class EditorWindow : Window
         try
         {
             var path = System.IO.Path.Combine(_project.ProjectDirectory ?? "", EditorStateFileName);
+            _finiteMapScrollPending = !File.Exists(path);
             if (!File.Exists(path)) return;
             var json = await File.ReadAllTextAsync(path);
             var state = JsonSerializer.Deserialize<EditorWindowState>(json);
             if (state == null || MainTabs == null) return;
+            if (!string.IsNullOrEmpty(state.SelectedTabKind))
+            {
+                var t = GetTabByKind(state.SelectedTabKind);
+                if (t != null) { t.IsSelected = true; return; }
+            }
             var idx = state.SelectedTabIndex;
+            if (idx >= 0 && idx < MainTabs.Items.Count && MainTabs.Items.Count >= 3)
+            {
+                // Orden actual: Mapa=0, Juego=1, Consola=2 (índices guardados sin SelectedTabKind se interpretan así).
+                if (string.IsNullOrEmpty(state.SelectedTabKind) && idx < 3)
+                {
+                    var legacy = new[] { "Mapa", "Juego", "Consola" };
+                    var tab = GetTabByKind(legacy[idx]);
+                    if (tab != null) { tab.IsSelected = true; return; }
+                }
+            }
             if (idx >= 0 && idx < MainTabs.Items.Count)
                 MainTabs.SelectedIndex = idx;
             if (state.WindowWidth > 0 && state.WindowHeight > 0)
@@ -437,11 +479,9 @@ public partial class EditorWindow : Window
             var path = System.IO.Path.Combine(_project.ProjectDirectory ?? "", EditorLayoutFileName);
             if (!File.Exists(path))
             {
-                if (MainTabs != null && !HasTabWithKind("Juego"))
-                    AddOrSelectTab("Juego");
-                var juegoTab = GetTabByKind("Juego");
-                if (juegoTab != null)
-                    juegoTab.IsSelected = true;
+                var mapaTab = GetTabByKind("Mapa");
+                if (mapaTab != null)
+                    mapaTab.IsSelected = true;
                 return;
             }
             var json = await File.ReadAllTextAsync(path);
@@ -451,14 +491,14 @@ public partial class EditorWindow : Window
             foreach (var kind in layout.OpenTabs)
             {
                 if (string.IsNullOrEmpty(kind)) continue;
-                if (kind == "Mapa" || kind == "Consola") continue;
+                if (kind == "Mapa" || kind == "Consola" || kind == "Juego") continue;
                 var kindToAdd = kind == "Objetos" ? "Seeds" : kind;
                 if (!HasTabWithKind(kindToAdd))
                     AddOrSelectTab(kindToAdd);
             }
 
             var selectedTabKind = layout.SelectedTab == "Objetos" ? "Seeds" : layout.SelectedTab;
-            if (string.IsNullOrEmpty(selectedTabKind)) selectedTabKind = "Juego";
+            if (string.IsNullOrEmpty(selectedTabKind)) selectedTabKind = "Mapa";
             if (!HasTabWithKind(selectedTabKind))
                 AddOrSelectTab(selectedTabKind);
             var tab = GetTabByKind(selectedTabKind);
@@ -487,7 +527,7 @@ public partial class EditorWindow : Window
                 if (MainTabs.SelectedItem is TabItem sel && sel.Tag is string sk)
                     selectedTab = sk;
             }
-            var layout = new EditorLayoutState { OpenTabs = openTabs, SelectedTab = selectedTab ?? "Juego" };
+            var layout = new EditorLayoutState { OpenTabs = openTabs, SelectedTab = selectedTab ?? "Mapa" };
             var json = JsonSerializer.Serialize(layout, new JsonSerializerOptions { WriteIndented = true });
             await File.WriteAllTextAsync(path, json);
         }
@@ -524,6 +564,7 @@ public partial class EditorWindow : Window
             var state = new EditorWindowState
             {
                 SelectedTabIndex = MainTabs?.SelectedIndex ?? 0,
+                SelectedTabKind = (MainTabs?.SelectedItem as TabItem)?.Tag as string,
                 OpenTabKinds = openKinds.Count > 0 ? openKinds : null,
                 WindowLeft = Left,
                 WindowTop = Top,
@@ -591,8 +632,13 @@ public partial class EditorWindow : Window
     {
         if (item == null || item.IsFolder || string.IsNullOrEmpty(item.FullPath)) return;
         var ext = System.IO.Path.GetExtension(item.FullPath);
-        var isScript = string.Equals(ext, ".lua", StringComparison.OrdinalIgnoreCase) || string.Equals(ext, ".cs", StringComparison.OrdinalIgnoreCase);
-        if (isScript)
+        if (string.Equals(ext, ".fue", StringComparison.OrdinalIgnoreCase)) return;
+        if (string.Equals(ext, ".seed", StringComparison.OrdinalIgnoreCase)) return;
+        var openInScriptsTab = string.Equals(ext, ".lua", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(ext, ".cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(ext, ".json", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(ext, ".scene", StringComparison.OrdinalIgnoreCase);
+        if (openInScriptsTab)
         {
             AddOrSelectTab("Scripts");
             var scriptsContent = GetTabByKind("Scripts")?.Content as ScriptsTabContent;
@@ -669,14 +715,78 @@ public partial class EditorWindow : Window
 
     private void ConvertObjectToSeed(ObjectInstance inst)
     {
-        if (inst == null) return;
-        var defaultName = string.IsNullOrWhiteSpace(inst.Nombre) ? "Seed" : inst.Nombre.Trim() + " Seed";
-        var name = MapHierarchyPanel.ShowRenameDialogPublic("Convertir a seed", defaultName);
-        if (string.IsNullOrWhiteSpace(name)) return;
+        if (inst == null || string.IsNullOrEmpty(_project.ProjectDirectory)) return;
+        var seedsDir = System.IO.Path.Combine(_project.ProjectDirectory, "Seeds");
+        if (!Directory.Exists(seedsDir)) Directory.CreateDirectory(seedsDir);
+        var defaultFile = string.IsNullOrWhiteSpace(inst.Nombre) ? "mi_seed.seed" : System.Text.RegularExpressions.Regex.Replace(inst.Nombre.Trim(), @"[^\w\-\.]", "_") + ".seed";
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Guardar seed (.seed)",
+            Filter = "Seed (*.seed)|*.seed|JSON (*.json)|*.json",
+            FileName = defaultFile,
+            InitialDirectory = seedsDir
+        };
+        if (dlg.ShowDialog() != true || string.IsNullOrEmpty(dlg.FileName)) return;
+        SaveSeedFromInstanceToPath(inst, dlg.FileName);
+    }
+
+    /// <summary>Guarda un objeto de la escena como archivo .seed en la carpeta indicada (nombre único si ya existe).</summary>
+    private void ExportObjectInstanceAsSeedToFolder(string instanceId, string folderPath)
+    {
+        if (_objectLayer == null || string.IsNullOrEmpty(_project.ProjectDirectory)) return;
+        var inst = _objectLayer.Instances.FirstOrDefault(i => string.Equals(i.InstanceId, instanceId, StringComparison.OrdinalIgnoreCase));
+        if (inst == null)
+        {
+            EditorLog.Toast("Objeto no encontrado en la escena.", LogLevel.Warning, "Seed");
+            return;
+        }
+        if (string.IsNullOrEmpty(folderPath) || !Directory.Exists(folderPath)) return;
+        var baseName = string.IsNullOrWhiteSpace(inst.Nombre) ? "mi_seed" : System.Text.RegularExpressions.Regex.Replace(inst.Nombre.Trim(), @"[^\w\-\.]", "_");
+        var path = System.IO.Path.Combine(folderPath, baseName + ".seed");
+        path = EnsureUniqueSeedFilePath(path);
+        SaveSeedFromInstanceToPath(inst, path);
+    }
+
+    private static string EnsureUniqueSeedFilePath(string path)
+    {
+        if (!File.Exists(path)) return path;
+        var dir = System.IO.Path.GetDirectoryName(path) ?? "";
+        var name = System.IO.Path.GetFileNameWithoutExtension(path);
+        var ext = System.IO.Path.GetExtension(path);
+        for (var n = 2; ; n++)
+        {
+            var candidate = System.IO.Path.Combine(dir, $"{name} ({n}){ext}");
+            if (!File.Exists(candidate)) return candidate;
+        }
+    }
+
+    private void SaveSeedFromInstanceToPath(ObjectInstance inst, string filePath)
+    {
+        if (inst == null || string.IsNullOrEmpty(_project.ProjectDirectory) || string.IsNullOrEmpty(filePath)) return;
+
+        var instDto = ObjectsSerialization.ToInstanceDto(inst);
+        instDto.InstanceId = "";
+        instDto.X = 0;
+        instDto.Y = 0;
+        instDto.SourceSeedId = null;
+        instDto.SourceSeedRelativePath = null;
+        string jsonBody;
+        try
+        {
+            jsonBody = JsonSerializer.Serialize(instDto, SerializationDefaults.Options);
+        }
+        catch (Exception ex)
+        {
+            EditorLog.Error($"Serializar instancia: {ex.Message}", "Seed");
+            return;
+        }
+
+        var baseName = System.IO.Path.GetFileNameWithoutExtension(filePath);
+        var seedId = MakeUniqueSeedId(baseName);
         var seed = new SeedDefinition
         {
-            Id = Guid.NewGuid().ToString("N"),
-            Nombre = name.Trim(),
+            Id = seedId,
+            Nombre = baseName ?? "Seed",
             Descripcion = $"Creado desde objeto '{inst.Nombre}'.",
             Objects = new List<SeedObjectEntry>
             {
@@ -686,23 +796,96 @@ public partial class EditorWindow : Window
                     OffsetX = 0,
                     OffsetY = 0,
                     Rotation = inst.Rotation,
-                    Nombre = inst.Nombre
+                    Nombre = inst.Nombre,
+                    SerializedInstanceJson = jsonBody
                 }
             },
             Tags = inst.Tags != null ? new List<string>(inst.Tags) : new List<string>()
         };
-        _seedDefinitions.Add(seed);
         try
         {
+            SeedSerialization.Save(new List<SeedDefinition> { seed }, filePath);
+            _seedDefinitions.RemoveAll(s => s.Id == seed.Id);
+            _seedDefinitions.Add(seed);
             SeedSerialization.Save(_seedDefinitions, _project.SeedsPath);
-            EditorLog.Info($"Seed '{seed.Nombre}' guardado en seeds.json.", "Seed");
-            EditorLog.Toast($"Seed \"{seed.Nombre}\" creado correctamente. Instanciable desde el explorador (seeds.json).", LogLevel.Info, "Seed");
+            var rel = System.IO.Path.GetRelativePath(_project.ProjectDirectory, filePath).Replace('\\', '/');
+            inst.SourceSeedId = seed.Id;
+            inst.SourceSeedRelativePath = rel;
+            ProjectExplorer?.SetModified(GetCurrentSceneObjectsPath(), true);
+            ProjectExplorer?.RefreshTree();
+            EditorLog.Info($"Seed '{seed.Nombre}' → {rel} + seeds.json.", "Seed");
+            EditorLog.Toast($"Seed \"{seed.Nombre}\" guardado.", LogLevel.Info, "Seed");
+            RefreshInspector();
         }
         catch (Exception ex)
         {
-            _seedDefinitions.Remove(seed);
+            _seedDefinitions.RemoveAll(s => s.Id == seed.Id);
             EditorLog.Error($"Error al guardar seed: {ex.Message}", "Seed");
-            System.Windows.MessageBox.Show(this, "Error al guardar seeds.json: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            System.Windows.MessageBox.Show(this, "Error al guardar seed: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private string MakeUniqueSeedId(string baseName)
+    {
+        var id = string.IsNullOrWhiteSpace(baseName) ? "seed" : baseName.Trim();
+        foreach (var c in System.IO.Path.GetInvalidFileNameChars())
+            id = id.Replace(c, '_');
+        if (string.IsNullOrEmpty(id)) id = "seed";
+        var tryId = id;
+        var n = 0;
+        while (_seedDefinitions.Any(s => string.Equals(s.Id, tryId, StringComparison.OrdinalIgnoreCase)))
+            tryId = id + "_" + (++n);
+        return tryId;
+    }
+
+    /// <summary>Actualiza el archivo .seed y seeds.json desde la instancia seleccionada (misma <see cref="ObjectInstance.SourceSeedId"/>).</summary>
+    public void ApplyInstanceToSourceSeed(ObjectInstance inst)
+    {
+        if (inst == null || string.IsNullOrEmpty(inst.SourceSeedId) || string.IsNullOrEmpty(_project.ProjectDirectory)) return;
+        var seed = _seedDefinitions.FirstOrDefault(s => s.Id == inst.SourceSeedId);
+        if (seed == null)
+        {
+            EditorLog.Toast("No se encontró el seed en el registro.", LogLevel.Warning, "Seed");
+            return;
+        }
+        var instDto = ObjectsSerialization.ToInstanceDto(inst);
+        instDto.InstanceId = "";
+        instDto.X = 0;
+        instDto.Y = 0;
+        instDto.SourceSeedId = null;
+        instDto.SourceSeedRelativePath = null;
+        string jsonBody;
+        try
+        {
+            jsonBody = JsonSerializer.Serialize(instDto, SerializationDefaults.Options);
+        }
+        catch (Exception ex)
+        {
+            EditorLog.Error($"Serializar instancia: {ex.Message}", "Seed");
+            return;
+        }
+        seed.Objects ??= new List<SeedObjectEntry>();
+        if (seed.Objects.Count == 0)
+            seed.Objects.Add(new SeedObjectEntry { DefinitionId = inst.DefinitionId });
+        var entry = seed.Objects[0];
+        entry.DefinitionId = inst.DefinitionId;
+        entry.Rotation = inst.Rotation;
+        entry.Nombre = inst.Nombre;
+        entry.SerializedInstanceJson = jsonBody;
+        try
+        {
+            var seedFile = string.IsNullOrEmpty(inst.SourceSeedRelativePath)
+                ? null
+                : System.IO.Path.Combine(_project.ProjectDirectory, inst.SourceSeedRelativePath.Replace('/', System.IO.Path.DirectorySeparatorChar));
+            if (!string.IsNullOrEmpty(seedFile) && File.Exists(seedFile))
+                SeedSerialization.Save(new List<SeedDefinition> { seed }, seedFile);
+            SeedSerialization.Save(_seedDefinitions, _project.SeedsPath);
+            EditorLog.Toast($"Seed «{seed.Nombre}» actualizado.", LogLevel.Info, "Seed");
+        }
+        catch (Exception ex)
+        {
+            EditorLog.Error($"Error al actualizar seed: {ex.Message}", "Seed");
+            System.Windows.MessageBox.Show(this, ex.Message, "Seed", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -733,6 +916,7 @@ public partial class EditorWindow : Window
             }
         }
         EditorLog.Info($"Proyecto cargado: {_project.Nombre}", "Editor");
+        _mapRenderer.ResetInfiniteScrollExtent();
 
         if (_project.Scenes != null && _project.Scenes.Count > 0)
         {
@@ -753,6 +937,10 @@ public partial class EditorWindow : Window
                     else
                         EditorLog.Warning($"No se encontró {def.MapPathRelative}; se usa mapa vacío para {def.Name}.", "mapa");
                 }
+                catch (JsonException jex)
+                {
+                    EditorLog.Critical($"JSON corrupto al cargar mapa {def.Name} ({mapPath}): {FormatJsonErrorDetail(jex)}", "IO");
+                }
                 catch (Exception ex) { EditorLog.Error($"Error al cargar mapa {def.Name}: {ex.Message}", "mapa"); }
                 try
                 {
@@ -764,6 +952,10 @@ public partial class EditorWindow : Window
                     else
                         EditorLog.Warning($"No se encontró {def.ObjectsPathRelative}; se usa capa vacía para {def.Name}.", "objetos");
                 }
+                catch (JsonException jex)
+                {
+                    EditorLog.Critical($"JSON corrupto al cargar objetos {def.Name} ({objectsPath}): {FormatJsonErrorDetail(jex)}", "IO");
+                }
                 catch (Exception ex) { EditorLog.Error($"Error al cargar objetos {def.Name}: {ex.Message}", "objetos"); }
 
                 var sceneState = new OpenSceneState
@@ -772,8 +964,8 @@ public partial class EditorWindow : Window
                     SceneIndex = i,
                     TileMap = tileMap,
                     ObjectLayer = objectLayer,
-                    OpenOptionalTabKinds = def.DefaultTabKinds != null ? new List<string>(def.DefaultTabKinds) : new List<string>(),
-                    SelectedTabKind = "Juego"
+                    OpenOptionalTabKinds = OptionalTabKindsFromScene(def),
+                    SelectedTabKind = DefaultSelectedTabKind(def)
                 };
                 LoadUIRootForState(sceneState);
                 _openScenes.Add(sceneState);
@@ -799,6 +991,10 @@ public partial class EditorWindow : Window
                 else
                     EditorLog.Warning($"No se encontró {_project.MapPathRelative}; se usa mapa vacío.", "mapa");
             }
+            catch (JsonException jex)
+            {
+                EditorLog.Critical($"JSON corrupto al cargar mapa ({_project.MapPath}): {FormatJsonErrorDetail(jex)}", "IO");
+            }
             catch (Exception ex) { EditorLog.Error($"Error al cargar mapa: {ex.Message}", "mapa.json"); }
             try
             {
@@ -810,6 +1006,10 @@ public partial class EditorWindow : Window
                 else
                     EditorLog.Warning("No se encontró objetos.json; se usa capa vacía.", "objetos.json");
             }
+            catch (JsonException jex)
+            {
+                EditorLog.Critical($"JSON corrupto al cargar objetos ({_project.ObjectsPath}): {FormatJsonErrorDetail(jex)}", "IO");
+            }
             catch (Exception ex) { EditorLog.Error($"Error al cargar objetos: {ex.Message}", "objetos.json"); }
             var legacyState = new OpenSceneState
             {
@@ -818,7 +1018,7 @@ public partial class EditorWindow : Window
                 TileMap = _tileMap,
                 ObjectLayer = _objectLayer,
                 OpenOptionalTabKinds = new List<string>(),
-                SelectedTabKind = "Juego"
+                SelectedTabKind = "Mapa"
             };
             LoadUIRootForState(legacyState);
             _openScenes.Add(legacyState);
@@ -832,6 +1032,10 @@ public partial class EditorWindow : Window
             var n = _scriptRegistry?.GetAll()?.Count ?? 0;
             EditorLog.Info($"Scripts cargados: {n}", "scripts.json");
         }
+        catch (JsonException jex)
+        {
+            EditorLog.Critical($"JSON corrupto en scripts ({_project.ScriptsPath}): {FormatJsonErrorDetail(jex)}", "IO");
+        }
         catch (Exception ex)
         {
             EditorLog.Error($"Error al cargar scripts: {ex.Message}", "scripts.json");
@@ -843,6 +1047,10 @@ public partial class EditorWindow : Window
                 _triggerZones = TriggerZoneSerialization.Load(_project.TriggerZonesPath);
                 EditorLog.Info($"Triggers cargados: {_triggerZones.Count}", "triggerZones.json");
             }
+        }
+        catch (JsonException jex)
+        {
+            EditorLog.Critical($"JSON corrupto en triggers ({_project.TriggerZonesPath}): {FormatJsonErrorDetail(jex)}", "IO");
         }
         catch (Exception ex)
         {
@@ -875,12 +1083,46 @@ public partial class EditorWindow : Window
                 SeedSerialization.Save(_seedDefinitions, seedsPath);
             }
         }
+        catch (JsonException jex)
+        {
+            var sp = _project.SeedsPath;
+            EditorLog.Critical($"JSON corrupto en seeds ({sp}): {FormatJsonErrorDetail(jex)}", "IO");
+        }
         catch (Exception ex)
         {
             EditorLog.Error($"Error al cargar seeds: {ex.Message}", "seeds.json");
         }
+        _seedDefinitions ??= new List<SeedDefinition>();
+        MergeSeedFilesFromSeedsFolder(projectDir);
         NotifyMissingScripts();
+        ClampViewportCenterForCurrentMap();
+        ApplyEditorVisualColorsFromProject();
     }
+
+    private void MergeSeedFilesFromSeedsFolder(string projectDir)
+    {
+        var dir = System.IO.Path.Combine(projectDir, "Seeds");
+        if (!Directory.Exists(dir)) return;
+        foreach (var f in Directory.GetFiles(dir, "*.seed", SearchOption.TopDirectoryOnly))
+        {
+            try
+            {
+                var list = SeedSerialization.Load(f);
+                foreach (var s in list)
+                {
+                    if (string.IsNullOrWhiteSpace(s.Id)) continue;
+                    if (_seedDefinitions.Any(x => string.Equals(x.Id, s.Id, StringComparison.OrdinalIgnoreCase))) continue;
+                    _seedDefinitions.Add(s);
+                }
+            }
+            catch { /* ignore archivo suelto */ }
+        }
+    }
+
+    private static string FormatJsonErrorDetail(JsonException jex) =>
+        jex.LineNumber.HasValue
+            ? $"línea {jex.LineNumber}, posición {jex.BytePositionInLine}: {jex.Message}"
+            : jex.Message;
     private void NotifyMissingScripts()
     {
         var scriptIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -943,6 +1185,29 @@ public partial class EditorWindow : Window
         if (_openScenes.Count > 0 && _openScenes[_currentSceneIndex].Definition != null)
             return _openScenes[_currentSceneIndex].Definition!.GetMapPath(_project.ProjectDirectory ?? "");
         return _project.MapPath;
+    }
+
+    private string GetCurrentSceneDisplayName()
+    {
+        if (_openScenes.Count == 0) return "Escena";
+        var def = _openScenes[_currentSceneIndex].Definition;
+        if (def == null) return "Escena";
+        if (!string.IsNullOrWhiteSpace(def.Name)) return def.Name.Trim();
+        if (!string.IsNullOrWhiteSpace(def.Id)) return def.Id.Trim();
+        return "Escena";
+    }
+
+    private void RefreshMapHierarchy()
+    {
+        if (MapHierarchy == null) return;
+        MapHierarchy.SetMapStructure(
+            GetCurrentSceneDisplayName(),
+            System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()),
+            _project.LayerNames,
+            _objectLayer,
+            _triggerZones,
+            _visibleLayers,
+            GetCurrentUIRoot());
     }
 
     private string GetCurrentSceneObjectsPath()
@@ -1136,6 +1401,10 @@ public partial class EditorWindow : Window
     private void DrawMap()
     {
         if (MapCanvas == null) return;
+        if (_drawMapReentrancyGuard) return;
+        _drawMapReentrancyGuard = true;
+        try
+        {
         var tileSize = _project.TileSize;
         var selectedIds = new HashSet<string>(_selection.SelectedObjects.Select(o => o.InstanceId));
         var ctx = new MapRenderContext
@@ -1175,7 +1444,14 @@ public partial class EditorWindow : Window
             ShowVisibleArea = _showVisibleArea,
             ShowStreamingGizmos = _showStreamingGizmos,
             ShowColliders = _showColliders,
-            TotalSeconds = Environment.TickCount64 / 1000.0
+            TotalSeconds = Environment.TickCount64 / 1000.0,
+            PreviousCanvasMinWx = _canvasMinWx,
+            PreviousCanvasMinWy = _canvasMinWy,
+            EditorScrollHorizontalOffset = ScrollViewer?.HorizontalOffset ?? 0,
+            EditorScrollVerticalOffset = ScrollViewer?.VerticalOffset ?? 0,
+            EditorViewportWidth = ScrollViewer?.ViewportWidth > 0 ? ScrollViewer.ViewportWidth : 800,
+            EditorViewportHeight = ScrollViewer?.ViewportHeight > 0 ? ScrollViewer.ViewportHeight : 600,
+            EditorZoom = _zoom > 0 ? _zoom : 1.0
         };
         _mapRenderer.Draw(MapCanvas, ctx);
         _canvasMinWx = ctx.CanvasMinWx;
@@ -1189,6 +1465,11 @@ public partial class EditorWindow : Window
             if (TxtStatusBar != null) TxtStatusBar.Text = $"Medir: {distTiles:F1} tiles, {distPx:F0} px";
         }
         UpdateWelcomeOverlay();
+        }
+        finally
+        {
+            _drawMapReentrancyGuard = false;
+        }
     }
 
     private bool _welcomeOverlayDismissed;
@@ -1222,10 +1503,112 @@ public partial class EditorWindow : Window
         if (TxtStatusBar != null) TxtStatusBar.Text = text;
     }
 
+    private void ApplyGameTabPausePolicy(TabItem? selected)
+    {
+        if (MainTabs?.Items == null) return;
+        var selTag = selected?.Tag as string ?? "";
+        bool keep = _project.KeepEmbeddedPlayRunningWithMapTab;
+        foreach (var item in MainTabs.Items)
+        {
+            if (item is not TabItem t || t.Content is not GameTabContent g) continue;
+            if (t == selected) { g.ResumeRunner(); continue; }
+            if (keep && selTag == "Mapa") { g.ResumeRunner(); continue; }
+            g.PauseRunner();
+        }
+    }
+
+    private GameTabContent? GetEmbeddedGameTab() => GetTabByKind("Juego")?.Content as GameTabContent;
+
+    private bool TryGetViewportFrameCanvasBounds(out double left, out double top, out double w, out double h)
+    {
+        left = top = w = h = 0;
+        if (_project == null || !_showVisibleArea) return false;
+        GameViewportMath.GetCameraViewportRectInEditorCanvasPixels(_project,
+            _project.EditorViewportCenterWorldX, _project.EditorViewportCenterWorldY,
+            _canvasMinWx, _canvasMinWy,
+            out var leftRaw, out var topRaw, out var gwPx, out var ghPx,
+            ScrollViewer?.ViewportWidth ?? 0, ScrollViewer?.ViewportHeight ?? 0, _zoom);
+        left = leftRaw;
+        top = topRaw;
+        w = Math.Max(1, gwPx);
+        h = Math.Max(1, ghPx);
+        return true;
+    }
+
+    private void ClampViewportCenterForCurrentMap()
+    {
+        if (_project == null) return;
+        GameViewportMath.ClampViewportCenterToFiniteMap(_project,
+            ScrollViewer?.ViewportWidth ?? 0, ScrollViewer?.ViewportHeight ?? 0, _zoom > 0 ? _zoom : 1.0);
+    }
+
+    private bool IsPointInViewportFrame(System.Windows.Point pos)
+    {
+        if (!TryGetViewportFrameCanvasBounds(out var l, out var t, out var w, out var h)) return false;
+        const double pad = 10;
+        return pos.X >= l - pad && pos.X <= l + w + pad && pos.Y >= t - pad && pos.Y <= t + h + pad;
+    }
+
+    private static SolidColorBrush? TryParseProjectColorBrush(string? hex)
+    {
+        var s = (hex ?? "").Trim();
+        if (s.StartsWith("#", StringComparison.Ordinal)) s = s[1..];
+        if (s.Length == 6 && uint.TryParse(s, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var u))
+        {
+            byte r = (byte)((u >> 16) & 0xff), g = (byte)((u >> 8) & 0xff), b = (byte)(u & 0xff);
+            return new SolidColorBrush(System.Windows.Media.Color.FromRgb(r, g, b));
+        }
+        return null;
+    }
+
+    private void ApplyEditorVisualColorsFromProject()
+    {
+        if (MapCanvas == null || _project == null) return;
+        MapCanvas.Background = TryParseProjectColorBrush(_project.EditorMapCanvasBackgroundColor)
+            ?? new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x21, 0x26, 0x2d));
+    }
+
+    private void TrySaveProjectInfo()
+    {
+        try
+        {
+            var path = GetProjectFilePath();
+            if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
+            ProjectSerialization.Save(_project, path);
+        }
+        catch { /* ignore */ }
+    }
+
+    private void SyncVisualOptionsFromProject()
+    {
+        _suppressKeepPlayCheckbox = true;
+        try
+        {
+            if (ChkKeepPlayWithMap != null)
+                ChkKeepPlayWithMap.IsChecked = _project.KeepEmbeddedPlayRunningWithMapTab;
+        }
+        finally { _suppressKeepPlayCheckbox = false; }
+    }
+
+    private void ChkKeepPlayWithMap_OnChanged(object sender, RoutedEventArgs e)
+    {
+        if (_suppressKeepPlayCheckbox) return;
+        _project.KeepEmbeddedPlayRunningWithMapTab = ChkKeepPlayWithMap?.IsChecked == true;
+        TrySaveProjectInfo();
+        ApplyGameTabPausePolicy(MainTabs?.SelectedItem as TabItem);
+    }
+
     private void EditorLog_EntryAdded(object? sender, LogEntry e)
     {
         if (TxtLastLog == null || LogBar == null) return;
-        var prefix = e.Level switch { LogLevel.Error => "[Error] ", LogLevel.Warning => "[Aviso] ", _ => "" };
+        var prefix = e.Level switch
+        {
+            LogLevel.Error => "[Error] ",
+            LogLevel.Critical => "[Crítico] ",
+            LogLevel.Warning => "[Aviso] ",
+            LogLevel.Lua => "[Lua] ",
+            _ => ""
+        };
         TxtLastLog.Text = prefix + e.Message;
         if (e.Time != default)
             TxtLastLog.ToolTip = $"{e.Time:HH:mm:ss} [{e.Source ?? "Log"}] {e.Message}";
@@ -1237,7 +1620,7 @@ public partial class EditorWindow : Window
     {
         if (TxtLogCounts == null) return;
         var warnings = EditorLog.Entries.Count(entry => entry.Level == LogLevel.Warning);
-        var errors = EditorLog.Entries.Count(entry => entry.Level == LogLevel.Error);
+        var errors = EditorLog.Entries.Count(entry => entry.Level == LogLevel.Error || entry.Level == LogLevel.Critical);
         TxtLogCounts.Text = (warnings > 0 || errors > 0) ? $"⚠ {warnings}  ❌ {errors}" : "";
     }
 
@@ -1267,14 +1650,16 @@ public partial class EditorWindow : Window
         ToastText.Foreground = level switch
         {
             LogLevel.Error => new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xf8, 0x51, 0x49)),
+            LogLevel.Critical => new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xff, 0x7b, 0x72)),
             LogLevel.Warning => new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xd2, 0x99, 0x22)),
+            LogLevel.Lua => new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xa5, 0xd6, 0xff)),
             _ => new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xe6, 0xed, 0xf3))
         };
         ToastPanel.Visibility = Visibility.Visible;
         _toastTimer?.Stop();
-        if (level == LogLevel.Error)
+        if (level == LogLevel.Error || level == LogLevel.Critical)
         {
-            ToastPanel.ToolTip = "Error: clic para cerrar.";
+            ToastPanel.ToolTip = level == LogLevel.Critical ? "Crítico: clic para cerrar." : "Error: clic para cerrar.";
             return;
         }
         var seconds = level == LogLevel.Warning ? 5 : 3;
@@ -1321,6 +1706,110 @@ public partial class EditorWindow : Window
         return (tx, ty);
     }
 
+    /// <summary>Desplaza coordenadas de herramientas/selección cuando el mapa finito se expande hacia norte u oeste.</summary>
+    private void OffsetTransientTileStateForMapShift(int dtx, int dty)
+    {
+        if (dtx == 0 && dty == 0) return;
+        if (_selection.HasTileSelection)
+        {
+            _selection.SetTileSelectionRect(
+                _selection.TileMinTx!.Value + dtx,
+                _selection.TileMinTy!.Value + dty,
+                _selection.TileMaxTx!.Value + dtx,
+                _selection.TileMaxTy!.Value + dty);
+        }
+        _rectStartTx += dtx; _rectStartTy += dty; _rectEndTx += dtx; _rectEndTy += dty;
+        if (_lineStart.HasValue) _lineStart = (_lineStart.Value.x + dtx, _lineStart.Value.y + dty);
+        if (_measureStart.HasValue) _measureStart = (_measureStart.Value.x + dtx, _measureStart.Value.y + dty);
+        if (_measureEnd.HasValue) _measureEnd = (_measureEnd.Value.x + dtx, _measureEnd.Value.y + dty);
+        _zoneStartTx += dtx; _zoneStartTy += dty;
+        if (_zoneMinTx.HasValue) _zoneMinTx += dtx;
+        if (_zoneMinTy.HasValue) _zoneMinTy += dty;
+        if (_zoneMaxTx.HasValue) _zoneMaxTx += dtx;
+        if (_zoneMaxTy.HasValue) _zoneMaxTy += dty;
+        _pasteOriginTx += dtx;
+        _pasteOriginTy += dty;
+    }
+
+    /// <summary>Clic en zona «+» junto al mapa finito: expande un chunk en esa dirección.</summary>
+    private bool TryHandleFiniteMapExpandClick(System.Windows.Point pos)
+    {
+        if (_project.Infinite || MapCanvas == null) return false;
+        var (tx, ty) = GetTileAt(pos);
+        int cs = Math.Max(1, _project.ChunkSize);
+        int mw = Math.Max(1, _project.MapWidth);
+        int mh = Math.Max(1, _project.MapHeight);
+        int ww = Math.Min(cs, mw);
+        int wx0 = (mw - ww) / 2;
+        int hh = Math.Min(cs, mh);
+        int wy0 = (mh - hh) / 2;
+        int? dir = null;
+        if (ty >= -cs && ty < 0 && tx >= wx0 && tx < wx0 + ww) dir = 0;
+        else if (ty >= mh && ty < mh + cs && tx >= wx0 && tx < wx0 + ww) dir = 1;
+        else if (tx >= -cs && tx < 0 && ty >= wy0 && ty < wy0 + hh) dir = 2;
+        else if (tx >= mw && tx < mw + cs && ty >= wy0 && ty < wy0 + hh) dir = 3;
+        if (dir == null) return false;
+
+        switch (dir.Value)
+        {
+            case 0:
+                _tileMap.ShiftAllWorldTiles(0, cs);
+                _project.MapHeight += cs;
+                _project.InitialChunksH = Math.Max(1, _project.InitialChunksH + 1);
+                foreach (var inst in _objectLayer.Instances)
+                    inst.Y += cs;
+                foreach (var z in _triggerZones)
+                    z.Y += cs;
+                _project.EditorViewportCenterWorldY += cs;
+                OffsetTransientTileStateForMapShift(0, cs);
+                break;
+            case 1:
+                _project.MapHeight += cs;
+                _project.InitialChunksH = Math.Max(1, _project.InitialChunksH + 1);
+                break;
+            case 2:
+                _tileMap.ShiftAllWorldTiles(cs, 0);
+                _project.MapWidth += cs;
+                _project.InitialChunksW = Math.Max(1, _project.InitialChunksW + 1);
+                foreach (var inst in _objectLayer.Instances)
+                    inst.X += cs;
+                foreach (var z in _triggerZones)
+                    z.X += cs;
+                _project.EditorViewportCenterWorldX += cs;
+                OffsetTransientTileStateForMapShift(cs, 0);
+                break;
+            case 3:
+                _project.MapWidth += cs;
+                _project.InitialChunksW = Math.Max(1, _project.InitialChunksW + 1);
+                break;
+        }
+
+        ClampViewportCenterForCurrentMap();
+        try
+        {
+            var mapPath = GetCurrentSceneMapPath();
+            MapSerialization.Save(_tileMap, mapPath);
+            ObjectsSerialization.Save(_objectLayer, GetCurrentSceneObjectsPath());
+            TriggerZoneSerialization.Save(_triggerZones, _project.TriggerZonesPath);
+            TrySaveProjectInfo();
+            ProjectExplorer?.SetModified(mapPath, true);
+            ProjectExplorer?.SetModified(GetCurrentSceneObjectsPath(), true);
+        }
+        catch (Exception ex)
+        {
+            EditorLog.Error($"No se pudo guardar tras expandir mapa: {ex.Message}", "Mapa");
+        }
+        _mapRenderer.ResetInfiniteScrollExtent();
+        DrawMap();
+        ScrollViewer?.UpdateLayout();
+        ScrollMapViewToCenterWorldTile(
+            (int)Math.Round(_project.EditorViewportCenterWorldX),
+            (int)Math.Round(_project.EditorViewportCenterWorldY));
+        DrawMap();
+        GetEmbeddedGameTab()?.RefreshViewport();
+        return true;
+    }
+
     private static TileData CreateTileData(TileType tipo)
     {
         return new TileData
@@ -1334,8 +1823,22 @@ public partial class EditorWindow : Window
     private void MapCanvas_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         var pos = e.GetPosition(MapCanvas);
-        var ctrl = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) != 0;
-        var shift = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Shift) != 0;
+        if (TryHandleFiniteMapExpandClick(pos))
+        {
+            e.Handled = true;
+            return;
+        }
+        var alt = (Keyboard.Modifiers & ModifierKeys.Alt) == ModifierKeys.Alt;
+        if (alt && _showVisibleArea && IsPointInViewportFrame(pos))
+        {
+            _viewportFrameDragging = true;
+            _viewportDragLastPos = pos;
+            MapCanvas?.CaptureMouse();
+            e.Handled = true;
+            return;
+        }
+        var ctrl = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
+        var shift = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
         _toolController?.HandleMouseDown(pos, ctrl, shift);
     }
 
@@ -1538,7 +2041,7 @@ public partial class EditorWindow : Window
         };
         _history.Push(new AddObjectCommand(_objectLayer, inst));
         ProjectExplorer.SetModified(GetCurrentSceneObjectsPath(), true);
-        MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+        RefreshMapHierarchy();
         DrawMap();
     }
 
@@ -1682,12 +2185,60 @@ public partial class EditorWindow : Window
 
     private void MapCanvas_OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
+        if (_viewportFrameDragging)
+        {
+            EndViewportFrameDrag();
+            e.Handled = true;
+            return;
+        }
         _toolController?.HandleMouseUp(e.GetPosition(MapCanvas));
+    }
+
+    private void MapCanvas_OnMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Middle || MapCanvas == null) return;
+        var pos = e.GetPosition(MapCanvas);
+        if (_showVisibleArea && IsPointInViewportFrame(pos))
+        {
+            _viewportFrameDragging = true;
+            _viewportDragLastPos = pos;
+            MapCanvas.CaptureMouse();
+            e.Handled = true;
+        }
+    }
+
+    private void MapCanvas_OnMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Middle || !_viewportFrameDragging) return;
+        EndViewportFrameDrag();
+        e.Handled = true;
+    }
+
+    private void EndViewportFrameDrag()
+    {
+        if (!_viewportFrameDragging) return;
+        _viewportFrameDragging = false;
+        MapCanvas?.ReleaseMouseCapture();
+        TrySaveProjectInfo();
+        GetEmbeddedGameTab()?.RefreshViewport();
     }
 
     private void MapCanvas_OnMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
     {
         var pos = e.GetPosition(MapCanvas);
+        if (_viewportFrameDragging)
+        {
+            if (_project == null) return;
+            var ts = _project.TileSize;
+            var dx = (pos.X - _viewportDragLastPos.X) / ts;
+            var dy = (pos.Y - _viewportDragLastPos.Y) / ts;
+            _project.EditorViewportCenterWorldX += dx;
+            _project.EditorViewportCenterWorldY += dy;
+            _viewportDragLastPos = pos;
+            DrawMap();
+            GetEmbeddedGameTab()?.RefreshViewport();
+            return;
+        }
         UpdateStatusBarFromPosition(pos);
         _toolController?.HandleMouseMove(pos);
     }
@@ -1728,19 +2279,49 @@ public partial class EditorWindow : Window
         string xyPart;
         if (string.Equals(unit, "Pixels", StringComparison.OrdinalIgnoreCase))
         {
-            var px = (int)System.Math.Floor(_canvasMinWx * tileSizePx + pos.X);
-            var py = (int)System.Math.Floor(_canvasMinWy * tileSizePx + pos.Y);
-            xyPart = $"X: {px} px  Y: {py} px";
+            double worldPx = _canvasMinWx * tileSizePx + pos.X;
+            double worldPy = _canvasMinWy * tileSizePx + pos.Y;
+            if (!_project.Infinite)
+            {
+                int mw = Math.Max(1, _project.MapWidth);
+                int mh = Math.Max(1, _project.MapHeight);
+                double relPx = worldPx - mw * tileSizePx * 0.5;
+                double relPy = worldPy - mh * tileSizePx * 0.5;
+                xyPart = $"X: {relPx:F0} px  Y: {relPy:F0} px (centro mapa)";
+            }
+            else
+            {
+                var px = (int)System.Math.Floor(worldPx);
+                var py = (int)System.Math.Floor(worldPy);
+                xyPart = $"X: {px} px  Y: {py} px";
+            }
         }
         else if (string.Equals(unit, "SubTiles", StringComparison.OrdinalIgnoreCase))
         {
             var hs = tileSizePx / 2.0;
             var sx = (int)System.Math.Floor(pos.X / hs) + _canvasMinWx * 2;
             var sy = (int)System.Math.Floor(pos.Y / hs) + _canvasMinWy * 2;
-            xyPart = $"X: {sx}  Y: {sy}  (subtiles)";
+            if (!_project.Infinite)
+            {
+                int mw = Math.Max(1, _project.MapWidth);
+                int mh = Math.Max(1, _project.MapHeight);
+                sx -= mw;
+                sy -= mh;
+                xyPart = $"X: {sx}  Y: {sy}  (subtiles · centro mapa)";
+            }
+            else
+                xyPart = $"X: {sx}  Y: {sy}  (subtiles)";
         }
         else
-            xyPart = $"X: {mx}  Y: {my}";
+        {
+            if (!_project.Infinite)
+            {
+                GameViewportMath.GetTileCoordsRelativeToFiniteMapCenter(_project, mx, my, out var rdx, out var rdy);
+                xyPart = $"X: {rdx}  Y: {rdy}  (centro mapa)";
+            }
+            else
+                xyPart = $"X: {mx}  Y: {my}";
+        }
         var toolName = _toolMode switch { ToolMode.Pintar => "Pincel", ToolMode.Rectangulo => "Rect", ToolMode.Linea => "Línea", ToolMode.Relleno => "Relleno", ToolMode.Goma => "Goma", ToolMode.Picker => "Cuentagotas", ToolMode.Stamp => "Stamp", ToolMode.Seleccionar => "Seleccionar", ToolMode.Colocar => "Colocar", ToolMode.Zona => "Zona", ToolMode.Medir => "Medir", ToolMode.PixelEdit => "Pixel", _ => "" };
         var tileName = _toolMode == ToolMode.Pintar ? new[] { "Suelo", "Pared", "Objeto", "Especial" }[(int)_selectedTileType] : "";
         int cx = _tileMap.ChunkSize > 0 ? (mx < 0 ? (mx + 1) / _tileMap.ChunkSize - 1 : mx / _tileMap.ChunkSize) : 0;
@@ -1900,6 +2481,15 @@ public partial class EditorWindow : Window
 
     private void Window_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
+        var mods = e.KeyboardDevice.Modifiers;
+        if ((e.Key == System.Windows.Input.Key.P || e.Key == System.Windows.Input.Key.Space) &&
+            (mods & ModifierKeys.Control) == ModifierKeys.Control)
+        {
+            ShowSpotlight();
+            e.Handled = true;
+            return;
+        }
+
         if (KeyboardFocusAcceptsTextInput())
             return;
 
@@ -1917,7 +2507,8 @@ public partial class EditorWindow : Window
 
         if (ScrollViewer != null && (key == System.Windows.Input.Key.W || key == System.Windows.Input.Key.Up || key == System.Windows.Input.Key.A || key == System.Windows.Input.Key.Left || key == System.Windows.Input.Key.S || key == System.Windows.Input.Key.Down || key == System.Windows.Input.Key.D || key == System.Windows.Input.Key.Right))
         {
-            var step = 48 * _panKeyStepScale;
+            // Paso en píxeles del contenido escalado (LayoutTransform); escala con zoom para un desplazamiento más uniforme en pantalla.
+            var step = 96.0 * _zoom * _panKeyStepScale;
             var dx = (key == System.Windows.Input.Key.A || key == System.Windows.Input.Key.Left) ? -step : (key == System.Windows.Input.Key.D || key == System.Windows.Input.Key.Right) ? step : 0;
             var dy = (key == System.Windows.Input.Key.W || key == System.Windows.Input.Key.Up) ? -step : (key == System.Windows.Input.Key.S || key == System.Windows.Input.Key.Down) ? step : 0;
             if (dx != 0 || dy != 0)
@@ -1954,7 +2545,7 @@ public partial class EditorWindow : Window
         };
         _history.Push(new AddObjectCommand(_objectLayer, inst));
         ProjectExplorer.SetModified(GetCurrentSceneObjectsPath(), true);
-        MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+        RefreshMapHierarchy();
         DrawMap();
         RefreshInspector();
     }
@@ -1983,11 +2574,18 @@ public partial class EditorWindow : Window
                 ScriptId = sp.ScriptId,
                 Properties = (sp.Properties ?? new List<ScriptPropertyEntry>()).Select(p => new ScriptPropertyEntry { Key = p.Key, Type = p.Type, Value = p.Value }).ToList()
             }).ToList(),
-            Tags = instance.Tags != null ? new List<string>(instance.Tags) : new List<string>()
+            Tags = instance.Tags != null ? new List<string>(instance.Tags) : new List<string>(),
+            Visible = instance.Visible,
+            Enabled = instance.Enabled,
+            Pivot = instance.Pivot,
+            PointLightEnabled = instance.PointLightEnabled,
+            PointLightRadius = instance.PointLightRadius,
+            PointLightIntensity = instance.PointLightIntensity,
+            PointLightColorHex = instance.PointLightColorHex
         };
         _history.Push(new AddObjectCommand(_objectLayer, clone));
         ProjectExplorer.SetModified(GetCurrentSceneObjectsPath(), true);
-        MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+        RefreshMapHierarchy();
         DrawMap();
         RefreshInspector();
     }
@@ -1998,7 +2596,7 @@ public partial class EditorWindow : Window
         _history.Push(new RemoveObjectCommand(_objectLayer, instance));
         _selection.RemoveObjectFromSelection(instance);
         ProjectExplorer.SetModified(GetCurrentSceneObjectsPath(), true);
-        MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+        RefreshMapHierarchy();
         DrawMap();
         RefreshInspector();
     }
@@ -2006,7 +2604,7 @@ public partial class EditorWindow : Window
     private void MapHierarchy_OnRequestRenameObject(object? sender, ObjectInstance instance)
     {
         var name = MapHierarchyPanel.ShowRenameDialogPublic("Renombrar objeto", instance.Nombre);
-        if (!string.IsNullOrWhiteSpace(name)) { instance.Nombre = name.Trim(); ProjectExplorer.SetModified(GetCurrentSceneObjectsPath(), true); MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot()); RefreshInspector(); }
+        if (!string.IsNullOrWhiteSpace(name)) { instance.Nombre = name.Trim(); ProjectExplorer.SetModified(GetCurrentSceneObjectsPath(), true); RefreshMapHierarchy(); RefreshInspector(); }
     }
 
     private void MapHierarchy_OnRequestAddLayer(object? sender, EventArgs e)
@@ -2022,12 +2620,12 @@ public partial class EditorWindow : Window
         }
         if (File.Exists(projectPath))
             ProjectSerialization.Save(_project, projectPath);
-        MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+        RefreshMapHierarchy();
     }
 
     private void MapHierarchy_OnRequestRefresh(object? sender, EventArgs e)
     {
-        MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+        RefreshMapHierarchy();
     }
 
     private void MapHierarchy_OnLayerVisibilityToggled(object? sender, (int layerIndex, bool visible) e)
@@ -2036,7 +2634,7 @@ public partial class EditorWindow : Window
             _visibleLayers.Add(e.layerIndex);
         else
             _visibleLayers.Remove(e.layerIndex);
-        MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+        RefreshMapHierarchy();
         DrawMap();
     }
 
@@ -2055,7 +2653,7 @@ public partial class EditorWindow : Window
         }
         if (File.Exists(projectPath))
             ProjectSerialization.Save(_project, projectPath);
-        MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+        RefreshMapHierarchy();
     }
 
     private void MapHierarchy_OnRequestCreateUICanvas(object? sender, EventArgs e)
@@ -2067,23 +2665,76 @@ public partial class EditorWindow : Window
         root.AddCanvas(canvas);
         _selection.SetUISelection(canvas, element: null);
         ProjectExplorer?.SetModified(System.IO.Path.Combine(GetCurrentUIFolder(), id + ".json"), true);
-        MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+        RefreshMapHierarchy();
         RefreshOpenUICanvasTabs();
         RefreshInspector();
         EditorLog.Toast($"Canvas \"{id}\" creado. Clic derecho → Abrir en tab UI para editarlo.", LogLevel.Info, "UI");
     }
 
+    private void MapHierarchy_OnRequestEnsureCanvasAndCreateElement(object? sender, UIElementKind kind)
+    {
+        var root = GetCurrentUIRoot();
+        if (root.Canvases.Count == 0)
+            MapHierarchy_OnRequestCreateUICanvas(sender, EventArgs.Empty);
+        root = GetCurrentUIRoot();
+        if (root.Canvases.Count == 0) return;
+        MapHierarchy_OnRequestCreateUIElement(sender, (root.Canvases[0], null, kind));
+    }
+
+    private void MapHierarchy_OnRequestNewMap(object? sender, EventArgs e)
+    {
+        if (string.IsNullOrEmpty(_project.ProjectDirectory)) return;
+        var mapsRoot = System.IO.Path.Combine(_project.ProjectDirectory, "Maps");
+        if (!System.IO.Directory.Exists(mapsRoot))
+            System.IO.Directory.CreateDirectory(mapsRoot);
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Guardar nuevo mapa",
+            Filter = "Mapa FUEngine (*.map)|*.map",
+            FileName = "nuevo.map",
+            InitialDirectory = mapsRoot
+        };
+        if (dlg.ShowDialog() != true) return;
+        try
+        {
+            var dir = System.IO.Path.GetDirectoryName(dlg.FileName);
+            if (!string.IsNullOrEmpty(dir) && !System.IO.Directory.Exists(dir))
+                System.IO.Directory.CreateDirectory(dir);
+            FUEngine.Editor.MapSerialization.Save(new TileMap(_project.ChunkSize), dlg.FileName);
+            EditorLog.Toast("Mapa creado. Asigna la ruta en la definición de escena si quieres usarlo.", LogLevel.Info, "Mapa");
+            ProjectExplorer?.RefreshTree();
+        }
+        catch (Exception ex)
+        {
+            EditorLog.Error($"No se pudo crear el mapa: {ex.Message}", "Mapa");
+        }
+    }
+
     private void MapHierarchy_OnRequestCreateUIElement(object? sender, (UICanvas canvas, FUEngine.Core.UIElement? parent, UIElementKind kind) e)
     {
         var (canvas, parent, kind) = e;
-        var prefix = kind switch { UIElementKind.Button => "btn_", UIElementKind.Text => "txt_", UIElementKind.Image => "img_", UIElementKind.Panel => "panel_", _ => "el_" };
+        var prefix = kind switch
+        {
+            UIElementKind.Button => "btn_",
+            UIElementKind.Text => "txt_",
+            UIElementKind.Image => "img_",
+            UIElementKind.Panel => "panel_",
+            UIElementKind.TabControl => "tabs_",
+            _ => "el_"
+        };
         var id = prefix + "001";
         for (int i = 1; !UIRoot.IsIdUniqueInCanvas(canvas, id); i++) id = $"{prefix}{i:D3}";
+        var (w, h) = kind switch
+        {
+            UIElementKind.Text => (120.0, 24.0),
+            UIElementKind.TabControl => (280.0, 160.0),
+            _ => (100.0, 32.0)
+        };
         var element = new FUEngine.Core.UIElement
         {
             Id = id,
             Kind = kind,
-            Rect = new UIRect { X = 0, Y = 0, Width = kind == UIElementKind.Text ? 120 : 100, Height = kind == UIElementKind.Text ? 24 : 32 },
+            Rect = new UIRect { X = 0, Y = 0, Width = w, Height = h },
             Anchors = new UIAnchors { MinX = 0, MinY = 0, MaxX = 0, MaxY = 0 },
             Text = kind == UIElementKind.Text || kind == UIElementKind.Button ? (kind == UIElementKind.Button ? "Button" : "Text") : ""
         };
@@ -2093,7 +2744,7 @@ public partial class EditorWindow : Window
             canvas.Children.Add(element);
         _selection.SetUISelection(canvas, element);
         ProjectExplorer?.SetModified(System.IO.Path.Combine(GetCurrentUIFolder(), canvas.Id + ".json"), true);
-        MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+        RefreshMapHierarchy();
         RefreshOpenUICanvasTabs();
         RefreshInspector();
     }
@@ -2110,6 +2761,12 @@ public partial class EditorWindow : Window
 
     private void MapHierarchy_OnRequestInstantiateAsset(object? sender, string assetPath)
     {
+        if (string.IsNullOrEmpty(assetPath) || !File.Exists(assetPath)) return;
+        if (assetPath.EndsWith(".seed", StringComparison.OrdinalIgnoreCase))
+        {
+            InstantiateSeedFromFile(assetPath);
+            return;
+        }
         var defId = (_objectLayer.Definitions?.Keys?.FirstOrDefault()) ?? "";
         if (string.IsNullOrEmpty(defId)) defId = "default";
         var inst = new ObjectInstance
@@ -2121,7 +2778,75 @@ public partial class EditorWindow : Window
         };
         _history.Push(new AddObjectCommand(_objectLayer, inst));
         ProjectExplorer.SetModified(GetCurrentSceneObjectsPath(), true);
-        MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+        RefreshMapHierarchy();
+        DrawMap();
+        RefreshInspector();
+    }
+
+    private void InstantiateSeedFromFile(string seedPath)
+    {
+        List<SeedDefinition> list;
+        try
+        {
+            list = SeedSerialization.Load(seedPath);
+        }
+        catch (Exception ex)
+        {
+            EditorLog.Error($"No se pudo cargar el seed: {ex.Message}", "Seed");
+            return;
+        }
+        if (list.Count == 0)
+        {
+            EditorLog.Warning("El archivo .seed no contiene definiciones válidas.", "Seed");
+            return;
+        }
+        var defDefault = (_objectLayer.Definitions?.Keys?.FirstOrDefault()) ?? "";
+        var relSeed = System.IO.Path.GetRelativePath(_project.ProjectDirectory ?? "", seedPath).Replace('\\', '/');
+        foreach (var seed in list)
+        {
+            foreach (var entry in seed.Objects ?? new List<SeedObjectEntry>())
+            {
+                ObjectInstance inst;
+                if (!string.IsNullOrWhiteSpace(entry.SerializedInstanceJson))
+                {
+                    try
+                    {
+                        var tmpl = JsonSerializer.Deserialize<ObjectInstanceDto>(entry.SerializedInstanceJson, SerializationDefaults.Options);
+                        if (tmpl != null)
+                        {
+                            inst = ObjectsSerialization.FromInstanceDto(tmpl);
+                            inst.InstanceId = Guid.NewGuid().ToString("N");
+                            inst.X = entry.OffsetX;
+                            inst.Y = entry.OffsetY;
+                            inst.Rotation = entry.Rotation;
+                            if (!string.IsNullOrWhiteSpace(entry.Nombre)) inst.Nombre = entry.Nombre.Trim();
+                            inst.SourceSeedId = seed.Id;
+                            inst.SourceSeedRelativePath = relSeed;
+                            _history.Push(new AddObjectCommand(_objectLayer, inst));
+                            continue;
+                        }
+                    }
+                    catch { /* fallback */ }
+                }
+                var defId = string.IsNullOrWhiteSpace(entry.DefinitionId) ? defDefault : entry.DefinitionId.Trim();
+                if (string.IsNullOrEmpty(defId)) continue;
+                inst = new ObjectInstance
+                {
+                    DefinitionId = defId,
+                    X = entry.OffsetX,
+                    Y = entry.OffsetY,
+                    Rotation = entry.Rotation,
+                    Nombre = !string.IsNullOrWhiteSpace(entry.Nombre)
+                        ? entry.Nombre!.Trim()
+                        : (seed.Nombre ?? System.IO.Path.GetFileNameWithoutExtension(seedPath)),
+                    SourceSeedId = seed.Id,
+                    SourceSeedRelativePath = relSeed
+                };
+                _history.Push(new AddObjectCommand(_objectLayer, inst));
+            }
+        }
+        ProjectExplorer.SetModified(GetCurrentSceneObjectsPath(), true);
+        RefreshMapHierarchy();
         DrawMap();
         RefreshInspector();
     }
@@ -2367,11 +3092,11 @@ public partial class EditorWindow : Window
         {
             foreach (TabItem tab in MainTabs.Items)
             {
-                if (tab.Tag is string k && k != "Mapa" && k != "Consola")
+                if (tab.Tag is string k && k != "Mapa" && k != "Consola" && k != "Juego")
                     state.OpenOptionalTabKinds.Add(k);
             }
         }
-        state.SelectedTabKind = (MainTabs?.SelectedItem as TabItem)?.Tag as string ?? "Juego";
+        state.SelectedTabKind = (MainTabs?.SelectedItem as TabItem)?.Tag as string ?? "Mapa";
     }
 
     private void RemoveOptionalTabs()
@@ -2380,7 +3105,7 @@ public partial class EditorWindow : Window
         var toRemove = new List<TabItem>();
         foreach (TabItem tab in MainTabs.Items)
         {
-            if (tab.Tag is string k && k != "Mapa" && k != "Consola")
+            if (tab.Tag is string k && k != "Mapa" && k != "Consola" && k != "Juego")
                 toRemove.Add(tab);
         }
         foreach (var tab in toRemove)
@@ -2402,7 +3127,7 @@ public partial class EditorWindow : Window
             if (!HasTabWithKind(kind))
                 AddOrSelectTab(kind);
         }
-        var sel = _openScenes[_currentSceneIndex].SelectedTabKind ?? "Juego";
+        var sel = _openScenes[_currentSceneIndex].SelectedTabKind ?? "Mapa";
         var tab = GetTabByKind(sel);
         if (tab != null) tab.IsSelected = true;
     }
@@ -2415,6 +3140,7 @@ public partial class EditorWindow : Window
         var state = _openScenes[_currentSceneIndex];
         _tileMap = state.TileMap;
         _objectLayer = state.ObjectLayer;
+        _mapRenderer.ResetInfiniteScrollExtent();
         RefreshLayersPanelFromTileMap();
         RemoveOptionalTabs();
         foreach (var kind in state.OpenOptionalTabKinds.ToList())
@@ -2422,16 +3148,10 @@ public partial class EditorWindow : Window
             if (!HasTabWithKind(kind))
                 AddOrSelectTab(kind);
         }
-        var sel = state.SelectedTabKind ?? "Juego";
+        var sel = state.SelectedTabKind ?? "Mapa";
         var tab = GetTabByKind(sel);
         if (tab != null) tab.IsSelected = true;
-        MapHierarchy?.SetMapStructure(
-            System.IO.Path.GetFileNameWithoutExtension(state.Definition?.MapPathRelative ?? _project.MapPathRelative),
-            _project.LayerNames,
-            _objectLayer,
-            _triggerZones,
-            _visibleLayers,
-            GetCurrentUIRoot());
+        RefreshMapHierarchy();
         DrawMap();
         RefreshInspector();
         CmbObjectDef.ItemsSource = _objectLayer?.Definitions?.Values?.ToList() ?? new List<ObjectDefinition>();
@@ -2452,6 +3172,7 @@ public partial class EditorWindow : Window
         var state = _openScenes[_currentSceneIndex];
         _tileMap = state.TileMap;
         _objectLayer = state.ObjectLayer;
+        _mapRenderer.ResetInfiniteScrollExtent();
         RefreshLayersPanelFromTileMap();
         RemoveOptionalTabs();
         foreach (var kind in state.OpenOptionalTabKinds.ToList())
@@ -2459,16 +3180,10 @@ public partial class EditorWindow : Window
             if (!HasTabWithKind(kind))
                 AddOrSelectTab(kind);
         }
-        var sel = state.SelectedTabKind ?? "Juego";
+        var sel = state.SelectedTabKind ?? "Mapa";
         var tab = GetTabByKind(sel);
         if (tab != null) tab.IsSelected = true;
-        MapHierarchy?.SetMapStructure(
-            System.IO.Path.GetFileNameWithoutExtension(state.Definition?.MapPathRelative ?? _project.MapPathRelative),
-            _project.LayerNames,
-            _objectLayer,
-            _triggerZones,
-            _visibleLayers,
-            GetCurrentUIRoot());
+        RefreshMapHierarchy();
         DrawMap();
         RefreshInspector();
         BuildScenesStrip();
@@ -2537,8 +3252,8 @@ public partial class EditorWindow : Window
             SceneIndex = sceneIndex,
             TileMap = tileMap,
             ObjectLayer = objectLayer,
-            OpenOptionalTabKinds = def.DefaultTabKinds != null ? new List<string>(def.DefaultTabKinds) : new List<string>(),
-            SelectedTabKind = "Juego"
+            OpenOptionalTabKinds = OptionalTabKindsFromScene(def),
+            SelectedTabKind = DefaultSelectedTabKind(def)
         };
         LoadUIRootForState(openState);
         _openScenes.Add(openState);
@@ -2670,8 +3385,8 @@ public partial class EditorWindow : Window
             SceneIndex = _project.Scenes.Count - 1,
             TileMap = emptyMap,
             ObjectLayer = emptyObjects,
-            OpenOptionalTabKinds = new List<string>(),
-            SelectedTabKind = "Juego"
+            OpenOptionalTabKinds = OptionalTabKindsFromScene(def),
+            SelectedTabKind = DefaultSelectedTabKind(def)
         };
         LoadUIRootForState(newState);
         _openScenes.Add(newState);
@@ -2751,8 +3466,8 @@ public partial class EditorWindow : Window
             TileMap = dupMap,
             ObjectLayer = dupLayer,
             UIRoot = UIRoot.Clone(GetCurrentUIRoot()),
-            OpenOptionalTabKinds = newDef.DefaultTabKinds != null ? new List<string>(newDef.DefaultTabKinds) : new List<string>(),
-            SelectedTabKind = "Juego"
+            OpenOptionalTabKinds = OptionalTabKindsFromScene(newDef),
+            SelectedTabKind = DefaultSelectedTabKind(newDef)
         };
         _openScenes.Add(dupState);
         BuildScenesStrip();
@@ -2827,12 +3542,7 @@ public partial class EditorWindow : Window
         if (_openScenes.Count > 0)
         {
             ApplyCurrentSceneOptionalTabs();
-            MapHierarchy?.SetMapStructure(
-                System.IO.Path.GetFileNameWithoutExtension(_openScenes[_currentSceneIndex].Definition?.MapPathRelative ?? "mapa"),
-                _project.LayerNames,
-                _objectLayer,
-                _triggerZones,
-                _visibleLayers);
+            RefreshMapHierarchy();
         }
         DrawMap();
         RefreshInspector();
@@ -2867,6 +3577,7 @@ public partial class EditorWindow : Window
         try
         {
             sourceProject = ProjectSerialization.Load(dlg.FileName);
+            ProjectFormatMigration.ApplySilentInMemory(sourceProject);
         }
         catch (Exception ex)
         {
@@ -2990,8 +3701,8 @@ public partial class EditorWindow : Window
             SceneIndex = _project.Scenes.Count - 1,
             TileMap = importedMap,
             ObjectLayer = importedLayer,
-            OpenOptionalTabKinds = newDef.DefaultTabKinds != null ? new List<string>(newDef.DefaultTabKinds) : new List<string>(),
-            SelectedTabKind = "Juego"
+            OpenOptionalTabKinds = OptionalTabKindsFromScene(newDef),
+            SelectedTabKind = DefaultSelectedTabKind(newDef)
         };
         LoadUIRootForState(importedState);
         _openScenes.Add(importedState);
@@ -3085,7 +3796,7 @@ public partial class EditorWindow : Window
         DrawMap();
         RefreshInspector();
         if (MapHierarchy != null)
-            MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+            RefreshMapHierarchy();
 
         try
         {
@@ -3142,6 +3853,36 @@ public partial class EditorWindow : Window
         content.SetContext(_project, () => _objectLayer, _scriptRegistry, GetCurrentUIRoot, () => _tileMap);
         content.ApplyStateToScene = ApplyGameTabStateToScene;
         return content;
+    }
+
+    /// <summary>Pestaña Juego fija en XAML: enlaza contexto y mismos handlers que <see cref="ConfigureTabAfterCreate"/>.</summary>
+    private void WireEmbeddedGameTab()
+    {
+        if (EmbeddedGameTabContent == null) return;
+        var reg = _scriptRegistry ?? new ScriptRegistry();
+        EmbeddedGameTabContent.SetContext(_project, () => _objectLayer!, reg, GetCurrentUIRoot, () => _tileMap!);
+        EmbeddedGameTabContent.ApplyStateToScene = ApplyGameTabStateToScene;
+        EmbeddedGameTabContent.RequestOpenFileAtLine += (_, e) =>
+        {
+            AddOrSelectTab("Scripts");
+            (GetTabByKind("Scripts")?.Content as ScriptsTabContent)?.OpenFileAtLine(e.FilePath, e.Line);
+        };
+    }
+
+    private static string DefaultSelectedTabKind(SceneDefinition? def)
+    {
+        if (def?.DefaultTabKinds != null && def.DefaultTabKinds.Count > 0)
+            return def.DefaultTabKinds[0];
+        return "Mapa";
+    }
+
+    private static List<string> OptionalTabKindsFromScene(SceneDefinition? def)
+    {
+        if (def?.DefaultTabKinds == null || def.DefaultTabKinds.Count == 0)
+            return new List<string>();
+        return def.DefaultTabKinds
+            .Where(k => k != "Mapa" && k != "Consola" && k != "Juego")
+            .ToList();
     }
 
     private void AddOrSelectTabFromMenu(string kind)
@@ -3235,7 +3976,7 @@ public partial class EditorWindow : Window
 
         MainTabs.Items.Insert(MainTabs.Items.Count, tabItem);
         tabItem.IsSelected = true;
-        if (_openScenes.Count > 0 && _currentSceneIndex < _openScenes.Count && kind != "Mapa" && kind != "Consola")
+        if (_openScenes.Count > 0 && _currentSceneIndex < _openScenes.Count && kind != "Mapa" && kind != "Consola" && kind != "Juego")
         {
             var list = _openScenes[_currentSceneIndex].OpenOptionalTabKinds;
             if (!list.Contains(kind)) list.Add(kind);
@@ -3361,6 +4102,7 @@ public partial class EditorWindow : Window
         _explorerPanel.RequestCreateObject += Explorer_OnRequestCreateObject;
         _explorerPanel.LuaScriptRegistered += ProjectExplorer_OnLuaScriptRegistered;
         _explorerPanel.ScriptsRegistryChanged += ProjectExplorer_OnScriptsRegistryChanged;
+        _explorerPanel.RequestExportObjectAsSeed += ProjectExplorer_OnRequestExportObjectAsSeed;
         return content;
     }
 
@@ -3393,6 +4135,9 @@ public partial class EditorWindow : Window
         RefreshScriptsTabList(selectScriptId: null);
         RefreshInspector();
     }
+
+    private void ProjectExplorer_OnRequestExportObjectAsSeed(object? sender, (string InstanceId, string TargetFolderPath) e) =>
+        ExportObjectInstanceAsSeedToFolder(e.InstanceId, e.TargetFolderPath);
 
     private void ProjectExplorer_OnLuaScriptRegistered(object? sender, ScriptRegisteredEventArgs e)
     {
@@ -3427,20 +4172,21 @@ public partial class EditorWindow : Window
             else if (File.Exists(projectPath))
                 ProjectSerialization.Save(_project, projectPath);
         }
-        MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+        RefreshMapHierarchy();
     }
     private void Explorer_OnRequestCreateTriggerZone(object? sender, EventArgs e)
     {
         var zone = new TriggerZone { Id = Guid.NewGuid().ToString("N"), Nombre = "Nueva zona", Width = 2, Height = 2 };
         _triggerZones.Add(zone);
         TriggerZoneSerialization.Save(_triggerZones, _project.TriggerZonesPath);
-        MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+        RefreshMapHierarchy();
     }
     private void Explorer_OnRequestCreateObject(object? sender, EventArgs e) => MapHierarchy_OnRequestCreateObject(sender, e);
 
     private ScriptsTabContent CreateScriptsTabContent()
     {
         var content = new ScriptsTabContent();
+        content.SetProjectDirectory(_project.ProjectDirectory ?? "");
         content.SetScripts(_scriptRegistry?.GetAll());
         return content;
     }
@@ -3498,19 +4244,7 @@ public partial class EditorWindow : Window
     private void MainTabs_OnSelectionChanged(object? sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
         var selected = MainTabs?.SelectedItem as TabItem;
-        if (MainTabs?.Items != null)
-        {
-            foreach (var item in MainTabs.Items)
-            {
-                if (item is TabItem t && t.Content is GameTabContent g)
-                {
-                    if (t == selected)
-                        g.ResumeRunner();
-                    else
-                        g.PauseRunner();
-                }
-            }
-        }
+        ApplyGameTabPausePolicy(selected);
         if (MenuVerConsola != null)
             MenuVerConsola.IsChecked = selected == TabConsola;
         if (MenuVerJuego != null)
@@ -3810,7 +4544,7 @@ public partial class EditorWindow : Window
                 };
                 _history.Push(new AddObjectCommand(_objectLayer, inst));
                 ProjectExplorer?.SetModified(GetCurrentSceneObjectsPath(), true);
-                MapHierarchy?.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers);
+                RefreshMapHierarchy();
                 DrawMap();
                 RefreshInspector();
                 e.Handled = true;
@@ -3835,7 +4569,7 @@ public partial class EditorWindow : Window
                 if (_objectLayer == null) return;
                 _history.Push(new AddObjectCommand(_objectLayer, inst));
                 ProjectExplorer.SetModified(GetCurrentSceneObjectsPath(), true);
-                MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+                RefreshMapHierarchy();
                 DrawMap();
                 RefreshInspector();
             }
@@ -3982,7 +4716,7 @@ public partial class EditorWindow : Window
         DrawMap();
     }
 
-    private void LayersPanel_OnLayerSelected(object? sender, MapLayerDescriptor descriptor)
+    private void LayersPanel_OnLayerSelected(object? sender, MapLayerDescriptor? descriptor)
     {
         _selection.SetInspectorContextLayer(descriptor);
         RefreshInspector();
@@ -4015,11 +4749,48 @@ public partial class EditorWindow : Window
     {
         if (TxtZoom != null) TxtZoom.Text = $"{(int)(_zoom * 100)}%";
         if (MapCanvas != null) MapCanvas.LayoutTransform = new System.Windows.Media.ScaleTransform(_zoom, _zoom);
+        DrawMap();
+    }
+
+    /// <summary>
+    /// Centra el viewport del ScrollViewer en la casilla mundo indicada. Requiere <see cref="DrawMap"/> previo para que
+    /// <see cref="_canvasMinWx"/> / <see cref="_canvasMinWy"/> coincidan con el lienzo. Con <see cref="MapCanvas"/> escalado por LayoutTransform, el offset del scroll está en el mismo espacio que el contenido escalado.
+    /// </summary>
+    private void ScrollMapViewToCenterWorldTile(int worldTx, int worldTy)
+    {
+        if (ScrollViewer == null || MapCanvas == null || _project == null) return;
+        ScrollViewer.UpdateLayout();
+        double tileSize = _project.TileSize;
+        double z = _zoom > 0 ? _zoom : 1.0;
+        double contentX = (worldTx - _canvasMinWx) * tileSize * z;
+        double contentY = (worldTy - _canvasMinWy) * tileSize * z;
+        double vw = ScrollViewer.ViewportWidth;
+        double vh = ScrollViewer.ViewportHeight;
+        if (vw <= 0 || vh <= 0) return;
+        double h = contentX - vw / 2;
+        double v = contentY - vh / 2;
+        double maxH = Math.Max(0, ScrollViewer.ScrollableWidth);
+        double maxV = Math.Max(0, ScrollViewer.ScrollableHeight);
+        ScrollViewer.ScrollToHorizontalOffset(Math.Max(0, Math.Min(h, maxH)));
+        ScrollViewer.ScrollToVerticalOffset(Math.Max(0, Math.Min(v, maxV)));
+    }
+
+    private void ScrollViewer_OnScrollChanged(object sender, System.Windows.Controls.ScrollChangedEventArgs e)
+    {
+        // Mapa infinito: DrawMap puede agrandar solo Extent (lienzo sticky) sin mover el scroll; redibujar en bucle
+        // provoca que el mapa «corra» solo hasta estabilizar. Solo reaccionar a scroll real o cambio de viewport.
+        if (Math.Abs(e.HorizontalChange) < double.Epsilon && Math.Abs(e.VerticalChange) < double.Epsilon
+            && Math.Abs(e.ViewportWidthChange) < double.Epsilon && Math.Abs(e.ViewportHeightChange) < double.Epsilon)
+            return;
+        Dispatcher.BeginInvoke(DrawMap, DispatcherPriority.Background);
     }
 
     private void ScrollViewer_OnPreviewMouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
     {
-        if (sender is not System.Windows.Controls.ScrollViewer sv) return;
+        if (sender is not System.Windows.Controls.ScrollViewer) return;
+        // Sin Ctrl: el ScrollViewer hace scroll vertical (y Shift+rueda horizontal en el host). Con Ctrl: zoom del lienzo.
+        if ((Keyboard.Modifiers & ModifierKeys.Control) == 0)
+            return;
         e.Handled = true;
         var step = 0.15 * _zoomWheelSensitivity;
         _zoom = e.Delta > 0 ? Math.Min(4, _zoom + step) : Math.Max(0.25, _zoom - step);
@@ -4098,18 +4869,50 @@ public partial class EditorWindow : Window
 
     private void BtnGoToOrigin_OnClick(object sender, RoutedEventArgs e)
     {
-        if (ScrollViewer == null || MapCanvas == null) return;
+        if (ScrollViewer == null || MapCanvas == null || _project == null) return;
         _measureStart = null;
         _measureEnd = null;
-        var tileSize = _project?.TileSize ?? 16;
-        double cx = (0 - _canvasMinWx) * tileSize * _zoom;
-        double cy = (0 - _canvasMinWy) * tileSize * _zoom;
-        double vw = ScrollViewer.ViewportWidth;
-        double vh = ScrollViewer.ViewportHeight;
-        double h = Math.Max(0, cx - vw / 2);
-        double v = Math.Max(0, cy - vh / 2);
-        ScrollViewer.ScrollToHorizontalOffset(Math.Min(h, ScrollViewer.ScrollableWidth));
-        ScrollViewer.ScrollToVerticalOffset(Math.Min(v, ScrollViewer.ScrollableHeight));
+        if (_project.Infinite)
+        {
+            _project.EditorViewportCenterWorldX = 0;
+            _project.EditorViewportCenterWorldY = 0;
+        }
+        else
+        {
+            GameViewportMath.GetFiniteMapCenterWorldTile(_project, out var cx, out var cy);
+            _project.EditorViewportCenterWorldX = cx;
+            _project.EditorViewportCenterWorldY = cy;
+        }
+        ClampViewportCenterForCurrentMap();
+        TrySaveProjectInfo();
+        GetEmbeddedGameTab()?.RefreshViewport();
+        ScrollViewer.ScrollToHorizontalOffset(0);
+        ScrollViewer.ScrollToVerticalOffset(0);
+        DrawMap();
+        ScrollViewer.UpdateLayout();
+        ScrollMapViewToCenterWorldTile(
+            (int)Math.Round(_project.EditorViewportCenterWorldX),
+            (int)Math.Round(_project.EditorViewportCenterWorldY));
+        DrawMap();
+    }
+
+    /// <summary>Centra el marco azul de modo que la esquina superior izquierda del área de juego quede en la casilla mundo (0,0).</summary>
+    private void BtnVisorMundoZero_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (ScrollViewer == null || MapCanvas == null || _project == null) return;
+        double vw = ScrollViewer.ViewportWidth > 0 ? ScrollViewer.ViewportWidth : 800;
+        double vh = ScrollViewer.ViewportHeight > 0 ? ScrollViewer.ViewportHeight : 600;
+        GameViewportMath.GetViewportSizeInWorldTiles(_project, out var wt, out var ht, vw, vh, _zoom);
+        _project.EditorViewportCenterWorldX = wt * 0.5;
+        _project.EditorViewportCenterWorldY = ht * 0.5;
+        ClampViewportCenterForCurrentMap();
+        TrySaveProjectInfo();
+        GetEmbeddedGameTab()?.RefreshViewport();
+        DrawMap();
+        ScrollViewer.UpdateLayout();
+        ScrollMapViewToCenterWorldTile(
+            (int)Math.Round(_project.EditorViewportCenterWorldX),
+            (int)Math.Round(_project.EditorViewportCenterWorldY));
         DrawMap();
     }
 
@@ -4252,7 +5055,7 @@ public partial class EditorWindow : Window
             _objectLayer.AddInstance(CloneObject(o));
         ProjectExplorer.SetModified(GetCurrentSceneMapPath(), true);
         ProjectExplorer.SetModified(GetCurrentSceneObjectsPath(), true);
-        MapHierarchy.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+        RefreshMapHierarchy();
         DrawMap();
         RefreshInspector();
         EditorLog.Toast("Mapa revertido al último snapshot.", LogLevel.Info, "Snapshot");
@@ -4304,6 +5107,8 @@ public partial class EditorWindow : Window
 internal class EditorWindowState
 {
     public int SelectedTabIndex { get; set; }
+    /// <summary>Tag del tab principal (Juego, Mapa, Consola). Preferido sobre <see cref="SelectedTabIndex"/> si existe.</summary>
+    public string? SelectedTabKind { get; set; }
     public List<string>? OpenTabKinds { get; set; }
     public double WindowLeft { get; set; }
     public double WindowTop { get; set; }

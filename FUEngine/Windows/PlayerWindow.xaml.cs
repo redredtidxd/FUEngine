@@ -38,6 +38,7 @@ public partial class PlayerWindow : Window
             }
 
             _project = ProjectSerialization.Load(projectFile);
+            ProjectFormatMigration.ApplySilentInMemory(_project);
             if (string.IsNullOrEmpty(_project.ProjectDirectory))
                 _project.ProjectDirectory = Path.GetDirectoryName(projectFile) ?? _dataDirectory;
 
@@ -141,6 +142,7 @@ public partial class PlayerWindow : Window
                     UIElementKind.Text => System.Windows.Media.Color.FromArgb(100, 0xd2, 0x99, 0x22),
                     UIElementKind.Image => System.Windows.Media.Color.FromArgb(100, 0x2e, 0xa0, 0x43),
                     UIElementKind.Panel => System.Windows.Media.Color.FromArgb(60, 0x48, 0x4f, 0x58),
+                    UIElementKind.TabControl => System.Windows.Media.Color.FromArgb(95, 0xa3, 0x71, 0xf7),
                     _ => System.Windows.Media.Color.FromArgb(80, 0xe6, 0xed, 0xf3)
                 };
                 var uiRect = new System.Windows.Shapes.Rectangle

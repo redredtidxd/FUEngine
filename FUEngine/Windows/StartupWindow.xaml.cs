@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Windows;
@@ -22,17 +23,19 @@ public partial class StartupWindow : Window
     private readonly DispatcherTimer _demoTimer;
     private readonly DispatcherTimer _tilePatternTimer;
     private const int DemoCols = 10, DemoRows = 8;
-    private static readonly string[] Tips = new[]
+    private static readonly string[] HubTips =
     {
-        "Haz tu primer mapa infinito con la herramienta Pintar tile.",
+        "¿Sabías que puedes usar world.findNearestByTag en Lua para optimizar la IA?",
+        "El mapa usa chunks por capa: streaming y colisión respetan LayerType.Solid.",
+        "Scripts de capa del mapa exponen la tabla layer y onLayerUpdate(dt).",
         "Prueba animación por capas para efectos 2.5D.",
         "Asigna scripts a puertas para onInteract y animación.",
-        "Usa el modo Colocar objeto y la tecla R para rotar.",
-        "Guarda todo (Archivo) para exportar mapa.json y objetos.json.",
-        "Zoom con + y - en la barra del editor para trabajar cómodo.",
+        "Guarda todo (Archivo) para volcar mapa y objetos coherentes.",
         "Cada tile puede ser Suelo, Pared, Objeto o Especial (script)."
     };
-    private readonly Random _rnd = new();
+    private readonly DispatcherTimer _hubTelemetryTimer;
+    private readonly DispatcherTimer _tipRotateTimer;
+    private int _hubTipIndex;
     private readonly ObservableCollection<GlobalLibraryEntryDto> _libraryRows = new();
 
     public StartupWindow()
@@ -47,15 +50,26 @@ public partial class StartupWindow : Window
         _demoTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
         _tilePatternTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
         _tilePatternTimer.Tick += TilePattern_Tick;
+        _hubTelemetryTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _hubTelemetryTimer.Tick += (_, _) => UpdateFooterTelemetry();
+        _tipRotateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(45) };
+        _tipRotateTimer.Tick += (_, _) => AdvanceHubTip();
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
         EngineTypography.ApplyToRoot(this);
+        Title = $"FUEngine {EngineVersion.Current}";
+        if (RunEngineVersion != null) RunEngineVersion.Text = EngineVersion.Current;
         var bootSettings = EngineSettings.Load();
         if (MainTabControl != null)
             MainTabControl.SelectedIndex = 0; // Hub por defecto
         LoadRecentProjects();
+        UpdateHubStatusPanel();
+        UpdateFooterTelemetry();
+        _hubTelemetryTimer.Start();
+        ShowCurrentHubTip();
+        _tipRotateTimer.Start();
         ApplyTimeOfDayPalette();
         DrawTilePattern();
         _tilePatternTimer.Start();
@@ -91,11 +105,14 @@ public partial class StartupWindow : Window
             {
                 LogLevel.Warning => new SolidColorBrush(Color.FromRgb(0xd2, 0x99, 0x22)),
                 LogLevel.Error => new SolidColorBrush(Color.FromRgb(0xf8, 0x51, 0x49)),
+                LogLevel.Critical => new SolidColorBrush(Color.FromRgb(0xff, 0x7b, 0x72)),
+                LogLevel.Lua => new SolidColorBrush(Color.FromRgb(0xa5, 0xd6, 0xff)),
                 _ => new SolidColorBrush(Color.FromRgb(0xe6, 0xed, 0xf3))
             };
             ToastPanel.Visibility = Visibility.Visible;
             _toastHideTimer?.Stop();
-            _toastHideTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(e.Level == LogLevel.Error ? 0 : 3) };
+            var persist = e.Level == LogLevel.Error || e.Level == LogLevel.Critical;
+            _toastHideTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(persist ? 0 : 3) };
             _toastHideTimer.Tick += (_, _) => { ToastPanel.Visibility = Visibility.Collapsed; _toastHideTimer?.Stop(); };
             _toastHideTimer.Start();
         });
@@ -106,6 +123,243 @@ public partial class StartupWindow : Window
         EditorLog.ToastRequested -= OnToastRequested;
         _demoTimer.Stop();
         _tilePatternTimer.Stop();
+        _hubTelemetryTimer.Stop();
+        _tipRotateTimer.Stop();
+    }
+
+    private void UpdateHubStatusPanel()
+    {
+        var (name, t) = StartupHubHelpers.FindLatestAutosaveAmongRecents();
+        if (TxtLastBackup != null)
+        {
+            if (t.HasValue && !string.IsNullOrEmpty(name))
+                TxtLastBackup.Text = $"Última copia de seguridad: autoguardado de «{name}» {StartupHubHelpers.FormatAgo(t.Value)}.";
+            else
+                TxtLastBackup.Text = "Última copia de seguridad: no hay autoguardados recientes en proyectos de la lista.";
+        }
+        try
+        {
+            var st = EngineSettings.Load();
+            var root = GlobalAssetLibraryService.ResolveSharedAssetsRoot(st);
+            var manifest = GlobalAssetLibraryService.LoadManifest(root);
+            var (tex, lua) = StartupHubHelpers.CountGlobalLibraryKinds(manifest);
+            if (TxtLibraryStats != null)
+                TxtLibraryStats.Text = $"Biblioteca: {tex} texturas (tileset/sprite/imagen/UI), {lua} scripts .lua en el índice (pestaña Assets).";
+        }
+        catch
+        {
+            if (TxtLibraryStats != null)
+                TxtLibraryStats.Text = "Biblioteca: no se pudo leer el índice (revisa la ruta en Configuración).";
+        }
+    }
+
+    private void BtnOpenLogsFolder_OnClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var dir = EditorLog.LogsDirectory;
+            if (string.IsNullOrEmpty(dir)) return;
+            Directory.CreateDirectory(dir);
+            Process.Start(new ProcessStartInfo { FileName = dir, UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(this, "No se pudo abrir la carpeta de logs: " + ex.Message, "Logs", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void BtnClearSessionLog_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (EditorLog.TryClearSessionLogFile())
+            UpdateFooterTelemetry();
+        else
+            System.Windows.MessageBox.Show(this, "No se pudo vaciar el archivo de log de hoy.", "Logs", MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
+    private void UpdateFooterTelemetry()
+    {
+        var (errCount, critCount) = StartupHubHelpers.CountErrorLinesInTodaySessionLog();
+        if (TxtSessionLogHint != null)
+        {
+            if (errCount == 0 && critCount == 0)
+            {
+                TxtSessionLogHint.Text = "Log de hoy: sin errores";
+                TxtSessionLogHint.Foreground = new SolidColorBrush(Color.FromRgb(0x8b, 0x94, 0x9e));
+            }
+            else
+            {
+                TxtSessionLogHint.Text = $"Log de hoy: {errCount} error(es), {critCount} crítico(s)";
+                TxtSessionLogHint.Foreground = new SolidColorBrush(Color.FromRgb(0xf8, 0x51, 0x49));
+            }
+        }
+        if (TxtRamUsage != null)
+        {
+            var mb = Process.GetCurrentProcess().WorkingSet64 / (1024.0 * 1024.0);
+            TxtRamUsage.Text = $"RAM ≈ {mb:F1} MB";
+        }
+    }
+
+    private void ShowCurrentHubTip()
+    {
+        if (TxtTipRotate == null || HubTips.Length == 0) return;
+        TxtTipRotate.Text = "Tip del día: " + HubTips[_hubTipIndex];
+    }
+
+    private void AdvanceHubTip()
+    {
+        if (HubTips.Length == 0) return;
+        _hubTipIndex = (_hubTipIndex + 1) % HubTips.Length;
+        ShowCurrentHubTip();
+    }
+
+    private void LinkChangelog_OnClick(object sender, RoutedEventArgs e)
+    {
+        var path = FindRepoFile("docs/AI-ONBOARDING.md");
+        if (!string.IsNullOrEmpty(path) && File.Exists(path))
+        {
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            return;
+        }
+        ShowDocumentation(EngineDocumentation.QuickStartTopicId);
+    }
+
+    private void StartupWindow_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if ((e.Key == Key.P || e.Key == Key.Space) && (e.KeyboardDevice.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+        {
+            ShowSpotlightOverlay();
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>Usado por Spotlight (Hub) para abrir un proyecto reciente por ruta.</summary>
+    public void OpenRecentProjectFromPath(string path)
+    {
+        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
+        var info = StartupService.LoadRecentProjects()
+            .FirstOrDefault(x => string.Equals(x.Path, path, StringComparison.OrdinalIgnoreCase));
+        if (info != null)
+        {
+            OpenRecentProject(info);
+            return;
+        }
+        try
+        {
+            if (!ProjectFormatOpenHelper.TryPromptAndLoad(path, this, out var project, out var err))
+            {
+                if (!string.IsNullOrEmpty(err))
+                    System.Windows.MessageBox.Show(this, "No se pudo abrir: " + err, "Spotlight", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            OpenEditor(project!);
+            StartupService.AddRecentProject(path, project!.Nombre, project.Descripcion, FUEngine.Core.EngineVersion.Current);
+            Close();
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(this, "No se pudo abrir: " + ex.Message, "Spotlight", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void LinkDocs_OnClick(object sender, RoutedEventArgs e) =>
+        ShowDocumentation(EngineDocumentation.QuickStartTopicId);
+
+    private static string? FindRepoFile(string relative)
+    {
+        try
+        {
+            var dir = AppContext.BaseDirectory;
+            for (var i = 0; i < 10; i++)
+            {
+                var p = System.IO.Path.Combine(dir, relative.Replace('/', System.IO.Path.DirectorySeparatorChar));
+                if (File.Exists(p)) return p;
+                var parent = Directory.GetParent(dir);
+                if (parent == null) break;
+                dir = parent.FullName;
+            }
+        }
+        catch { /* ignore */ }
+        return null;
+    }
+
+    private void BtnHubSpotlight_OnClick(object sender, RoutedEventArgs e) => ShowSpotlightOverlay();
+
+    private void ShowSpotlightOverlay()
+    {
+        if (SpotlightOverlay.Visibility == Visibility.Visible)
+        {
+            SpotlightOverlay.Visibility = Visibility.Collapsed;
+            return;
+        }
+        SpotlightEmbedded.SetContext(null, this);
+        SpotlightOverlay.Visibility = Visibility.Visible;
+        SpotlightEmbedded.Open();
+    }
+
+    private void SpotlightBackdrop_OnMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        SpotlightOverlay.Visibility = Visibility.Collapsed;
+        e.Handled = true;
+    }
+
+    private void SpotlightEmbedded_RequestClose(object? sender, EventArgs e) =>
+        SpotlightOverlay.Visibility = Visibility.Collapsed;
+
+    public void ShowDocumentation(string? initialTopicId)
+    {
+        DocumentationEmbedded.Open(initialTopicId);
+        DocumentationOverlay.Visibility = Visibility.Visible;
+    }
+
+    private void DocumentationBackdrop_OnMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        DocumentationOverlay.Visibility = Visibility.Collapsed;
+        e.Handled = true;
+    }
+
+    private void DocumentationEmbedded_RequestClose(object? sender, EventArgs e) =>
+        DocumentationOverlay.Visibility = Visibility.Collapsed;
+
+    private void BtnQuickLuaIde_OnClick(object sender, RoutedEventArgs e) => GoToGlobalScriptsTab();
+
+    private void GoToGlobalScriptsTab()
+    {
+        if (MainTabControl != null)
+            MainTabControl.SelectedIndex = 1;
+        GlobalScriptsHubPanel?.RefreshFileList();
+    }
+
+    private void BtnQuickGlobalLibrary_OnClick(object sender, RoutedEventArgs e) => GoToAssetsTab();
+
+    private void GoToAssetsTab()
+    {
+        if (MainTabControl != null)
+            MainTabControl.SelectedIndex = 2;
+    }
+
+    private void BtnQuickUnusedAssets_OnClick(object sender, RoutedEventArgs e)
+    {
+        var recent = StartupService.LoadRecentProjects().FirstOrDefault(x => File.Exists(x.Path));
+        if (recent == null)
+        {
+            System.Windows.MessageBox.Show(this,
+                "No hay proyectos en la lista reciente. Usa clic derecho en «No usados…» → Elegir carpeta del proyecto.",
+                "Assets no usados", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var dir = System.IO.Path.GetDirectoryName(recent.Path);
+        if (string.IsNullOrEmpty(dir)) return;
+        new UnusedAssetsDialog(dir) { Owner = this }.ShowDialog();
+    }
+
+    private void BtnQuickUnusedPickFolder_OnClick(object sender, RoutedEventArgs e)
+    {
+        using var dlg = new System.Windows.Forms.FolderBrowserDialog
+        {
+            Description = "Carpeta raíz del proyecto (donde está el .FUE o proyecto.json)"
+        };
+        if (dlg.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+        new UnusedAssetsDialog(dlg.SelectedPath) { Owner = this }.ShowDialog();
     }
 
     private string _currentFilterType = "Todos";
@@ -132,9 +386,15 @@ public partial class StartupWindow : Window
         var pinned = list.Where(x => x.IsPinned).ToList();
         var recent = list.Where(x => !x.IsPinned).ToList();
         if (HubPinnedList != null)
+        {
             HubPinnedList.ItemsSource = pinned;
+            ScrollListParentScrollViewerToTop(HubPinnedList);
+        }
         if (HubRecentList != null)
+        {
             HubRecentList.ItemsSource = recent;
+            ScrollListParentScrollViewerToTop(HubRecentList);
+        }
         ApplyFilterAndSetSource(list);
         foreach (var item in list)
             GeneratePreviewAsync(item);
@@ -158,6 +418,7 @@ public partial class StartupWindow : Window
             CmbSortProjects.ItemsSource = new[] { "Último abierto", "Nombre", "Fecha modificación" };
             CmbSortProjects.SelectedIndex = 0;
         }
+        UpdateHubStatusPanel();
     }
 
     private void UpdateFilterButtonStyles()
@@ -194,6 +455,17 @@ public partial class StartupWindow : Window
         else
             filtered = filtered.OrderByDescending(x => x.IsPinned).ThenByDescending(x => x.LastOpened).ToList();
         RecentProjectsList.ItemsSource = filtered;
+        ScrollListParentScrollViewerToTop(RecentProjectsList);
+    }
+
+    /// <summary>
+    /// Tras acortar la lista (p. ej. eliminar un proyecto), el <see cref="ScrollViewer"/> puede conservar
+    /// un offset grande y mostrar un viewport vacío hasta cambiar de pestaña. Se resetea el scroll del contenedor inmediato.
+    /// </summary>
+    private static void ScrollListParentScrollViewerToTop(System.Windows.Controls.ListBox? listBox)
+    {
+        if (listBox?.Parent is ScrollViewer sv)
+            sv.ScrollToVerticalOffset(0);
     }
 
     private void FilterByTag_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -322,7 +594,8 @@ public partial class StartupWindow : Window
             MapWidth = optionsDlg.MapWidth,
             MapHeight = optionsDlg.MapHeight,
             Infinite = optionsDlg.Infinite,
-            ProjectDirectory = projectDir
+            ProjectDirectory = projectDir,
+            ProjectFormatVersion = FUEngine.Core.ProjectSchema.CurrentFormatVersion
         };
         if (!Directory.Exists(projectDir))
             Directory.CreateDirectory(projectDir);
@@ -396,19 +669,20 @@ public partial class StartupWindow : Window
     {
         var path = item.Path;
         var projectDir = System.IO.Path.GetDirectoryName(path) ?? path;
-        var mapPath = System.IO.Path.Combine(projectDir, "mapa.json");
-        if (!File.Exists(mapPath)) return;
+        var ui = Dispatcher;
         System.Threading.Tasks.Task.Run(() =>
         {
             try
             {
+                var mapPath = StartupHubHelpers.FindLatestSnapshotMapPath(projectDir)
+                    ?? StartupHubHelpers.ResolvePrimaryMapPath(path, projectDir);
+                if (string.IsNullOrEmpty(mapPath) || !File.Exists(mapPath)) return;
                 var map = MapSerialization.Load(mapPath);
                 var coords = map.EnumerateChunkCoords().Take(4).ToList();
                 if (coords.Count == 0) return;
                 int minCx = coords.Min(c => c.cx), maxCx = coords.Max(c => c.cx);
                 int minCy = coords.Min(c => c.cy), maxCy = coords.Max(c => c.cy);
                 const int size = 48;
-                var bmp = new System.Windows.Media.Imaging.WriteableBitmap(size, size, 96, 96, System.Windows.Media.PixelFormats.Bgr24, null);
                 byte[] pixels = new byte[size * size * 3];
                 int stride = size * 3;
                 for (int py = 0; py < size; py++)
@@ -426,8 +700,14 @@ public partial class StartupWindow : Window
                         int i = (py * size + px) * 3;
                         pixels[i] = b; pixels[i + 1] = g; pixels[i + 2] = r;
                     }
-                bmp.WritePixels(new System.Windows.Int32Rect(0, 0, size, size), pixels, stride, 0);
-                Dispatcher.Invoke(() => item.Preview = bmp);
+                // WriteableBitmap es DispatcherObject: crear y rellenar solo en el hilo de la ventana.
+                ui.Invoke(() =>
+                {
+                    var bmp = new System.Windows.Media.Imaging.WriteableBitmap(size, size, 96, 96, System.Windows.Media.PixelFormats.Bgr24, null);
+                    bmp.WritePixels(new System.Windows.Int32Rect(0, 0, size, size), pixels, stride, 0);
+                    if (bmp.CanFreeze) bmp.Freeze();
+                    item.Preview = bmp;
+                });
             }
             catch { /* ignore */ }
         });
@@ -570,8 +850,13 @@ public partial class StartupWindow : Window
         e.Handled = true;
         try
         {
-            var project = ProjectSerialization.Load(info.Path);
-            var configWindow = new ProjectConfigWindow(project, info.Path) { Owner = this };
+            if (!ProjectFormatOpenHelper.TryPromptAndLoad(info.Path, this, out var project, out var err))
+            {
+                if (!string.IsNullOrEmpty(err))
+                    System.Windows.MessageBox.Show(this, "No se pudo abrir: " + err, "Configuración", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            var configWindow = new ProjectConfigWindow(project!, info.Path) { Owner = this };
             configWindow.ShowDialog();
             StartupService.RefreshProjectStats(info);
             LoadRecentProjects();
@@ -709,9 +994,14 @@ public partial class StartupWindow : Window
         }
         try
         {
-            var project = ProjectSerialization.Load(path);
-            OpenEditor(project);
-            StartupService.AddRecentProject(path, project.Nombre, project.Descripcion, FUEngine.Core.EngineVersion.Current);
+            if (!ProjectFormatOpenHelper.TryPromptAndLoad(path, this, out var project, out var err))
+            {
+                if (!string.IsNullOrEmpty(err))
+                    System.Windows.MessageBox.Show(this, "No se pudo abrir: " + err, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            OpenEditor(project!);
+            StartupService.AddRecentProject(path, project!.Nombre, project.Descripcion, FUEngine.Core.EngineVersion.Current);
             Close();
         }
         catch (Exception ex)
@@ -720,14 +1010,18 @@ public partial class StartupWindow : Window
         }
     }
 
+    private NewProjectWizardPanel? _newProjectWizard;
+
     private void BtnCreateProject_OnClick(object sender, RoutedEventArgs e)
     {
         try
         {
-            var panel = new NewProjectPanel();
-            panel.CreateClicked += CreateProjectPanel_OnCreate;
-            panel.CancelClicked += OnCreatePanelCancel;
-            OverlayContentHost.Child = panel;
+            DetachNewProjectWizard();
+            var wizard = new NewProjectWizardPanel();
+            _newProjectWizard = wizard;
+            wizard.CreateCommitted += NewProjectWizard_OnCreateCommitted;
+            wizard.CancelRequested += NewProjectWizard_OnCancelRequested;
+            OverlayContentHost.Child = wizard;
             OverlayPanel.Visibility = Visibility.Visible;
         }
         catch (Exception ex)
@@ -736,65 +1030,33 @@ public partial class StartupWindow : Window
         }
     }
 
-    private void CreateProjectPanel_OnCreate(object? sender, EventArgs e)
+    private void NewProjectWizard_OnCancelRequested(object? sender, EventArgs e) => HideOverlay();
+
+    private void NewProjectWizard_OnCreateCommitted(object? sender, EventArgs e)
     {
-        if (sender is not NewProjectPanel panel) return;
+        if (sender is not NewProjectWizardPanel w) return;
         try
         {
-            var projectDir = panel.ProjectPath ?? "";
-            if (string.IsNullOrWhiteSpace(projectDir))
-            {
-                System.Windows.MessageBox.Show(this, "Selecciona la carpeta del proyecto.", "Crear proyecto", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
-                return;
-            }
-            var project = new ProjectInfo
-            {
-                Nombre = panel.ProjectName ?? "",
-                Descripcion = panel.Description ?? "",
-                ProjectDirectory = projectDir,
-                TileSize = 16,
-                MapWidth = 64,
-                MapHeight = 64,
-                Infinite = true,
-                ChunkSize = 16,
-                AutoSaveEnabled = true,
-                AutoSaveIntervalMinutes = 5,
-                AutoSaveMaxBackupsPerType = 10,
-                AutoSaveFolder = "Autoguardados",
-                AutoSaveOnClose = true
-            };
-            if (!Directory.Exists(projectDir))
-            {
-                if (panel.CreateProjectFolderIfMissing)
-                    Directory.CreateDirectory(projectDir);
-                else
-                {
-                    System.Windows.MessageBox.Show(this, "La carpeta del proyecto no existe. Active \"Crear la carpeta si no existe\".", "Crear proyecto", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
-                    return;
-                }
-            }
-            var proyectoConfig = new ProyectoConfigDto
-            {
-                Nombre = project.Nombre,
-                Logo = "logo.png",
-                Plantilla = "Blank",
-                AutoguardadoActivo = true,
-                IntervaloAutoguardadoMin = 5,
-                MaxBackupsAutoguardado = 10,
-                GuardarSoloCambios = true,
-                Descripcion = project.Descripcion,
-                Version = "0.1"
-            };
-            var projectPath = NewProjectStructure.Create(projectDir, project, null, proyectoConfig);
-            StartupService.AddRecentProject(projectPath, project.Nombre, project.Descripcion, FUEngine.Core.EngineVersion.Current);
+            var projectPath = NewProjectCreation.CreateFromWizard(w);
+            StartupService.AddRecentProject(projectPath, w.ProjectName ?? "", w.Description ?? "", FUEngine.Core.EngineVersion.Current);
+            var loaded = ProjectSerialization.Load(projectPath);
+            DetachNewProjectWizard();
             HideOverlay();
-            OpenEditor(project);
+            OpenEditor(loaded);
             Close();
         }
         catch (Exception ex)
         {
             System.Windows.MessageBox.Show(this, "No se pudo crear el proyecto: " + ex.Message, "Crear proyecto", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    private void DetachNewProjectWizard()
+    {
+        if (_newProjectWizard == null) return;
+        _newProjectWizard.CreateCommitted -= NewProjectWizard_OnCreateCommitted;
+        _newProjectWizard.CancelRequested -= NewProjectWizard_OnCancelRequested;
+        _newProjectWizard = null;
     }
 
     private bool _overlayClosing;
@@ -804,11 +1066,7 @@ public partial class StartupWindow : Window
         _overlayClosing = true;
         try
         {
-            if (OverlayContentHost.Child is NewProjectPanel panel)
-            {
-                panel.CreateClicked -= CreateProjectPanel_OnCreate;
-                panel.CancelClicked -= OnCreatePanelCancel;
-            }
+            DetachNewProjectWizard();
             OverlayPanel.Visibility = Visibility.Collapsed;
             OverlayContentHost.Child = null;
         }
@@ -817,8 +1075,6 @@ public partial class StartupWindow : Window
             _overlayClosing = false;
         }
     }
-
-    private void OnCreatePanelCancel(object? sender, EventArgs e) => HideOverlay();
 
     private void OverlayPanel_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
@@ -859,8 +1115,14 @@ public partial class StartupWindow : Window
         if (openDlg.ShowDialog() != true) return;
         try
         {
-            var project = ProjectSerialization.Load(openDlg.FileName);
-            StartupService.AddRecentProject(openDlg.FileName, project.Nombre, project.Descripcion, FUEngine.Core.EngineVersion.Current);
+            if (!ProjectFormatOpenHelper.TryPromptAndLoad(openDlg.FileName, this, out var project, out var err))
+            {
+                if (!string.IsNullOrEmpty(err))
+                    System.Windows.MessageBox.Show(this, "No se pudo abrir el proyecto: " + err, "Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            StartupService.AddRecentProject(openDlg.FileName, project!.Nombre, project.Descripcion, FUEngine.Core.EngineVersion.Current);
             OpenEditor(project);
             Close();
         }
@@ -889,7 +1151,8 @@ public partial class StartupWindow : Window
             MapWidth = optionsDlg.MapWidth,
             MapHeight = optionsDlg.MapHeight,
             Infinite = optionsDlg.Infinite,
-            ProjectDirectory = projectDir
+            ProjectDirectory = projectDir,
+            ProjectFormatVersion = FUEngine.Core.ProjectSchema.CurrentFormatVersion
         };
         if (!Directory.Exists(projectDir))
             Directory.CreateDirectory(projectDir);
@@ -920,25 +1183,25 @@ public partial class StartupWindow : Window
         System.Windows.MessageBox.Show(this, "Crear script rápido: en una próxima versión podrás elegir Programación o Nodos sin abrir un proyecto.", "Script rápido", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
-    private void BtnAyudaMotor_OnClick(object sender, RoutedEventArgs e)
-    {
-        new DocumentationWindow { Owner = this, InitialTopicId = EngineDocumentation.QuickStartTopicId }.Show();
-    }
+    private void BtnAyudaMotor_OnClick(object sender, RoutedEventArgs e) =>
+        ShowDocumentation(EngineDocumentation.QuickStartTopicId);
 
     private void BtnSettings_OnClick(object sender, RoutedEventArgs e)
     {
-        // Abrir/focus el tab Configuración del motor en la misma ventana (índice 3: Hub=0, Assets=1, Proyectos=2, Configuración=3)
+        // Hub=0, Scripts globales=1, Assets=2, Proyectos=3, Configuración=4
         if (MainTabControl != null)
-            MainTabControl.SelectedIndex = 3;
+            MainTabControl.SelectedIndex = 4;
         if (FrameEngineSettings != null && FrameEngineSettings.Content == null)
             FrameEngineSettings.Navigate(new Uri("Dialogs/SettingsPage.xaml", UriKind.Relative));
     }
 
     private void MainTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (MainTabControl?.SelectedIndex == 1)
+        if (MainTabControl?.SelectedIndex == 0)
+            UpdateHubStatusPanel();
+        if (MainTabControl?.SelectedIndex == 2)
             RefreshGlobalLibraryTab();
-        if (MainTabControl?.SelectedIndex != 3 || FrameEngineSettings == null) return;
+        if (MainTabControl?.SelectedIndex != 4 || FrameEngineSettings == null) return;
         if (FrameEngineSettings.Content == null)
             FrameEngineSettings.Navigate(new Uri("Dialogs/SettingsPage.xaml", UriKind.Relative));
     }

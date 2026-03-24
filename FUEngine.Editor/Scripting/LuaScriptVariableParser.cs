@@ -55,6 +55,103 @@ public static class LuaScriptVariableParser
         RegexOptions.Compiled,
         TimeSpan.FromMilliseconds(50));
 
+    private static readonly Regex InspectorPropRegex = new(
+        @"^\s*--\s*@prop\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*(\w+)\s*=\s*(.+)$",
+        RegexOptions.Compiled,
+        TimeSpan.FromMilliseconds(200));
+
+    /// <summary>
+    /// Líneas <c>-- @prop nombre: tipo = valor</c> (tipos: number, int, float, string, bool, object).
+    /// </summary>
+    public static List<(string Name, string Type, string DefaultValue)> ParseInspectorProps(string luaCode)
+    {
+        var result = new List<(string Name, string Type, string DefaultValue)>();
+        if (string.IsNullOrWhiteSpace(luaCode)) return result;
+
+        foreach (var raw in luaCode.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        {
+            var m = InspectorPropRegex.Match(raw);
+            if (!m.Success) continue;
+            var name = m.Groups[1].Value.Trim();
+            var typeRaw = m.Groups[2].Value.Trim().ToLowerInvariant();
+            var valueRaw = m.Groups[3].Value.Trim();
+            if (string.IsNullOrEmpty(name)) continue;
+            var normalizedType = typeRaw switch
+            {
+                "number" => "float",
+                "double" => "float",
+                _ => typeRaw
+            };
+            var defaultVal = ParseDefaultForDeclaredType(normalizedType, valueRaw);
+            result.Add((name, normalizedType, defaultVal));
+        }
+
+        return result;
+    }
+
+    private static string ParseDefaultForDeclaredType(string type, string valueRaw)
+    {
+        valueRaw = valueRaw.Trim();
+        if (string.Equals(type, "object", StringComparison.OrdinalIgnoreCase))
+        {
+            if (valueRaw.Equals("nil", StringComparison.OrdinalIgnoreCase)) return "";
+            if (valueRaw.Length >= 2 && (valueRaw[0] == '"' || valueRaw[0] == '\''))
+            {
+                var q = valueRaw[0];
+                if (valueRaw[^1] == q && valueRaw.Length >= 2)
+                    return UnescapeLuaString(valueRaw[1..^1], q);
+            }
+
+            return valueRaw;
+        }
+
+        if (string.Equals(type, "bool", StringComparison.OrdinalIgnoreCase))
+            return valueRaw.Equals("true", StringComparison.OrdinalIgnoreCase) ? "true" : "false";
+
+        if (string.Equals(type, "string", StringComparison.OrdinalIgnoreCase))
+        {
+            var (t, v) = InferTypeAndValue(valueRaw);
+            return t == "string" ? v : valueRaw;
+        }
+
+        if (string.Equals(type, "int", StringComparison.OrdinalIgnoreCase))
+        {
+            if (int.TryParse(valueRaw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i)) return i.ToString(CultureInfo.InvariantCulture);
+            return "0";
+        }
+
+        if (string.Equals(type, "float", StringComparison.OrdinalIgnoreCase) || string.Equals(type, "number", StringComparison.OrdinalIgnoreCase))
+        {
+            if (double.TryParse(valueRaw, NumberStyles.Any, CultureInfo.InvariantCulture, out var d)) return d.ToString(CultureInfo.InvariantCulture);
+            return "0";
+        }
+
+        var inferred = InferTypeAndValue(valueRaw);
+        return inferred.DefaultValue;
+    }
+
+    /// <summary>
+    /// Primero <see cref="ParseInspectorProps"/>; luego asignaciones globales de <see cref="Parse"/> sin pisar nombres ya definidos por <c>@prop</c>.
+    /// </summary>
+    public static List<(string Name, string Type, string DefaultValue)> ParseMergedForInspector(string luaCode)
+    {
+        var list = new List<(string Name, string Type, string DefaultValue)>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in ParseInspectorProps(luaCode))
+        {
+            if (!seen.Add(p.Name)) continue;
+            list.Add(p);
+        }
+
+        foreach (var p in Parse(luaCode))
+        {
+            if (!seen.Add(p.Name)) continue;
+            list.Add(p);
+        }
+
+        return list;
+    }
+
     /// <summary>
     /// Extrae variables globales de nivel raíz (asignaciones cuando la profundidad de <c>function</c> es 0).
     /// </summary>

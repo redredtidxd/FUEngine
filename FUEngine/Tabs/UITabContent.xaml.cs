@@ -141,6 +141,7 @@ public partial class UITabContent : System.Windows.Controls.UserControl
             UIElementKind.Button => new SolidColorBrush(System.Windows.Media.Color.FromArgb(80, 0x2e, 0xa0, 0x43)),
             UIElementKind.Text => new SolidColorBrush(System.Windows.Media.Color.FromArgb(45, 0x58, 0xa6, 0xff)),
             UIElementKind.Image => new SolidColorBrush(System.Windows.Media.Color.FromArgb(55, 0xd2, 0x99, 0x22)),
+            UIElementKind.TabControl => new SolidColorBrush(System.Windows.Media.Color.FromArgb(70, 0xa3, 0x71, 0xf7)),
             _ => new SolidColorBrush(System.Windows.Media.Color.FromArgb(45, 0x8b, 0x94, 0x9e))
         };
         var rect = new System.Windows.Shapes.Rectangle

@@ -50,14 +50,12 @@
                 <CheckBox x:Name="ChkHudAdvanced" Grid.Column="1" Content="Info avanzada" Foreground="#8b949e" FontSize="10" VerticalAlignment="Center" Checked="ChkHudAdvanced_Changed" Unchecked="ChkHudAdvanced_Changed"/>
             </Grid>
         </Border>
-        <!-- Contenido: Jerarquía (izq) | Viewport (centro) | Inspector (der) -->
+        <!-- Contenido: Jerarquía (izq) | Viewport (centro) -->
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="180" MinWidth="100"/>
                 <ColumnDefinition Width="4"/>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="4"/>
-                <ColumnDefinition Width="220" MinWidth="120"/>
             </Grid.ColumnDefinitions>
             <Border Grid.Column="0" Background="#161b22" BorderBrush="#30363d" BorderThickness="0,0,1,0">
                 <Grid>
@@ -69,11 +67,9 @@
                         <TextBlock Text="Jerarquía (runtime)" FontWeight="SemiBold" FontSize="12" Foreground="#a371f7"/>
                     </Border>
                     <ListBox Grid.Row="1" x:Name="HierarchyList" Background="Transparent" Foreground="#e6edf3" BorderThickness="0"
-                             FontSize="11" Margin="4" SelectionChanged="HierarchyList_OnSelectionChanged"
-                             ContextMenuOpening="HierarchyList_ContextMenuOpening" MouseRightButtonDown="HierarchyList_MouseRightButtonDown">
+                             FontSize="11" Margin="4"                              ContextMenuOpening="HierarchyList_ContextMenuOpening" MouseRightButtonDown="HierarchyList_MouseRightButtonDown">
                         <ListBox.ContextMenu>
                             <ContextMenu x:Name="HierarchyContextMenu">
-                                <MenuItem x:Name="MenuHierarchyFocus" Header="Focus (mostrar en Inspector)" Click="MenuHierarchyFocus_OnClick"/>
                                 <MenuItem x:Name="MenuHierarchyPrint" Header="Print propiedades" Click="MenuHierarchyPrint_OnClick"/>
                                 <MenuItem x:Name="MenuHierarchyDestroy" Header="Detener este objeto" Click="MenuHierarchyDestroy_OnClick"/>
                             </ContextMenu>
@@ -91,26 +87,11 @@
                 <Border Grid.Row="0" Background="#21262d" Padding="6,4" BorderBrush="#30363d" BorderThickness="0,0,0,1">
                     <TextBlock Text="Viewport (mundo + UI)" FontWeight="SemiBold" FontSize="11" Foreground="#3fb950"/>
                 </Border>
-                <Canvas Grid.Row="1" x:Name="GameViewportCanvas" Background="#0d1117" ClipToBounds="True"
+                <Canvas Grid.Row="1" x:Name="GameViewportCanvas" Background="#FFFFFF" ClipToBounds="True"
                         MouseLeftButtonDown="ViewportCanvas_MouseLeftButtonDown"
                         MouseLeftButtonUp="ViewportCanvas_MouseLeftButtonUp"
                         MouseMove="ViewportCanvas_MouseMove"/>
             </Grid>
-            <GridSplitter Grid.Column="3" Width="4" HorizontalAlignment="Stretch" Background="#30363d"/>
-            <Border Grid.Column="4" Background="#161b22" Padding="8">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" x:Name="InspectorTitle" Text="Inspector — Selecciona un objeto" Foreground="#8b949e" FontSize="11" Margin="0,0,0,6"/>
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                        <StackPanel x:Name="InspectorContent">
-                            <TextBlock Text="Los cambios aquí solo afectan al sandbox de este tab." Foreground="#6e7681" FontSize="10" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                        </StackPanel>
-                    </ScrollViewer>
-                </Grid>
-            </Border>
         </Grid>
         <!-- Mini consola: logs del runtime de este tab -->
         <Border Grid.Row="3" Background="#161b22" BorderBrush="#30363d" BorderThickness="0,1,0,0">
@@ -151,6 +132,14 @@
                                 <DataTrigger Binding="{Binding Level}" Value="Error">
                                     <Setter TargetName="LevelText" Property="Text" Value="[Error]"/>
                                     <Setter TargetName="LevelText" Property="Foreground" Value="#f85149"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Level}" Value="Critical">
+                                    <Setter TargetName="LevelText" Property="Text" Value="[Crít.]"/>
+                                    <Setter TargetName="LevelText" Property="Foreground" Value="#ff7b72"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Level}" Value="Lua">
+                                    <Setter TargetName="LevelText" Property="Text" Value="[Lua]"/>
+                                    <Setter TargetName="LevelText" Property="Foreground" Value="#a5d6ff"/>
                                 </DataTrigger>
                             </DataTemplate.Triggers>
                         </DataTemplate>

@@ -12,10 +12,15 @@ public partial class GlobalLibraryBrowserWindow : Window
     private string _sharedRoot = "";
     private List<GlobalLibraryEntryDto> _entries = new();
 
+    /// <summary>Vista de biblioteca sin proyecto abierto: «Añadir al proyecto» pide un proyecto con carpeta válida.</summary>
+    public GlobalLibraryBrowserWindow() : this(new ProjectInfo { Nombre = "Biblioteca global", ProjectDirectory = "" })
+    {
+    }
+
     public GlobalLibraryBrowserWindow(ProjectInfo project)
     {
         InitializeComponent();
-        _project = project ?? throw new ArgumentNullException(nameof(project));
+        _project = project ?? new ProjectInfo { Nombre = "Biblioteca global", ProjectDirectory = "" };
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)

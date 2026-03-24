@@ -1,88 +1,105 @@
-# Licencia de uso del código fuente — FUEngine
+/*
+FUEngine License Agreement — Global Version
+Copyright © Red Redtid. All rights reserved.
 
-**Copyright © Red Redtid.** Reservados todos los derechos.
+This license governs the use of FUEngine software (including FUEngine.Core, FUEngine.Runtime, FUEngine.Editor, FUEngine.Graphics.Vulkan, and the FUEngine application).
 
-Este documento **no** es una licencia [MIT](https://opensource.org/licenses/MIT), [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) ni licencia [“Open Source” según la OSI](https://opensource.org/osd). El software **FUEngine** (incluidos los proyectos **FUEngine.Core**, **FUEngine.Runtime**, **FUEngine.Editor**, **FUEngine.Graphics.Vulkan** y la aplicación **FUEngine** en WPF) se ofrece en régimen **source-available** (código visible) con **condiciones estrictas**. Al obtener, clonar o usar el código, aceptas estos términos.
+Version: 1.1 — Global Use
+Date: 2026-03-23
+*/
 
-> **Aviso:** el texto siguiente orienta sobre la intención del titular. Para acuerdos comerciales, jurisdicción, impuestos o litigios, consulta a un **abogado** en tu país.
+================================================================================
 
----
+1. DEFINITIONS
+   ================================================================================
 
-## 1. Concesión limitada de uso
+* "FUEngine" refers to the collection of software projects listed above and all associated files, scripts, and assets provided by the Licensor.
+* "User" refers to any individual, organization, or company using FUEngine.
+* "Modified Version" refers to any derivative of FUEngine created by the User by modifying, extending, or adapting the original source code.
+* "Studio/Company" refers to any organization formally recognized as a business entity or team developing commercial products.
 
-Se concede permiso **no exclusivo** y **revocable** para:
+================================================================================
+2. LICENSE GRANT
+================
 
-- **Descargar, leer y modificar** el código fuente con fines de **uso personal** y **aprendizaje**.
-- **Compilar** el motor para uso propio y para desarrollar **contenidos** (p. ej. juegos) con FUEngine, sujeto a las secciones siguientes (monetización, anuncios, plugins).
+1. Personal and Educational Use
 
-No se otorga ninguna garantía implícita de comerciabilidad o idoneidad para un fin determinado (véase la sección 7).
+   * Users may download, read, modify, and compile the source code of FUEngine for personal learning, experimentation, and non-commercial use.
 
----
+2. Commercial Use (Studios, Companies, and Individual Developers)
 
-## 2. Distribución del código y forks públicos (p. ej. GitHub)
+   * Studios and companies of all sizes may use FUEngine for commercial projects, subject to a 2% revenue share of net revenue from products created with FUEngine.
+   * Individual developers or non-studio users using FUEngine commercially must contribute a 5% revenue share of net revenue.
+   * Future optional subscriptions for premium features may be offered, with fair pricing determined by the Licensor; subscription fees are not considered excessive or mandatory for core usage.
+   * Licensor may provide an official distribution or installer for commercial use.
 
-Quien **publique** un fork o copia del repositorio debe:
+================================================================================
+3. MODIFICATIONS
+================
 
-- **Conservar** avisos de copyright y una **referencia visible** a este archivo `LICENSE.md`.
-- **No** afirmar que el proyecto está bajo MIT, Apache, GPL u otra licencia de código abierto estándar, salvo que el titular lo autorice por escrito.
+* Users may modify FUEngine, including core modules (FUEngine.Core, FUEngine.Runtime, FUEngine.Editor, FUEngine.Graphics.Vulkan).
+* Users may redistribute Modified Versions under the following conditions:
 
-La **redistribución de binarios** derivados del código (editores, runtimes modificados) puede estar sujeta a requisitos adicionales del titular; salvo autorización expresa, la intención del titular es que la **monetización de productos finales** (juegos) se rija por la sección 3 y no por venta del motor en sí por terceros.
+  1. Modified Versions must clearly state that they are derivative works.
+  2. Modified Versions cannot include malicious code, viruses, or any software intended to deceive or harm users.
+  3. Modified Versions cannot be used to circumvent the revenue share agreement, subscription fees, or license restrictions.
 
----
+================================================================================
+4. PROHIBITED ACTIVITIES
+========================
 
-## 3. Juegos y productos comerciales — reparto de ingresos (revenue share)
+Users must NOT:
 
-Si **comercializas** un juego u otro producto de usuario final **creado con FUEngine** (venta directa, DLC de pago, suscripciones atribuibles al producto, u otros ingresos que el titular pueda definir en una política publicada), **debes destinar al titular (Red Redtid) un porcentaje de esos ingresos**, salvo acuerdo escrito distinto.
+* Distribute FUEngine or Modified Versions with malware, spyware, or any malicious code.
+* Misrepresent FUEngine as another engine or violate the copyright of the Licensor.
+* Circumvent revenue share or subscription mechanisms without written permission from the Licensor.
+* Use FUEngine in any activity that could legally implicate the Licensor, including fraudulent activities, scams, or unlawful commercial exploitation.
 
-- **Porcentaje orientativo:** **30 %** de los ingresos **netos** atribuibles al producto (tras comisiones de tiendas/plataformas e impuestos directamente ligados a la venta, según lo razonablemente documentable), salvo que el titular publique otro porcentaje o método de cálculo.
-- **Versión obtenida desde el repositorio público (p. ej. GitHub):** no hay conexión obligatoria a servidores del titular; el **pago de regalías es manual** (transferencia, plataforma acordada o instrucciones publicadas por el titular en el README o sitio oficial).
-- **Versión oficial** distribuida por el titular (p. ej. instalador desde sitio oficial) puede incluir **mecanismos técnicos** (p. ej. anuncios o telemetría de ingresos) para **automatizar** el reparto; ello **no** exime del cumplimiento de esta sección si también usas otras vías de ingreso.
+================================================================================
+5. PLUGINS, ASSETS, AND EXTENSIONS
+==================================
 
-El incumplimiento material puede constituir **rescisión** de los derechos concedidos en la sección 1 respecto a ese uso (véase sección 8).
+* Users may create and sell plugins or assets for FUEngine.
+* Licensor may request a fair share or fee for commercial plugins/extensions (negotiable in writing).
+* Plugins must not damage or compromise the integrity of FUEngine.
 
----
+================================================================================
+6. DISTRIBUTION
+===============
 
-## 4. Publicidad y anuncios (restricción estricta)
+* Users may distribute compiled versions of their projects but must comply with revenue share and subscription requirements if distributed commercially.
+* Distribution of the source code or Modified Versions must include this license file and copyright notice.
 
-- **Prohibido** integrar en el código **descargado desde el repositorio público** (forks, clones) sistemas de **publicidad de terceros** (p. ej. redes de anuncios tipo Google Ads, banners insertados en el editor o runtime **añadidos por el usuario del fork**) con fines de lucro del distribuidor del fork, salvo **autorización previa por escrito** del titular.
-- **Solo** las **distribuciones oficiales** autorizadas por el titular (p. ej. **instalador desde la página oficial**) pueden incluir **publicidad o SDKs de anuncios** conectados a la **infraestructura del titular** o expresamente autorizados por él.
+================================================================================
+7. WARRANTY AND LIABILITY
+=========================
 
-El titular podrá exigir el cese de usos que vulneren esta sección por las vías que correspondan según ley.
+* FUEngine is provided "as-is" without warranty of any kind.
+* The Licensor is not responsible for any damages, loss of data, or legal issues arising from the use of FUEngine, except as required by applicable law.
 
----
+================================================================================
+8. RESCISSION
+=============
 
-## 5. Plugins y extensiones
+* The Licensor may revoke the license in cases of material breach, including but not limited to malicious code distribution, revenue share evasion, or illegal activities.
+* Upon rescission, the User must cease use, distribution, and modification of FUEngine.
 
-Los **plugins** y extensiones para FUEngine (nuevas integraciones que no sustituyan la modificación manual del núcleo del motor) deben **distribuirse de forma gratuita**. **Queda prohibida la venta** de plugins, packs de plugins de pago o licencias de pago exclusivamente para ampliar el motor de terceros, salvo acuerdo comercial **por escrito** con el titular.
+================================================================================
+9. CONTACT
+==========
 
----
+* For commercial agreements, licensing questions, or reporting abuse:
+  Email: [contact@fuengine.com](mailto:contact@fuengine.com)
+  Website: [https://www.fuengine.com](https://www.fuengine.com)
 
-## 6. Modificación del núcleo del motor
+================================================================================
+10. SUMMARY OF KEY POINTS
+=========================
 
-Puedes **modificar manualmente** el código de **FUEngine.Core** y **FUEngine.Runtime** (y el resto de proyectos) para uso propio, siempre sujeto a las secciones 3, 4 y 5. Los plugins, por definición del titular, **no sustituyen** la modificación directa del núcleo cuando esta sea necesaria.
-
----
-
-## 7. Descargo — versión pública (p. ej. GitHub)
-
-Las **compilaciones obtenidas desde el repositorio público**:
-
-- Se ofrecen **«tal cual»** y **sin garantías** de ningún tipo.
-- **No** están conectadas por defecto a **servidores de validación, licencias o estadísticas** del titular; la **seguridad** y las **actualizaciones** pueden diferir de la **versión oficial**.
-- El titular **no** será responsable de daños indirectos, pérdida de datos o lucro cesante derivados del uso del software, en la medida permitida por la ley aplicable.
-
----
-
-## 8. Rescisión
-
-El titular puede **revocar** o **limitar** el permiso concedido a quien incumpla de forma sustancial estas condiciones, además de las acciones legales que procedan.
-
----
-
-## 9. Contacto
-
-Para **licencias comerciales**, **acuerdos de porcentaje**, **autorizaciones de publicidad** o **reportes de incumplimiento**, el titular **Red Redtid** puede indicar un correo o canal en el **[README.md](README.md)** del repositorio oficial o en un sitio web asociado. *(Actualiza el README con un medio de contacto válido.)*
-
----
-
-*Última actualización: documento de licencia source-available para FUEngine.*
+* GitHub / Open Repository: Full source access, non-commercial only.
+* Commercial Version: 2% revenue share for studios/companies, 5% for individual devs.
+* Fully Modifiable: Users can change core modules.
+* No Malicious Use: Strict legal restrictions on malware, scams, and deception.
+* Plugins/Assets: Allowed, must respect engine integrity.
+* Companies, studios, and developers may negotiate custom versions or subscriptions under fair terms.
+  */

@@ -36,10 +36,79 @@ public class ObjectInstance
     public List<string> ScriptIds { get; set; } = new();
     /// <summary>Propiedades públicas por script (clave-valor por ScriptId). Se guardan con el proyecto.</summary>
     public List<ScriptInstancePropertySet> ScriptProperties { get; set; } = new();
+    /// <summary>Si el objeto viene de un seed del proyecto, id lógico del seed (seeds.json / .seed).</summary>
+    public string? SourceSeedId { get; set; }
+
+    /// <summary>Ruta relativa al proyecto del archivo .seed (si se colocó desde un archivo).</summary>
+    public string? SourceSeedRelativePath { get; set; }
+
     /// <summary>Etiquetas para filtros y búsqueda.</summary>
     public List<string> Tags { get; set; } = new();
     /// <summary>Si false, el objeto no tiene representación visual en el mapa (objeto invisible con script en coordenada específica). En el editor se muestra un marcador pequeño.</summary>
     public bool Visible { get; set; } = true;
+
+    /// <summary>Si false, el objeto no ejecuta scripts en Play (<see cref="GameObject.RuntimeActive"/>). Distinto de <see cref="Visible"/> (apariencia en mapa).</summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>Punto de anclaje del sprite (p. ej. Center, Feet). Reservado para render; vacío = comportamiento por defecto del motor.</summary>
+    public string? Pivot { get; set; }
+
+    /// <summary>Si true, la instancia lleva una luz puntual en Play (<see cref="LightComponent"/>).</summary>
+    public bool PointLightEnabled { get; set; }
+
+    /// <summary>Radio de la luz en unidades de mundo (tiles aprox. o píxeles según el visor).</summary>
+    public float PointLightRadius { get; set; } = 5f;
+
+    public float PointLightIntensity { get; set; } = 1f;
+
+    /// <summary>Color #RRGGBB.</summary>
+    public string PointLightColorHex { get; set; } = "#ffffff";
+
+    public string SpriteColorTintHex { get; set; } = "#ffffff";
+    public bool SpriteFlipX { get; set; }
+    public bool SpriteFlipY { get; set; }
+    public int SpriteSortOffset { get; set; }
+
+    public string? DefaultAnimationClipId { get; set; }
+    public bool AnimationAutoPlay { get; set; } = true;
+    public float AnimationSpeedMultiplier { get; set; } = 1f;
+
+    public bool ParticleEmitterEnabled { get; set; }
+    public string? ParticleTexturePath { get; set; }
+    public float ParticleEmissionRate { get; set; } = 10f;
+    public float ParticleLifeTime { get; set; } = 1f;
+    public float ParticleGravityScale { get; set; }
+
+    public string ColliderShape { get; set; } = "Box";
+    public float ColliderBoxWidthTiles { get; set; }
+    public float ColliderBoxHeightTiles { get; set; }
+    public float ColliderCircleRadiusTiles { get; set; } = 0.5f;
+    public float ColliderOffsetX { get; set; }
+    public float ColliderOffsetY { get; set; }
+
+    public bool RigidbodyEnabled { get; set; }
+    public float RigidbodyMass { get; set; } = 1f;
+    public float RigidbodyGravityScale { get; set; } = 1f;
+    public float RigidbodyDrag { get; set; }
+    public bool RigidbodyFreezeRotation { get; set; }
+
+    public bool CameraTargetEnabled { get; set; }
+
+    public bool AudioSourceEnabled { get; set; }
+    public string? AudioClipId { get; set; }
+    public float AudioVolume { get; set; } = 1f;
+    public float AudioPitch { get; set; } = 1f;
+    public bool AudioLoop { get; set; }
+    public float AudioSpatialBlend { get; set; } = 1f;
+
+    public bool ProximitySensorEnabled { get; set; }
+    public float ProximityDetectionRangeTiles { get; set; } = 1f;
+    public string ProximityTargetTag { get; set; } = "player";
+
+    public bool HealthEnabled { get; set; }
+    public float HealthMax { get; set; } = 100f;
+    public float HealthCurrent { get; set; } = 100f;
+    public bool HealthInvulnerable { get; set; }
 
     public bool GetColision(ObjectDefinition definition)
     {

@@ -32,6 +32,8 @@ public class ObjectDefinitionDto
 public class ObjectInstanceDto
 {
     public string InstanceId { get; set; } = "";
+    public string? SourceSeedId { get; set; }
+    public string? SourceSeedRelativePath { get; set; }
     public string DefinitionId { get; set; } = "";
     public double X { get; set; }
     public double Y { get; set; }
@@ -49,6 +51,59 @@ public class ObjectInstanceDto
     public List<ScriptInstancePropertySetDto> ScriptProperties { get; set; } = new();
     public List<string> Tags { get; set; } = new();
     public bool Visible { get; set; } = true;
+    /// <summary>Null en JSON antiguo = true (activo).</summary>
+    public bool? Enabled { get; set; }
+    public string? Pivot { get; set; }
+    public bool PointLightEnabled { get; set; }
+    public float PointLightRadius { get; set; } = 5f;
+    public float PointLightIntensity { get; set; } = 1f;
+    public string? PointLightColorHex { get; set; }
+
+    public string? SpriteColorTintHex { get; set; }
+    public bool SpriteFlipX { get; set; }
+    public bool SpriteFlipY { get; set; }
+    public int SpriteSortOffset { get; set; }
+
+    public string? DefaultAnimationClipId { get; set; }
+    public bool AnimationAutoPlay { get; set; } = true;
+    public float AnimationSpeedMultiplier { get; set; } = 1f;
+
+    public bool ParticleEmitterEnabled { get; set; }
+    public string? ParticleTexturePath { get; set; }
+    public float ParticleEmissionRate { get; set; } = 10f;
+    public float ParticleLifeTime { get; set; } = 1f;
+    public float ParticleGravityScale { get; set; }
+
+    public string? ColliderShape { get; set; }
+    public float ColliderBoxWidthTiles { get; set; }
+    public float ColliderBoxHeightTiles { get; set; }
+    public float ColliderCircleRadiusTiles { get; set; } = 0.5f;
+    public float ColliderOffsetX { get; set; }
+    public float ColliderOffsetY { get; set; }
+
+    public bool RigidbodyEnabled { get; set; }
+    public float RigidbodyMass { get; set; } = 1f;
+    public float RigidbodyGravityScale { get; set; } = 1f;
+    public float RigidbodyDrag { get; set; }
+    public bool RigidbodyFreezeRotation { get; set; }
+
+    public bool CameraTargetEnabled { get; set; }
+
+    public bool AudioSourceEnabled { get; set; }
+    public string? AudioClipId { get; set; }
+    public float AudioVolume { get; set; } = 1f;
+    public float AudioPitch { get; set; } = 1f;
+    public bool AudioLoop { get; set; }
+    public float AudioSpatialBlend { get; set; } = 1f;
+
+    public bool ProximitySensorEnabled { get; set; }
+    public float ProximityDetectionRangeTiles { get; set; } = 1f;
+    public string? ProximityTargetTag { get; set; }
+
+    public bool HealthEnabled { get; set; }
+    public float HealthMax { get; set; } = 100f;
+    public float HealthCurrent { get; set; } = 100f;
+    public bool HealthInvulnerable { get; set; }
 }
 
 public class ScriptInstancePropertySetDto

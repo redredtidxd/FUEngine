@@ -17,6 +17,8 @@
                     <TextBlock x:Name="TxtLayers" Foreground="#e6edf3" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
                     <Button x:Name="BtnOpenProjectConfig" Content="Abrir configuración del proyecto..." Padding="8,6" Click="BtnOpenProjectConfig_OnClick"
                             Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" HorizontalAlignment="Left"/>
+                    <TextBlock TextWrapping="Wrap" Foreground="#8b949e" FontSize="10" Margin="0,10,0,0"
+                               Text="Render global (AA, filtro de texturas, MSAA): pestaña Juego en Configuración del proyecto (proyecto.json). Pixel art: AA Ninguno y filtro Point/nearest."/>
                 </StackPanel>
             </Border>
         </StackPanel>

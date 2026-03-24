@@ -28,6 +28,7 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\Lua.xshd" />
+    <None Include="Resources\Lua.xshd" CopyToOutputDirectory="PreserveNewest" Link="Resources\Lua.xshd" />
   </ItemGroup>
 
 </Project>

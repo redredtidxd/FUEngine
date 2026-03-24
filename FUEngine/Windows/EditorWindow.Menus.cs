@@ -185,47 +185,34 @@ public partial class EditorWindow
         settings.ShowDialog();
     }
 
-    private void MenuNuevoProyecto_OnClick(object sender, RoutedEventArgs e)
+    private NewProjectWizardPanel? _newProjectWizardPanel;
+
+    private void MenuNuevoProyecto_OnClick(object sender, RoutedEventArgs e) => ShowNewProjectWizardOverlay();
+
+    private void ShowNewProjectWizardOverlay()
     {
-        var dlg = new NewProjectDialog { Owner = this };
-        if (dlg.ShowDialog() != true) return;
+        DetachNewProjectWizardPanel();
+        var wizard = new NewProjectWizardPanel();
+        _newProjectWizardPanel = wizard;
+        wizard.CreateCommitted += NewProjectWizard_OnCreateCommitted;
+        wizard.CancelRequested += NewProjectWizard_OnCancelRequested;
+        if (NewProjectWizardHost != null)
+            NewProjectWizardHost.Content = wizard;
+        if (NewProjectWizardOverlay != null)
+            NewProjectWizardOverlay.Visibility = Visibility.Visible;
+    }
+
+    private void NewProjectWizard_OnCancelRequested(object? sender, EventArgs e) => HideNewProjectWizardOverlay();
+
+    private void NewProjectWizard_OnCreateCommitted(object? sender, EventArgs e)
+    {
+        if (sender is not NewProjectWizardPanel w) return;
         try
         {
-            var projectDir = dlg.ProjectPath ?? "";
-            if (!Directory.Exists(projectDir) && dlg.CreateProjectFolderIfMissing)
-                Directory.CreateDirectory(projectDir);
-            var project = new ProjectInfo
-            {
-                Nombre = dlg.ProjectName ?? "",
-                Descripcion = dlg.Description ?? "",
-                TileSize = dlg.TileSize,
-                MapWidth = dlg.MapWidth,
-                MapHeight = dlg.MapHeight,
-                Infinite = dlg.Infinite,
-                ChunkSize = dlg.ChunkSize,
-                ProjectDirectory = projectDir,
-                AutoSaveEnabled = true,
-                AutoSaveIntervalMinutes = 5,
-                AutoSaveMaxBackupsPerType = 10,
-                AutoSaveFolder = "Autoguardados",
-                AutoSaveOnClose = true
-            };
-            var proyectoConfig = new ProyectoConfigDto
-            {
-                Nombre = project.Nombre,
-                Logo = "logo.png",
-                Plantilla = dlg.TemplateType ?? "Blank",
-                AutoguardadoActivo = true,
-                IntervaloAutoguardadoMin = 5,
-                MaxBackupsAutoguardado = 10,
-                GuardarSoloCambios = true,
-                Descripcion = project.Descripcion,
-                Autor = dlg.Author,
-                Version = dlg.Version ?? "0.1"
-            };
-            var projectPath = NewProjectStructure.Create(projectDir, project, dlg.IconPath, proyectoConfig);
+            var projectPath = NewProjectCreation.CreateFromWizard(w);
             System.Windows.MessageBox.Show(this, "Proyecto creado. Abriendo...", "Nuevo proyecto", MessageBoxButton.OK, MessageBoxImage.Information);
             var loaded = ProjectSerialization.Load(projectPath);
+            HideNewProjectWizardOverlay();
             var newEditor = new EditorWindow(loaded);
             newEditor.Show();
             Close();
@@ -235,6 +222,32 @@ public partial class EditorWindow
             System.Windows.MessageBox.Show(this, "Error al crear proyecto: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
+
+    private void HideNewProjectWizardOverlay()
+    {
+        DetachNewProjectWizardPanel();
+        if (NewProjectWizardOverlay != null)
+            NewProjectWizardOverlay.Visibility = Visibility.Collapsed;
+        if (NewProjectWizardHost != null)
+            NewProjectWizardHost.Content = null;
+    }
+
+    private void DetachNewProjectWizardPanel()
+    {
+        if (_newProjectWizardPanel == null) return;
+        _newProjectWizardPanel.CreateCommitted -= NewProjectWizard_OnCreateCommitted;
+        _newProjectWizardPanel.CancelRequested -= NewProjectWizard_OnCancelRequested;
+        _newProjectWizardPanel = null;
+    }
+
+    private void NewProjectWizardBackdrop_OnMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        HideNewProjectWizardOverlay();
+        e.Handled = true;
+    }
+
+    private void NewProjectWizardInner_OnMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e) =>
+        e.Handled = true;
 
     private void MenuAbrirProyecto_OnClick(object sender, RoutedEventArgs e)
     {
@@ -251,8 +264,13 @@ public partial class EditorWindow
         if (dlg.ShowDialog() != true) return;
         try
         {
-            var project = ProjectSerialization.Load(dlg.FileName);
-            var newEditor = new EditorWindow(project);
+            if (!ProjectFormatOpenHelper.TryPromptAndLoad(dlg.FileName, this, out var project, out var err))
+            {
+                if (!string.IsNullOrEmpty(err))
+                    System.Windows.MessageBox.Show(this, "No se pudo abrir: " + err, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            var newEditor = new EditorWindow(project!);
             newEditor.Show();
             Close();
         }
@@ -270,6 +288,9 @@ public partial class EditorWindow
         var path = projectPath != null && NewProjectStructure.UsesNewStructure(projectDir) ? projectPath : legacyPath;
         var dlg = new ProjectConfigWindow(_project, path, _objectLayer) { Owner = this };
         if (dlg.ShowDialog() != true) return;
+        ClampViewportCenterForCurrentMap();
+        ApplyEditorVisualColorsFromProject();
+        DrawMap();
         ConfigureAutoSave();
     }
 
@@ -335,15 +356,11 @@ public partial class EditorWindow
         }
     }
 
-    private void MenuDocumentacion_OnClick(object sender, RoutedEventArgs e)
-    {
-        new DocumentationWindow { Owner = this, InitialTopicId = EngineDocumentation.QuickStartTopicId }.Show();
-    }
+    private void MenuDocumentacion_OnClick(object sender, RoutedEventArgs e) =>
+        ShowDocumentation(EngineDocumentation.QuickStartTopicId);
 
-    private void MenuDocumentacionCompleta_OnClick(object sender, RoutedEventArgs e)
-    {
-        new DocumentationWindow { Owner = this, InitialTopicId = EngineDocumentation.FullManualStartTopicId }.Show();
-    }
+    private void MenuDocumentacionCompleta_OnClick(object sender, RoutedEventArgs e) =>
+        ShowDocumentation(EngineDocumentation.FullManualStartTopicId);
 
     private void MenuAcercaDe_OnClick(object sender, RoutedEventArgs e)
     {
@@ -358,7 +375,7 @@ public partial class EditorWindow
         _selection.ClearObjectSelection();
         _isDragging = false;
         ProjectExplorer?.SetModified(GetCurrentSceneObjectsPath(), true);
-        MapHierarchy?.SetMapStructure(System.IO.Path.GetFileNameWithoutExtension(GetCurrentSceneMapPath()), _project.LayerNames, _objectLayer, _triggerZones, _visibleLayers, GetCurrentUIRoot());
+        RefreshMapHierarchy();
         RefreshInspector();
         DrawMap();
     }

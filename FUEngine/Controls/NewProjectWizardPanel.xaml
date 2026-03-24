@@ -1,10 +1,7 @@
-<Window x:Class="FUEngine.NewProjectDialog"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Crear proyecto" Height="620" Width="560"
-        WindowStartupLocation="CenterOwner"
-        ResizeMode="CanResizeWithGrip" MinHeight="520" MinWidth="480"
-        Background="#0d1117">
+<UserControl x:Class="FUEngine.NewProjectWizardPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent">
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
@@ -32,13 +29,15 @@
                             </Grid.ColumnDefinitions>
                             <TextBox x:Name="TxtPath" Grid.Column="0" Margin="0,0,8,0" Padding="8,6"
                                      Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
-                                     ToolTip="Ruta final donde se creará el proyecto. Editable; puede escribir otra ruta o usar el botón."/>
+                                     ToolTip="Ruta final donde se creará el proyecto. Editable; puede escribir otra ruta o usar el botón."
+                                     TextChanged="TxtPath_OnTextChanged"/>
                             <Button x:Name="BtnBrowse" Grid.Column="1" Content="..." Width="36" Height="28" Padding="0" Click="BtnBrowse_OnClick"
                                     ToolTip="Seleccionar carpeta donde se creará el proyecto."/>
                         </Grid>
                         <CheckBox x:Name="ChkCreateProjectFolder" Content="Crear la carpeta del proyecto si no existe" IsChecked="True"
                                   Foreground="#e6edf3" Margin="0,0,0,8"
-                                  ToolTip="Si la ruta no existe, el motor creará la carpeta al crear el proyecto."/>
+                                  ToolTip="Si la ruta no existe, el motor creará la carpeta al crear el proyecto."
+                                  Checked="ChkCreateProjectFolder_Changed" Unchecked="ChkCreateProjectFolder_Changed"/>
                         <Expander Header="Vista previa: estructura que se creará" Foreground="#8b949e" IsExpanded="False" Margin="0,0,0,8"
                                   Background="#161b22" BorderBrush="#30363d" BorderThickness="1">
                             <StackPanel Margin="8,4">
@@ -46,6 +45,9 @@
                                 <TextBlock Text="proyecto.config, logo en Assets/Logos/logo.png" Foreground="#8b949e" FontSize="10"/>
                             </StackPanel>
                         </Expander>
+                        <CheckBox x:Name="ChkGenerateStandardHierarchy" Content="Generar jerarquía estándar (carpetas en raíz según el motor)" IsChecked="True" Foreground="#e6edf3" Margin="0,0,0,8"
+                                  Checked="ChkGenerateStandardHierarchy_Changed" Unchecked="ChkGenerateStandardHierarchy_Changed"
+                                  ToolTip="Si está activo, se crean en la raíz las carpetas del orden configurado en Configuración del motor (por defecto: Sprites, Maps, Scripts, Audio, Seeds)."/>
                         <TextBlock Text="Icono / logo del proyecto (opcional)" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
@@ -71,14 +73,6 @@
                             </Border>
                         </Grid>
                         <TextBlock Text="Vista previa del logo" Foreground="#8b949e" FontSize="10" Margin="0,-6,0,0"/>
-                        <TextBlock Text="Paleta / color principal" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
-                        <ComboBox x:Name="CmbPalette" Width="200" HorizontalAlignment="Left" Margin="0,0,0,10" Padding="8,4"
-                                  Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
-                                  ToolTip="Paleta predeterminada para tiles y sprites."/>
-                        <TextBlock Text="Plantilla base" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
-                        <ComboBox x:Name="CmbTemplateType" Width="220" HorizontalAlignment="Left" Margin="0,0,0,10" Padding="8,4"
-                                  Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
-                                  ToolTip="Tipo de proyecto: Plataforma, Top-down, Puzzle, etc."/>
                         <Grid Margin="0,0,0,6">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -106,36 +100,21 @@
                 <Expander Header="Mapa y Tiles" Foreground="#e6edf3" IsExpanded="True" Margin="0,0,0,8"
                           Background="#161b22" BorderBrush="#30363d" BorderThickness="1">
                     <StackPanel Margin="12,8">
-                        <CheckBox x:Name="ChkInfinite" Content="Mapa infinito (chunks)" IsChecked="True" Foreground="#e6edf3" Margin="0,0,0,8"
-                                  Checked="ChkInfinite_Changed" Unchecked="ChkInfinite_Changed"
-                                  ToolTip="Si está activado, el mapa crece por chunks. Si no, usa ancho y alto fijos."/>
-                        <StackPanel x:Name="PanelSize" Visibility="Collapsed" Orientation="Horizontal" Margin="0,0,0,8">
-                            <TextBlock Text="Ancho (tiles):" Foreground="#8b949e" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBox x:Name="TxtMapWidth" Width="60" Margin="0,0,16,0" Text="64" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
-                            <TextBlock Text="Alto (tiles):" Foreground="#8b949e" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBox x:Name="TxtMapHeight" Width="60" Text="64" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
-                        </StackPanel>
+                        <TextBlock TextWrapping="Wrap" Foreground="#8b949e" FontSize="11" Margin="0,0,0,10"
+                                   Text="Mapa finito por defecto (sin modo infinito en el asistente). El tamaño inicial en casillas viene del motor (chunks × tamaño de chunk)."/>
                         <TextBlock Text="Tamaño de tile (px)" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
                         <TextBox x:Name="TxtTileSize" Width="80" Margin="0,0,0,8" Text="16" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
-                                 ToolTip="Ej: 16, 32, 64. Tamaño en píxeles de cada tile."/>
-                        <TextBlock Text="Tamaño de chunk (tiles)" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
+                                 ToolTip="Ej: 16, 32. Píxeles por lado de cada celda del mapa."
+                                 TextChanged="MapTileSettings_OnChanged"/>
+                        <TextBlock Text="Tamaño de chunk (casillas por lado del fragmento en disco)" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
                         <ComboBox x:Name="CmbChunkSize" Width="100" HorizontalAlignment="Left" Margin="0,0,0,8" Padding="8,4"
                                   Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
-                                  ToolTip="16×16, 32×32 o 64×64 tiles por chunk."/>
-                        <TextBlock Text="Chunks iniciales (mapa infinito)" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <TextBox x:Name="TxtInitialChunksW" Width="50" Text="4" Padding="8,6" Margin="0,0,8,0" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
-                            <TextBlock Text="×" Foreground="#8b949e" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBox x:Name="TxtInitialChunksH" Width="50" Text="4" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
-                                     ToolTip="Cuántos chunks generar al inicio (ej: 4×4, 8×8)."/>
-                        </StackPanel>
-                        <TextBlock Text="Altura de tile (2.5D)" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
-                        <TextBox x:Name="TxtTileHeight" Width="60" Margin="0,0,0,8" Text="1" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
-                                 ToolTip="Para pseudo-profundidad o sistemas 2.5D."/>
+                                  ToolTip="16, 32 o 64. Junto con los chunks por lado del motor define el mapa inicial."
+                                  SelectionChanged="CmbChunkSize_OnSelectionChanged"/>
                         <CheckBox x:Name="ChkAutoTiling" Content="Activar auto-tiling" Foreground="#e6edf3" Margin="0,0,0,8"
-                                  ToolTip="Generar transiciones automáticas entre tiles."/>
-                        <TextBlock Text="Vista previa (mini-mapa base)" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
-                        <Border Width="120" Height="80" Background="#21262d" BorderBrush="#30363d" BorderThickness="1" CornerRadius="4" Margin="0,0,0,0">
+                                  ToolTip="Reglas de bordes al pintar terreno (proyecto nuevo)."/>
+                        <TextBlock Text="Vista previa (rejilla aproximada)" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
+                        <Border Width="160" Height="100" Background="#21262d" BorderBrush="#30363d" BorderThickness="1" CornerRadius="4" Margin="0,0,0,0">
                             <Canvas x:Name="PreviewMinimap"/>
                         </Border>
                     </StackPanel>
@@ -163,6 +142,10 @@
                 <Expander Header="Render y UI inicial" Foreground="#e6edf3" Margin="0,0,0,8"
                           Background="#161b22" BorderBrush="#30363d" BorderThickness="1">
                     <StackPanel Margin="12,8">
+                        <TextBlock Text="Color de fondo del juego (primera escena / letterbox)" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
+                        <TextBox x:Name="TxtDefaultGameBg" Width="120" HorizontalAlignment="Left" Margin="0,0,0,8" Text="#FFFFFF" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Hex #RRGGBB (relleno detrás del área lógica y letterbox). Por defecto: blanco o el valor del motor."
+                                 TextChanged="TxtDefaultGameBg_OnTextChanged"/>
                         <TextBlock Text="FPS del juego" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
                         <TextBox x:Name="TxtFps" Width="80" Margin="0,0,0,8" Text="60" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
                                  ToolTip="Frames por segundo por defecto (ej: 60)."/>
@@ -180,8 +163,8 @@
                 <Expander Header="Opciones avanzadas" Foreground="#e6edf3" Margin="0,0,0,0"
                           Background="#161b22" BorderBrush="#30363d" BorderThickness="1">
                     <StackPanel Margin="12,8">
-                        <CheckBox x:Name="ChkDebugMode" Content="Modo de depuración (logs, depuración de tiles/objetos)" Foreground="#e6edf3" Margin="0,0,0,6"
-                                  ToolTip="Activar logs y herramientas de depuración."/>
+                        <CheckBox x:Name="ChkDebugMode" Content="Modo de depuración (logs y herramientas en el proyecto)" IsChecked="True" Foreground="#e6edf3" Margin="0,0,0,6"
+                                  ToolTip="Por defecto según Configuración del motor → Explorador. Activa logs útiles al crear el proyecto."/>
                         <CheckBox x:Name="ChkScriptNodes" Content="Activar nodos de scripts (lógica visual)" Foreground="#e6edf3" Margin="0,0,0,6"
                                   ToolTip="Para proyectos que usen editor visual de nodos desde el inicio."/>
                         <CheckBox x:Name="ChkSaveInitialBackup" Content="Guardar backup inicial" Foreground="#e6edf3" Margin="0,0,0,0"
@@ -191,8 +174,8 @@
             </StackPanel>
         </ScrollViewer>
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button Content="Cancelar" Width="90" Margin="0,0,10,0" IsCancel="True" Padding="12,8"/>
-            <Button Content="Crear" Width="90" Click="BtnCreate_OnClick" IsDefault="True" Padding="12,8"/>
+            <Button x:Name="BtnCancel" Content="Cancelar" Width="90" Margin="0,0,10,0" IsCancel="True" Padding="12,8" Click="BtnCancel_OnClick"/>
+            <Button x:Name="BtnCreate" Content="Crear proyecto" MinWidth="120" Padding="12,8" Click="BtnCreate_OnClick" IsDefault="True" IsEnabled="False"/>
         </StackPanel>
     </Grid>
-</Window>
+</UserControl>

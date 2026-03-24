@@ -36,6 +36,7 @@ public readonly struct DebugDrawItem
 /// <summary>
 /// API Lua: <c>Debug.drawLine(...)</c>, <c>Debug.drawCircle(...)</c>. Colores 0–255 (RGBA opcional).
 /// </summary>
+[LuaVisible]
 public sealed class DebugDrawApi
 {
     private readonly List<DebugDrawItem> _buffer = new();
@@ -56,6 +57,23 @@ public sealed class DebugDrawApi
     {
         if (radius < 0) radius = 0;
         _buffer.Add(new DebugDrawItem(DebugDrawKind.Circle, cx, cy, radius, 0, ToByte(r), ToByte(g), ToByte(b), ToByte(a)));
+    }
+
+    /// <summary>Rejilla en espacio de casillas centrada en (centerX, centerY); mitades en celdas; paso en celdas.</summary>
+    public void drawGrid(double centerX, double centerY, double halfWidthTiles, double halfHeightTiles, double stepTiles) =>
+        drawGrid(centerX, centerY, halfWidthTiles, halfHeightTiles, stepTiles, 0, 255, 255, 140);
+
+    public void drawGrid(double centerX, double centerY, double halfWidthTiles, double halfHeightTiles, double stepTiles, double r, double g, double b, double a)
+    {
+        double step = stepTiles <= 0 ? 1 : stepTiles;
+        double x0 = centerX - halfWidthTiles;
+        double x1 = centerX + halfWidthTiles;
+        double y0 = centerY - halfHeightTiles;
+        double y1 = centerY + halfHeightTiles;
+        for (double x = x0; x <= x1 + 1e-9; x += step)
+            drawLine(x, y0, x, y1, r, g, b, a);
+        for (double y = y0; y <= y1 + 1e-9; y += step)
+            drawLine(x0, y, x1, y, r, g, b, a);
     }
 
     internal void FinalizeFrame()

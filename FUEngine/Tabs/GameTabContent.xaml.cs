@@ -1,6 +1,6 @@
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -23,7 +23,7 @@ namespace FUEngine;
 
 /// <summary>
 /// Tab "Juego" embebido: Play Mode aislado con su propio LuaScriptRuntime + WorldContextFromList.
-/// Ejecuta una copia de la escena actual; al cerrar el tab se hace Dispose limpio.
+/// Jerarquía de runtime + viewport + consola del tab; el inspector de objetos sigue en la pestaña Mapa.
 /// </summary>
 public partial class GameTabContent : System.Windows.Controls.UserControl, IDisposable
 {
@@ -47,6 +47,9 @@ public partial class GameTabContent : System.Windows.Controls.UserControl, IDisp
 
     /// <summary>Runner del tab (para que el tab Debug pueda inspeccionar este runtime).</summary>
     public PlayModeRunner? GetRunner() => _runner;
+
+    /// <summary>Fuerza un repintado del viewport (p. ej. tras mover el marco de cámara en el mapa).</summary>
+    public void RefreshViewport() => RenderViewport();
 
     /// <summary>Pausa el runtime cuando el tab se desactiva (evita que corra en segundo plano).</summary>
     public void PauseRunner()
@@ -168,13 +171,9 @@ public partial class GameTabContent : System.Windows.Controls.UserControl, IDisp
     {
         if (obj is not LogEntry e) return false;
         if (e.Level == LogLevel.Warning) return ChkFilterWarning?.IsChecked == true;
-        if (e.Level == LogLevel.Error) return ChkFilterError?.IsChecked == true;
-        if (e.Level == LogLevel.Info)
-        {
-            if (string.Equals(e.Source, "Lua", StringComparison.OrdinalIgnoreCase))
-                return ChkFilterLua?.IsChecked == true;
-            return ChkFilterInfo?.IsChecked == true;
-        }
+        if (e.Level == LogLevel.Error || e.Level == LogLevel.Critical) return ChkFilterError?.IsChecked == true;
+        if (e.Level == LogLevel.Lua) return ChkFilterLua?.IsChecked == true;
+        if (e.Level == LogLevel.Info) return ChkFilterInfo?.IsChecked == true;
         return true;
     }
 
@@ -200,6 +199,7 @@ public partial class GameTabContent : System.Windows.Controls.UserControl, IDisp
         var uiRoot = _getCurrentUIRoot?.Invoke();
         var mapSnap = _getCurrentTileMap?.Invoke();
         _runner = new PlayModeRunner(_project, layerCopy, _scriptRegistry, () => { }, uiRoot, mapSnap, _playKeyboard);
+        WirePlayViewportSurfaceProvider(_runner);
         _runner.Start(useMainScene: false);
         WireRuntimeToTabLog(_runner);
 
@@ -211,6 +211,16 @@ public partial class GameTabContent : System.Windows.Controls.UserControl, IDisp
         StartHudUpdates();
         AddLog(LogLevel.Info, $"Play iniciado en tab · {_runner.GetSceneObjects().Count} objetos.", "Juego");
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, new Action(() => Keyboard.Focus(this)));
+    }
+
+    private void WirePlayViewportSurfaceProvider(PlayModeRunner runner)
+    {
+        runner.GetPlayViewportSurfacePixels = () =>
+        {
+            var c = GameViewportCanvas;
+            if (c == null) return (800.0, 600.0);
+            return (Math.Max(1.0, c.ActualWidth), Math.Max(1.0, c.ActualHeight));
+        };
     }
 
     private void WireRuntimeToTabLog(PlayModeRunner runner)
@@ -231,7 +241,7 @@ public partial class GameTabContent : System.Windows.Controls.UserControl, IDisp
             {
                 prevPrint?.Invoke(msg);
                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
-                    AddLog(LogLevel.Info, msg ?? "", "Lua"));
+                    AddLog(LogLevel.Lua, msg ?? "", "Lua"));
             };
         }
         var uiBackend = runner.GetUiBackend();
@@ -244,6 +254,26 @@ public partial class GameTabContent : System.Windows.Controls.UserControl, IDisp
                     EditorLog.Error(text, "UI");
                     AddLog(LogLevel.Error, text, "UI");
                 });
+        }
+    }
+
+    /// <summary>Alinea la lista de jerarquía con <see cref="PlayModeRunner.GetSceneObjects"/> (objetos del mapa + creados por scripts en runtime).</summary>
+    private void SyncHierarchyWithRuntime()
+    {
+        if (_runner == null || !_runner.IsRunning) return;
+        var live = _runner.GetSceneObjects();
+        var liveSet = new HashSet<GameObject>(live);
+        for (int i = _hierarchyObjects.Count - 1; i >= 0; i--)
+        {
+            var go = _hierarchyObjects[i];
+            if (!liveSet.Contains(go) || go.PendingDestroy)
+                _hierarchyObjects.RemoveAt(i);
+        }
+        foreach (var go in live)
+        {
+            if (go.PendingDestroy) continue;
+            if (!_hierarchyObjects.Contains(go))
+                _hierarchyObjects.Add(go);
         }
     }
 
@@ -274,6 +304,8 @@ public partial class GameTabContent : System.Windows.Controls.UserControl, IDisp
             return;
         }
 
+        SyncHierarchyWithRuntime();
+
         var objects = _runner.GetSceneObjects();
         _textureCache ??= new TextureAssetCache(_project?.ProjectDirectory);
         if (_project != null)
@@ -301,6 +333,7 @@ public partial class GameTabContent : System.Windows.Controls.UserControl, IDisp
                     UIElementKind.Text   => Color.FromArgb(100, 0xd2, 0x99, 0x22),
                     UIElementKind.Image  => Color.FromArgb(100, 0x2e, 0xa0, 0x43),
                     UIElementKind.Panel  => Color.FromArgb(60,  0x48, 0x4f, 0x58),
+                    UIElementKind.TabControl => Color.FromArgb(95, 0xa3, 0x71, 0xf7),
                     _                   => Color.FromArgb(80,  0xe6, 0xed, 0xf3)
                 };
                 var uiRect = new Rectangle
@@ -437,8 +470,6 @@ public partial class GameTabContent : System.Windows.Controls.UserControl, IDisp
         UpdatePlayButtons(running: false, paused: false);
         StopHudUpdates();
         _hierarchyObjects.Clear();
-        InspectorContent.Children.Clear();
-        InspectorTitle.Text = "Inspector — Selecciona un objeto";
         _textureCache?.Clear();
         RenderViewport();
         AddLog(LogLevel.Info, "Play detenido. Runtime destruido.", "Juego");
@@ -473,14 +504,13 @@ public partial class GameTabContent : System.Windows.Controls.UserControl, IDisp
         UpdatePlayButtons(running: false, paused: false);
         StopHudUpdates();
         _hierarchyObjects.Clear();
-        InspectorContent.Children.Clear();
-        InspectorTitle.Text = "Inspector — Selecciona un objeto";
 
         if (_project == null || _getCurrentObjectLayer == null || _scriptRegistry == null) return;
         var layerCopy = ObjectsSerialization.Clone(_getCurrentObjectLayer());
         var uiRoot = _getCurrentUIRoot?.Invoke();
         var mapSnap2 = _getCurrentTileMap?.Invoke();
         _runner = new PlayModeRunner(_project, layerCopy, _scriptRegistry, () => { }, uiRoot, mapSnap2, _playKeyboard);
+        WirePlayViewportSurfaceProvider(_runner);
         _runner.Start(useMainScene: false);
         WireRuntimeToTabLog(_runner);
 
@@ -575,19 +605,8 @@ public partial class GameTabContent : System.Windows.Controls.UserControl, IDisp
     private void HierarchyList_ContextMenuOpening(object? sender, ContextMenuEventArgs e)
     {
         var go = HierarchyList.SelectedItem as GameObject ?? _contextMenuTarget;
-        if (MenuHierarchyFocus != null) MenuHierarchyFocus.IsEnabled = go != null;
         if (MenuHierarchyPrint != null) MenuHierarchyPrint.IsEnabled = go != null;
         if (MenuHierarchyDestroy != null) MenuHierarchyDestroy.IsEnabled = go != null && _runner != null && _runner.IsRunning;
-    }
-
-    private void MenuHierarchyFocus_OnClick(object sender, RoutedEventArgs e)
-    {
-        if (HierarchyList.SelectedItem is GameObject go)
-        {
-            InspectorContent.Children.Clear();
-            InspectorTitle.Text = $"Inspector — {go.Name ?? "(sin nombre)"}";
-            BuildInspectorFor(go);
-        }
     }
 
     private void MenuHierarchyPrint_OnClick(object sender, RoutedEventArgs e)
@@ -621,156 +640,7 @@ public partial class GameTabContent : System.Windows.Controls.UserControl, IDisp
         _runner.DestroyObject(go);
         _hierarchyObjects.Remove(go);
         if (HierarchyList.SelectedItem == go) HierarchyList.SelectedItem = null;
-        InspectorContent.Children.Clear();
-        InspectorTitle.Text = "Inspector — Selecciona un objeto";
         AddLog(LogLevel.Info, $"Objeto '{name}' detenido/eliminado del runtime.", "Juego");
-    }
-
-    private void HierarchyList_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        InspectorContent.Children.Clear();
-        if (HierarchyList.SelectedItem is not GameObject go)
-        {
-            InspectorTitle.Text = "Inspector — Selecciona un objeto";
-            return;
-        }
-        InspectorTitle.Text = $"Inspector — {go.Name ?? "(sin nombre)"}";
-        BuildInspectorFor(go);
-    }
-
-    private void BuildInspectorFor(GameObject go)
-    {
-        var brush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xe6, 0xed, 0xf3));
-        var brushLabel = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x8b, 0x94, 0x9e));
-
-        void AddRow(string label, string value)
-        {
-            var sp = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 4) };
-            sp.Children.Add(new TextBlock { Text = label + ":", Foreground = brushLabel, FontSize = 11, Width = 90 });
-            sp.Children.Add(new TextBlock { Text = value, Foreground = brush, FontSize = 11, TextWrapping = TextWrapping.Wrap });
-            InspectorContent.Children.Add(sp);
-        }
-
-        AddRow("Nombre", go.Name ?? "(sin nombre)");
-        if (go.Transform != null)
-        {
-            AddRow("X", go.Transform.X.ToString("F2"));
-            AddRow("Y", go.Transform.Y.ToString("F2"));
-            AddRow("Rotación", go.Transform.RotationDegrees.ToString("F1") + "°");
-            AddRow("ScaleX", go.Transform.ScaleX.ToString("F2"));
-            AddRow("ScaleY", go.Transform.ScaleY.ToString("F2"));
-        }
-        if (go.Components != null && go.Components.Count > 0)
-        {
-            InspectorContent.Children.Add(new TextBlock { Text = "Componentes", Foreground = brushLabel, FontSize = 11, Margin = new Thickness(0, 8, 0, 4) });
-            foreach (var c in go.Components)
-            {
-                if (c is ScriptComponent sc)
-                {
-                    AddRow("  Script", sc.ScriptId ?? "(sin id)");
-                    if (sc.ScriptInstanceHandle is ScriptInstance si)
-                        AddRuntimeLuaVariablesSection(si, brush, brushLabel);
-                }
-                else
-                    AddRow("  " + c.GetType().Name, "");
-            }
-        }
-    }
-
-    private void AddRuntimeLuaVariablesSection(ScriptInstance si, SolidColorBrush valueBrush, SolidColorBrush labelBrush)
-    {
-        InspectorContent.Children.Add(new TextBlock
-        {
-            Text = "  Variables Lua (en vivo)",
-            Foreground = labelBrush,
-            FontSize = 11,
-            Margin = new Thickness(0, 6, 0, 2)
-        });
-        var snap = si.GetVariableSnapshot();
-        if (snap == null || snap.Count == 0)
-        {
-            InspectorContent.Children.Add(new TextBlock
-            {
-                Text = "    (vacío)",
-                Foreground = labelBrush,
-                FontSize = 10,
-                Margin = new Thickness(0, 0, 0, 4)
-            });
-            return;
-        }
-
-        foreach (var kv in snap.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
-        {
-            if (KnownEvents.IsReservedScriptVariableName(kv.Key)) continue;
-            if (kv.Value.StartsWith("table:", StringComparison.OrdinalIgnoreCase)) continue;
-
-            var row = new Grid { Margin = new Thickness(8, 2, 0, 2) };
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            var lbl = new TextBlock
-            {
-                Text = kv.Key,
-                Foreground = labelBrush,
-                FontSize = 10,
-                VerticalAlignment = VerticalAlignment.Center,
-                TextTrimming = TextTrimming.CharacterEllipsis
-            };
-            var tb = new System.Windows.Controls.TextBox
-            {
-                Text = kv.Value,
-                Foreground = valueBrush,
-                FontSize = 10,
-                Background = new SolidColorBrush(Color.FromRgb(0x0d, 0x11, 0x17)),
-                BorderBrush = new SolidColorBrush(Color.FromRgb(0x30, 0x36, 0x3d)),
-                Padding = new Thickness(4, 2, 4, 2),
-                CaretBrush = valueBrush,
-                Tag = Tuple.Create(si, kv.Key)
-            };
-            tb.LostFocus += LuaRuntimeVar_LostFocus;
-            Grid.SetColumn(lbl, 0);
-            Grid.SetColumn(tb, 1);
-            row.Children.Add(lbl);
-            row.Children.Add(tb);
-            InspectorContent.Children.Add(row);
-        }
-    }
-
-    private void LuaRuntimeVar_LostFocus(object sender, RoutedEventArgs e)
-    {
-        if (sender is not System.Windows.Controls.TextBox tb || tb.Tag is not Tuple<ScriptInstance, string> tup) return;
-        TryApplyLuaVariable(tup.Item1, tup.Item2, tb.Text ?? "");
-        var cur = tup.Item1.Get(tup.Item2);
-        tb.Text = cur == null ? "nil" : cur.ToString() ?? "nil";
-    }
-
-    private static void TryApplyLuaVariable(ScriptInstance si, string key, string text)
-    {
-        var t = text.Trim();
-        if (string.Equals(t, "nil", StringComparison.OrdinalIgnoreCase))
-        {
-            si.Set(key, null);
-            return;
-        }
-
-        if (bool.TryParse(t, out var b))
-        {
-            si.Set(key, b);
-            return;
-        }
-
-        if (long.TryParse(t, NumberStyles.Integer, CultureInfo.InvariantCulture, out var lg) && t.IndexOf('.') < 0)
-        {
-            si.Set(key, (double)lg);
-            return;
-        }
-
-        if (double.TryParse(t, NumberStyles.Any, CultureInfo.InvariantCulture, out var d))
-        {
-            si.Set(key, d);
-            return;
-        }
-
-        si.Set(key, t);
     }
 
     private void BtnClearLog_OnClick(object sender, RoutedEventArgs e)

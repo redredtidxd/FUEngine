@@ -8,6 +8,7 @@ namespace FUEngine.Runtime;
 /// Proxy de un componente expuesto a Lua. Permite llamar métodos del script (ej: Health:TakeDamage(10))
 /// mediante invoke("methodName", args). Para ScriptComponent usa la ScriptInstance asociada.
 /// </summary>
+[LuaVisible]
 public sealed class ComponentProxy
 {
     private readonly Component _component;

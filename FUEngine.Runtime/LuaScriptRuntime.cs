@@ -12,6 +12,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using FUEngine.Core;
 using NLua;
+using NLua.Exceptions;
 
 namespace FUEngine.Runtime;
 
@@ -24,6 +25,7 @@ public sealed class LuaScriptRuntime
     private readonly LuaEnvironment _environment;
     private readonly ScriptLoader _loader;
     private readonly List<ScriptInstance> _instances = new();
+    private readonly List<ScriptInstance> _layerScriptInstances = new();
     private readonly Dictionary<GameObject, List<ScriptInstance>> _instancesByObject = new();
     private readonly TimeApi _timeApi = new();
     private WorldApi? _worldApi;
@@ -31,8 +33,11 @@ public sealed class LuaScriptRuntime
     private UiApi? _uiApi;
     private GameApi? _gameApi;
     private PhysicsApi? _physicsApi;
+    private AdsApi? _adsApi;
     private readonly AudioApi? _audioApi;
     private readonly DebugDrawApi _debugDraw = new();
+    private Func<GameObject, string, bool>? _playAnimationClip;
+    private Action<GameObject>? _stopAnimation;
     private bool _disposed;
 
     /// <summary>Cuando el script lanza un error, se notifica aquí (ej: para consola del editor).</summary>
@@ -73,13 +78,24 @@ public sealed class LuaScriptRuntime
 
     public void SetPhysicsApi(PhysicsApi api) => _physicsApi = api;
 
+    public void SetAdsApi(AdsApi api) => _adsApi = api;
+
+    public AdsApi? GetAdsApi() => _adsApi;
+
     public GameApi? GetGameApi() => _gameApi;
 
     /// <summary>Factory para crear proxies (self y world). El host puede pasarla a WorldApi.SetWorldContext(..., GetProxyFactory()).</summary>
     public Func<GameObject, string?, string?, SelfProxy> GetProxyFactory() => CreateProxy;
 
+    /// <summary>Callbacks opcionales para <see cref="SelfProxy.playAnimation"/> / <see cref="SelfProxy.stopAnimation"/>.</summary>
+    public void SetSpriteAnimationCallbacks(Func<GameObject, string, bool>? playClip, Action<GameObject>? stopClip)
+    {
+        _playAnimationClip = playClip;
+        _stopAnimation = stopClip;
+    }
+
     private SelfProxy CreateProxy(GameObject go, string? instanceId, string? unusedLegacyTag = null) =>
-        new SelfProxy(go, instanceId ?? go.Name, CreateProxy, _worldApi);
+        new SelfProxy(go, instanceId ?? go.Name, CreateProxy, _worldApi, _playAnimationClip, _stopAnimation);
 
     /// <summary>Carga el código del script (path relativo al proyecto).</summary>
     public string LoadScriptSource(string relativePath)
@@ -102,7 +118,7 @@ public sealed class LuaScriptRuntime
         var source = _loader.LoadSource(scriptPath);
         var env = _environment.CreateInstanceEnvironment();
         var selfProxy = CreateProxy(gameObject, instanceId, tag);
-        ScriptBindings.PopulateEnvironment(env, selfProxy, _worldApi, _inputApi, _timeApi, _audioApi, _uiApi, _gameApi, _debugDraw, _physicsApi);
+        ScriptBindings.PopulateEnvironment(env, selfProxy, _worldApi, _inputApi, _timeApi, _audioApi, _uiApi, _gameApi, _debugDraw, _physicsApi, _adsApi);
 
         _environment.State["__scriptSource"] = source;
         _environment.State["__scriptName"] = scriptPath;
@@ -115,6 +131,12 @@ public sealed class LuaScriptRuntime
                 if not fn then error(err or 'load failed') end
                 fn()
             ");
+        }
+        catch (LuaException ex)
+        {
+            var msg = ex.ToString();
+            ReportError(scriptPath, TryParseLineFromError(msg), msg);
+            throw;
         }
         catch (Exception ex)
         {
@@ -136,7 +158,7 @@ public sealed class LuaScriptRuntime
         {
             foreach (var p in scriptProperties)
             {
-                var val = ParsePropertyValue(p.Type, p.Value);
+                var val = ResolveInjectedProperty(p);
                 instance.Set(p.Key, val);
             }
         }
@@ -152,6 +174,136 @@ public sealed class LuaScriptRuntime
         instance.LifecycleAwakeDone = true;
 
         return instance;
+    }
+
+    /// <summary>
+    /// Script de capa del tilemap: entorno con <c>layer</c> (sin <c>self</c>). Eventos: <see cref="KnownEvents.OnAwake"/>, <see cref="KnownEvents.OnStart"/>, <see cref="KnownEvents.OnLayerUpdate"/>, <see cref="KnownEvents.OnDestroy"/>.
+    /// No se mezcla con <see cref="_instances"/> de objetos.
+    /// </summary>
+    public ScriptInstance CreateLayerScriptInstance(
+        string scriptPath,
+        string scriptId,
+        MapLayerDescriptor layerDescriptor,
+        int layerIndex,
+        IReadOnlyList<ScriptPropertyEntry>? scriptProperties = null)
+    {
+        var source = _loader.LoadSource(scriptPath);
+        var env = _environment.CreateInstanceEnvironment();
+        var layerProxy = new LayerProxy(layerDescriptor, layerIndex);
+        ScriptBindings.PopulateLayerEnvironment(env, layerProxy, _worldApi, _inputApi, _timeApi, _audioApi, _uiApi, _gameApi, _debugDraw, _physicsApi, _adsApi);
+
+        _environment.State["__scriptSource"] = source;
+        _environment.State["__scriptName"] = scriptPath;
+        _environment.State["__scriptEnv"] = env;
+        try
+        {
+            _environment.State.DoString(@"
+                local src, name, env = __scriptSource, __scriptName, __scriptEnv
+                local fn, err = load(src, name, 't', env)
+                if not fn then error(err or 'load failed') end
+                fn()
+            ");
+        }
+        catch (LuaException ex)
+        {
+            var msg = ex.ToString();
+            ReportError(scriptPath, TryParseLineFromError(msg), msg);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            var msg = ex.ToString();
+            ReportError(scriptPath, TryParseLineFromError(msg), msg);
+            throw;
+        }
+
+        var instance = new ScriptInstance(_environment.State, env, scriptPath, scriptId, null);
+        _layerScriptInstances.Add(instance);
+
+        if (scriptProperties != null)
+        {
+            foreach (var p in scriptProperties)
+            {
+                var val = ResolveInjectedProperty(p);
+                instance.Set(p.Key, val);
+            }
+        }
+
+        if (instance.HasFunction(KnownEvents.OnAwake))
+        {
+            EventExecuting?.Invoke(instance, KnownEvents.OnAwake);
+            if (!instance.TryInvoke(KnownEvents.OnAwake, out _, out var awakeErr) && !string.IsNullOrEmpty(awakeErr))
+                ReportError(scriptPath, TryParseLineFromError(awakeErr), awakeErr);
+        }
+        instance.LifecycleAwakeDone = true;
+
+        return instance;
+    }
+
+    /// <summary>Elimina instancias de script de capa (invoca <see cref="KnownEvents.OnDestroy"/> si existe).</summary>
+    public void ClearLayerScriptInstances()
+    {
+        if (_disposed) return;
+        foreach (var inst in _layerScriptInstances)
+        {
+            EventExecuting?.Invoke(inst, KnownEvents.OnDestroy);
+            if (inst.HasFunction(KnownEvents.OnDestroy))
+            {
+                if (!inst.TryInvoke(KnownEvents.OnDestroy, out _, out var err) && !string.IsNullOrEmpty(err))
+                    ReportError(inst.ScriptPath, TryParseLineFromError(err), err);
+            }
+            inst.Dispose();
+        }
+        _layerScriptInstances.Clear();
+    }
+
+    /// <summary>Antes del primer <see cref="KnownEvents.OnLayerUpdate"/>: <see cref="KnownEvents.OnStart"/> una vez por script de capa.</summary>
+    public void InvokeLayerOnStarts()
+    {
+        if (_disposed) return;
+        foreach (var inst in _layerScriptInstances)
+        {
+            if (inst.LifecycleStartDone) continue;
+            if (!inst.LifecycleAwakeDone) continue;
+            EventExecuting?.Invoke(inst, KnownEvents.OnStart);
+            if (inst.HasFunction(KnownEvents.OnStart))
+            {
+                if (!inst.TryInvoke(KnownEvents.OnStart, out _, out var err) && !string.IsNullOrEmpty(err))
+                    ReportError(inst.ScriptPath, TryParseLineFromError(err), err);
+            }
+            inst.LifecycleStartDone = true;
+        }
+    }
+
+    /// <summary>Una sola instancia de capa (p. ej. tras hot reload).</summary>
+    public void InvokeLayerOnStartFor(ScriptInstance instance)
+    {
+        if (_disposed || instance.LifecycleStartDone) return;
+        if (!instance.LifecycleAwakeDone) return;
+        if (!_layerScriptInstances.Contains(instance)) return;
+        EventExecuting?.Invoke(instance, KnownEvents.OnStart);
+        if (instance.HasFunction(KnownEvents.OnStart))
+        {
+            if (!instance.TryInvoke(KnownEvents.OnStart, out _, out var err) && !string.IsNullOrEmpty(err))
+                ReportError(instance.ScriptPath, TryParseLineFromError(err), err);
+        }
+        instance.LifecycleStartDone = true;
+    }
+
+    /// <summary><see cref="KnownEvents.OnLayerUpdate"/> cada frame con <c>dt</c> (usa <see cref="TimeApi.delta"/>).</summary>
+    public void InvokeLayerScripts()
+    {
+        if (_disposed) return;
+        double dt = _timeApi.delta;
+        foreach (var inst in _layerScriptInstances)
+        {
+            EventExecuting?.Invoke(inst, KnownEvents.OnLayerUpdate);
+            if (inst.HasFunction(KnownEvents.OnLayerUpdate))
+            {
+                if (!inst.TryInvoke(KnownEvents.OnLayerUpdate, out _, out var err, dt) && !string.IsNullOrEmpty(err))
+                    ReportError(inst.ScriptPath, TryParseLineFromError(err), err);
+            }
+        }
     }
 
     /// <summary>Ejecuta <see cref="KnownEvents.OnStart"/> una vez (p. ej. inmediatamente tras hot reload).</summary>
@@ -274,7 +426,7 @@ public sealed class LuaScriptRuntime
     public IReadOnlyList<DebugDrawItem> GetDebugDrawSnapshot() => _debugDraw.GetLastFrameSnapshot();
 
     /// <summary>Cantidad de instancias de script activas (para Runtime Info).</summary>
-    public int GetActiveScriptCount() => _instances.Count;
+    public int GetActiveScriptCount() => _instances.Count + _layerScriptInstances.Count;
 
     /// <summary>Memoria Lua en KB (collectgarbage("count")).</summary>
     public double GetLuaMemoryKb()
@@ -388,7 +540,22 @@ public sealed class LuaScriptRuntime
             inst.Dispose();
         }
         _instances.RemoveAll(i => toRemove.Contains(i));
-        if (toRemove.Count > 0)
+
+        var toRemoveLayer = _layerScriptInstances.Where(i =>
+            string.Equals(ScriptLoader.NormalizeRelativePath(i.ScriptPath), norm, StringComparison.OrdinalIgnoreCase)).ToList();
+        foreach (var inst in toRemoveLayer)
+        {
+            EventExecuting?.Invoke(inst, KnownEvents.OnDestroy);
+            if (inst.HasFunction(KnownEvents.OnDestroy))
+            {
+                if (!inst.TryInvoke(KnownEvents.OnDestroy, out _, out var derr) && !string.IsNullOrEmpty(derr))
+                    ReportError(inst.ScriptPath, TryParseLineFromError(derr), derr);
+            }
+            inst.Dispose();
+        }
+        _layerScriptInstances.RemoveAll(i => toRemoveLayer.Contains(i));
+
+        if (toRemove.Count > 0 || toRemoveLayer.Count > 0)
             ScriptReloaded?.Invoke(norm);
     }
 
@@ -435,11 +602,15 @@ public sealed class LuaScriptRuntime
         _breakpoints.Clear();
         _instances.Clear();
         _instancesByObject.Clear();
+        foreach (var inst in _layerScriptInstances)
+            inst.Dispose();
+        _layerScriptInstances.Clear();
         _environment.Dispose();
         _disposed = true;
     }
 
-    private static object? ParsePropertyValue(string type, string value)
+    /// <summary>Convierte texto del Inspector / JSON de propiedades al valor que recibe Lua.</summary>
+    public static object? ParseScriptPropertyValue(string? type, string? value)
     {
         if (string.IsNullOrEmpty(value)) return null;
         return type?.ToLowerInvariant() switch
@@ -450,6 +621,37 @@ public sealed class LuaScriptRuntime
             _ => value
         };
     }
+
+    private object? ResolveInjectedProperty(ScriptPropertyEntry p)
+    {
+        if (string.Equals(p.Type, "object", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(p.Value)) return null;
+            var go = _worldApi?.ResolveGameObjectByInstanceId(p.Value.Trim());
+            if (go != null)
+                return CreateProxy(go, go.InstanceId ?? go.Name, null);
+            return null;
+        }
+
+        return ParseScriptPropertyValue(p.Type, p.Value);
+    }
+
+    private object? ResolveValueForLiveEdit(string? type, string? value)
+    {
+        if (string.Equals(type, "object", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            var go = _worldApi?.ResolveGameObjectByInstanceId(value.Trim());
+            if (go != null)
+                return CreateProxy(go, go.InstanceId ?? go.Name, null);
+            return null;
+        }
+
+        return ParseScriptPropertyValue(type, value);
+    }
+
+    /// <summary>Inspector en vivo: tipos primitivos y <c>object</c> (InstanceId → <see cref="SelfProxy"/>).</summary>
+    public object? ResolveInspectorPropertyValue(string? type, string? value) => ResolveValueForLiveEdit(type, value);
 
     private void ReportError(string path, int line, string message)
     {

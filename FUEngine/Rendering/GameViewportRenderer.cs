@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -52,16 +53,75 @@ public static class GameViewportRenderer
         }
 
         double scale, offsetX, offsetY;
-        const double pad = 48;
+        double letterX = 0, letterY = 0, scaledW = 0, scaledH = 0;
+        // Sin padding extra: misma región útil que la UI (ComputeCanvasTransform usa todo el viewport centrado).
+        const double pad = 0;
         if (tileMap != null)
         {
-            GameViewportMath.GetEffectiveResolutionPixels(project, out int effW, out int effH);
-            double desiredW = effW;
-            double desiredH = effH;
-            scale = Math.Min(Math.Min((vw - pad * 2) / Math.Max(desiredW, 1), (vh - pad * 2) / Math.Max(desiredH, 1)), 4.0);
-            if (scale < 0.2) scale = 0.2;
-            offsetX = vw / 2.0 - camX * tileSize * scale;
-            offsetY = vh / 2.0 - camY * tileSize * scale;
+            GameViewportMath.GetEffectiveResolutionPixels(project, out int effW, out int effH, vw, vh, 1.0);
+            double availW = Math.Max(1, vw - pad * 2);
+            double availH = Math.Max(1, vh - pad * 2);
+            // Misma idea que UI (UIRuntimeBackend.ComputeCanvasTransform): escala uniforme sin saltos enteros,
+            // para que el marco del mundo coincida con el overlay UI cuando la resolución lógica es la misma.
+            double rawScale = Math.Min(availW / Math.Max(effW, 1), availH / Math.Max(effH, 1));
+            // Pixel-perfect: escala entera cuando cabe, para que los tiles alineen al grid de píxeles del monitor.
+            if (project.PixelPerfect)
+            {
+                var intScale = Math.Floor(rawScale);
+                scale = intScale >= 1 ? intScale : rawScale;
+            }
+            else
+                scale = rawScale;
+            scale = Math.Clamp(scale, 0.2, 64.0);
+            scaledW = effW * scale;
+            scaledH = effH * scale;
+            letterX = (vw - scaledW) / 2.0;
+            letterY = (vh - scaledH) / 2.0;
+            // Centro del buffer lógico alineado con el centro del área útil (cámara en casillas → centro del viewport).
+            offsetX = letterX + scaledW / 2.0 - camX * tileSize * scale;
+            offsetY = letterY + scaledH / 2.0 - camY * tileSize * scale;
+
+            // Letterbox: mismo color que el fondo de escena del proyecto (proyecto.json → DefaultFirstSceneBackgroundColor).
+            var sceneBg = ParseProjectSceneBackgroundColor(project);
+            if (scaledW > 1 && scaledH > 1)
+            {
+                var gutterBrush = new SolidColorBrush(sceneBg);
+                void AddGutter(double gx, double gy, double gW, double gH)
+                {
+                    if (gW < 0.5 || gH < 0.5) return;
+                    var g = new Rectangle
+                    {
+                        Width = gW,
+                        Height = gH,
+                        Fill = gutterBrush,
+                        IsHitTestVisible = false
+                    };
+                    Canvas.SetLeft(g, gx);
+                    Canvas.SetTop(g, gy);
+                    System.Windows.Controls.Panel.SetZIndex(g, -50_000);
+                    canvas.Children.Add(g);
+                }
+                AddGutter(0, 0, Math.Max(0, letterX), vh);
+                AddGutter(letterX + scaledW, 0, Math.Max(0, vw - letterX - scaledW), vh);
+                AddGutter(letterX, 0, scaledW, Math.Max(0, letterY));
+                AddGutter(letterX, letterY + scaledH, scaledW, Math.Max(0, vh - letterY - scaledH));
+            }
+
+            // Relleno del rectángulo lógico del juego (coincide con DefaultFirstSceneBackgroundColor del proyecto).
+            if (scaledW > 1 && scaledH > 1)
+            {
+                var playBg = new Rectangle
+                {
+                    Width = scaledW,
+                    Height = scaledH,
+                    Fill = new SolidColorBrush(sceneBg),
+                    IsHitTestVisible = false
+                };
+                Canvas.SetLeft(playBg, letterX);
+                Canvas.SetTop(playBg, letterY);
+                System.Windows.Controls.Panel.SetZIndex(playBg, -49_999);
+                canvas.Children.Add(playBg);
+            }
         }
         else if (objects.Count > 0)
         {
@@ -144,14 +204,17 @@ public static class GameViewportRenderer
                     if (px < -drawW || px > vw + drawW || py < -drawH || py > vh + drawH) continue;
 
                     double imgOpacity = 1.0;
+                    double tr = 1, tg = 1, tb = 1;
                     if (lightingScene != null)
                     {
-                        var (tr, tg, tb) = SceneLighting.SampleRgbTint(lightingScene, go.Transform?.X ?? 0f, go.Transform?.Y ?? 0f);
-                        if (src is BitmapSource bs)
-                        {
-                            var tinted = SpriteBitmapTint.MultiplyRgb(bs, tr, tg, tb);
-                            if (tinted != null) src = tinted;
-                        }
+                        var (lr, lg, lb) = SceneLighting.SampleRgbTint(lightingScene, go.Transform?.X ?? 0f, go.Transform?.Y ?? 0f);
+                        tr = lr; tg = lg; tb = lb;
+                    }
+                    tr *= sprite.ColorTintR; tg *= sprite.ColorTintG; tb *= sprite.ColorTintB;
+                    if (src is BitmapSource bsTint)
+                    {
+                        var tinted = SpriteBitmapTint.MultiplyRgb(bsTint, tr, tg, tb);
+                        if (tinted != null) src = tinted;
                     }
 
                     var img = new System.Windows.Controls.Image
@@ -165,10 +228,9 @@ public static class GameViewportRenderer
                     };
                     img.RenderTransformOrigin = new System.Windows.Point(0.5, 0.5);
                     var tf = new TransformGroup();
-                    if (sx < 0)
-                        tf.Children.Add(new ScaleTransform(-1, 1));
-                    else
-                        tf.Children.Add(new ScaleTransform(1, 1));
+                    double scaleX = (sx < 0 ? -1 : 1) * (sprite.FlipX ? -1 : 1);
+                    double scaleY = (sy < 0 ? -1 : 1) * (sprite.FlipY ? -1 : 1);
+                    tf.Children.Add(new ScaleTransform(scaleX, scaleY));
                     tf.Children.Add(new RotateTransform(go.Transform?.RotationDegrees ?? 0));
                     img.RenderTransform = tf;
                     Canvas.SetLeft(img, px - drawW / 2);
@@ -211,15 +273,30 @@ public static class GameViewportRenderer
             double lightMul2 = lightingScene != null
                 ? SceneLighting.SampleBrightness(lightingScene, go.Transform?.X ?? 0f, go.Transform?.Y ?? 0f)
                 : 1.0;
+            // Sin textura: el relleno sigue el tinte del sprite (p. ej. cuadrado negro con setSpriteTint).
+            SolidColorBrush fillBrush;
+            if (sprite != null)
+            {
+                double tr = sprite.ColorTintR * lightMul2;
+                double tg = sprite.ColorTintG * lightMul2;
+                double tb = sprite.ColorTintB * lightMul2;
+                fillBrush = new SolidColorBrush(Color.FromRgb(
+                    (byte)Math.Clamp(255 * tr, 0, 255),
+                    (byte)Math.Clamp(255 * tg, 0, 255),
+                    (byte)Math.Clamp(255 * tb, 0, 255)));
+            }
+            else
+                fillBrush = objFill;
+
             var rect = new Rectangle
             {
                 Width = fw,
                 Height = fh,
-                Fill = objFill,
+                Fill = fillBrush,
                 Stroke = objBorder,
                 StrokeThickness = 1,
                 ToolTip = go.Name ?? "",
-                Opacity = lightMul2,
+                Opacity = sprite != null ? 1.0 : lightMul2,
             };
             rect.RenderTransformOrigin = new System.Windows.Point(0.5, 0.5);
             rect.RenderTransform = new RotateTransform(go.Transform?.RotationDegrees ?? 0);
@@ -413,5 +490,18 @@ public static class GameViewportRenderer
     {
         if (chunkSize <= 0) chunkSize = Chunk.DefaultSize;
         return world < 0 ? (world + 1) / chunkSize - 1 : world / chunkSize;
+    }
+
+    /// <summary>Color de fondo del área útil / letterbox en el tab Juego (hex #RRGGBB en proyecto).</summary>
+    private static Color ParseProjectSceneBackgroundColor(ProjectInfo project)
+    {
+        var s = project.DefaultFirstSceneBackgroundColor?.Trim();
+        if (string.IsNullOrEmpty(s)) return Colors.White;
+        if (s.Length >= 7 && s[0] == '#' &&
+            int.TryParse(s.Substring(1, 6), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int rgb))
+        {
+            return Color.FromRgb((byte)((rgb >> 16) & 0xff), (byte)((rgb >> 8) & 0xff), (byte)(rgb & 0xff));
+        }
+        return Colors.White;
     }
 }

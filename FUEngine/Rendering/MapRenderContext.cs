@@ -64,4 +64,19 @@ public sealed class MapRenderContext
 
     /// <summary>Tiempo total en segundos para animación de tiles (GameTime.TotalSeconds o equivalente en editor).</summary>
     public double TotalSeconds { get; set; }
+
+    /// <summary>Último <see cref="CanvasMinWx"/> del frame anterior (editor); ancla el scroll del ScrollViewer al mundo.</summary>
+    public int PreviousCanvasMinWx { get; set; }
+    /// <summary>Último <see cref="CanvasMinWy"/> del frame anterior (editor).</summary>
+    public int PreviousCanvasMinWy { get; set; }
+    /// <summary>Desplazamiento horizontal del ScrollViewer del mapa (px).</summary>
+    public double EditorScrollHorizontalOffset { get; set; }
+    /// <summary>Desplazamiento vertical del ScrollViewer del mapa (px).</summary>
+    public double EditorScrollVerticalOffset { get; set; }
+    /// <summary>Ancho visible del ScrollViewer (px).</summary>
+    public double EditorViewportWidth { get; set; }
+    /// <summary>Alto visible del ScrollViewer (px).</summary>
+    public double EditorViewportHeight { get; set; }
+    /// <summary>Zoom del lienzo del mapa (LayoutTransform).</summary>
+    public double EditorZoom { get; set; } = 1.0;
 }

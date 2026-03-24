@@ -28,6 +28,18 @@ public sealed class SpriteComponent : Component
     /// <summary>Acumulador interno para animación automática (no serializar).</summary>
     public float AnimationTimeAccum { get; set; }
 
+    /// <summary>Multiplicador de velocidad de animación (frames por segundo).</summary>
+    public float AnimationSpeedMultiplier { get; set; } = 1f;
+
+    /// <summary>Tinte multiplicador RGB (0–1+).</summary>
+    public float ColorTintR { get; set; } = 1f;
+    public float ColorTintG { get; set; } = 1f;
+    public float ColorTintB { get; set; } = 1f;
+
+    /// <summary>Volteo horizontal/vertical adicional (además del signo de escala).</summary>
+    public bool FlipX { get; set; }
+    public bool FlipY { get; set; }
+
     /// <summary>Clave lógica de la última auto-animación nativa aplicada (p. ej. <c>Idle</c> / <c>Walk</c>); evita reiniciar el clip cada tick.</summary>
     public string? NativeAutoAnimationKey { get; set; }
 }

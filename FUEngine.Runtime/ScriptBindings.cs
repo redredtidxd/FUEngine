@@ -6,7 +6,7 @@ using NLua;
 namespace FUEngine.Runtime;
 
 /// <summary>
-/// Registra en el entorno Lua las tablas globales: self, world, input, time, audio, physics, ui, game.
+/// Registra en el entorno Lua las tablas globales: self, world, input, time, audio, physics, ui, game, ads.
 /// </summary>
 public static class ScriptBindings
 {
@@ -55,6 +55,11 @@ public static class ScriptBindings
         env["Debug"] = api;
     }
 
+    public static void SetAds(LuaTable env, AdsApi api)
+    {
+        env["ads"] = api;
+    }
+
     /// <summary>Constantes Key.* y Mouse.* para input. Se registran en el entorno.</summary>
     public static void SetInputConstants(LuaTable env)
     {
@@ -65,7 +70,7 @@ public static class ScriptBindings
     }
 
     /// <summary>Rellena el entorno con todas las APIs (stubs donde no haya implementación).</summary>
-    public static void PopulateEnvironment(LuaTable env, SelfProxy selfProxy, WorldApi? world = null, InputApi? input = null, TimeApi? time = null, AudioApi? audio = null, UiApi? ui = null, GameApi? game = null, DebugDrawApi? debug = null, PhysicsApi? physics = null)
+    public static void PopulateEnvironment(LuaTable env, SelfProxy selfProxy, WorldApi? world = null, InputApi? input = null, TimeApi? time = null, AudioApi? audio = null, UiApi? ui = null, GameApi? game = null, DebugDrawApi? debug = null, PhysicsApi? physics = null, AdsApi? ads = null)
     {
         SetSelf(env, selfProxy);
         SetWorld(env, world ?? new WorldApi());
@@ -75,6 +80,24 @@ public static class ScriptBindings
         SetPhysics(env, physics ?? new PhysicsApi());
         SetUi(env, ui ?? new UiApi());
         SetGame(env, game ?? new GameApi());
+        SetAds(env, ads ?? new AdsApi());
+        if (debug != null)
+            SetDebug(env, debug);
+        SetInputConstants(env);
+    }
+
+    /// <summary>Entorno para scripts de capa: <c>layer</c> + mismas APIs globales que un script de objeto (sin <c>self</c>).</summary>
+    public static void PopulateLayerEnvironment(LuaTable env, LayerProxy layer, WorldApi? world = null, InputApi? input = null, TimeApi? time = null, AudioApi? audio = null, UiApi? ui = null, GameApi? game = null, DebugDrawApi? debug = null, PhysicsApi? physics = null, AdsApi? ads = null)
+    {
+        env["layer"] = layer;
+        SetWorld(env, world ?? new WorldApi());
+        SetInput(env, input ?? new InputApi());
+        SetTime(env, time ?? new TimeApi());
+        SetAudio(env, audio ?? new AudioApi());
+        SetPhysics(env, physics ?? new PhysicsApi());
+        SetUi(env, ui ?? new UiApi());
+        SetGame(env, game ?? new GameApi());
+        SetAds(env, ads ?? new AdsApi());
         if (debug != null)
             SetDebug(env, debug);
         SetInputConstants(env);
@@ -82,6 +105,7 @@ public static class ScriptBindings
 }
 
 /// <summary>API world expuesta a Lua: jerarquía, búsqueda, instanciación. Conecta con la escena vía IWorldContext.</summary>
+[LuaVisible]
 public class WorldApi
 {
     private IWorldContext? _context;
@@ -172,20 +196,31 @@ public class WorldApi
         _playTileMap.SetTileFromRuntime(li, tx, ty, placed);
     }
 
+    private static string ProxyInstanceId(GameObject go) =>
+        !string.IsNullOrEmpty(go.InstanceId) ? go.InstanceId! : go.Name;
+
     private SelfProxy? ToProxy(GameObject? go)
     {
         if (go == null || _createProxy == null) return null;
-        return _createProxy(go, go.Name, null);
+        return _createProxy(go, ProxyInstanceId(go), null);
+    }
+
+    /// <summary>Resuelve <see cref="GameObject.InstanceId"/> (objetos.json) a entidad en escena.</summary>
+    public GameObject? ResolveGameObjectByInstanceId(string? instanceId)
+    {
+        if (_context == null || string.IsNullOrWhiteSpace(instanceId)) return null;
+        return _context.GetObjectByInstanceId(instanceId.Trim());
     }
 
     public virtual object? findObject(string name) => ToProxy(_context?.GetObjectByName(name ?? ""));
+    public virtual object? findObjectByInstanceId(string? instanceId) => ToProxy(ResolveGameObjectByInstanceId(instanceId));
     public virtual object? getObjectByName(string name) => findObject(name);
     public virtual object? findByTag(string tag)
     {
         if (_context == null || _createProxy == null) return null;
         var list = new List<SelfProxy>();
         foreach (var go in _context.GetObjectsByTag(tag ?? ""))
-            list.Add(_createProxy(go, go.Name, tag ?? ""));
+            list.Add(_createProxy(go, ProxyInstanceId(go), tag ?? ""));
         return list;
     }
     public virtual object? getObjectByTag(string tag) => findByTag(tag);
@@ -194,7 +229,7 @@ public class WorldApi
         if (_context == null || _createProxy == null) return null;
         var list = new List<SelfProxy>();
         foreach (var go in _context.GetAllObjects())
-            list.Add(_createProxy(go, go.Name, ""));
+            list.Add(_createProxy(go, ProxyInstanceId(go), ""));
         return list;
     }
     public virtual object? getAllObjects() => getObjects();
@@ -244,7 +279,7 @@ public class WorldApi
         foreach (var go in _context.GetAllObjects())
         {
             if (string.Equals(go.Name, "Player", StringComparison.OrdinalIgnoreCase))
-                return _createProxy(go, go.Name, "");
+                return _createProxy(go, ProxyInstanceId(go), "");
         }
         return null;
     }
@@ -301,9 +336,67 @@ public class WorldApi
             return new CombinedRaycastHitInfo("tile", null, tileR.TileX, tileR.TileY, tileR.Distance, tileR.HitX, tileR.HitY);
         return new CombinedRaycastHitInfo("object", objHit.hit, -1, -1, objHit.distance, objHit.x, objHit.y);
     }
+
+    private ProjectInfo? _viewportProject;
+    private Func<(double, double)>? _getCameraCenter;
+    /// <summary>Último tamaño en píxeles del canvas del tab Juego (debe coincidir con <see cref="GameViewportRenderer"/> para que Lua y el render usen la misma resolución Auto).</summary>
+    private double _playViewportSurfaceW;
+    private double _playViewportSurfaceH;
+
+    /// <summary>Play: rectángulo de vista lógica (misma lógica que el marco azul del editor / visor embebido).</summary>
+    public void ConfigurePlayViewport(ProjectInfo? project, Func<(double, double)>? getCameraCenter)
+    {
+        _viewportProject = project;
+        _getCameraCenter = getCameraCenter;
+        _playViewportSurfaceW = 0;
+        _playViewportSurfaceH = 0;
+    }
+
+    /// <summary>Llama el runner cada tick con el tamaño real del visor de juego (antes de scripts).</summary>
+    public void SetPlayViewportSurfacePixels(double width, double height)
+    {
+        _playViewportSurfaceW = width > 0 ? width : 0;
+        _playViewportSurfaceH = height > 0 ? height : 0;
+    }
+
+    private void GetPlayViewportWorldRect(out double left, out double top, out double widthTiles, out double heightTiles)
+    {
+        left = top = widthTiles = heightTiles = 0;
+        var p = _viewportProject;
+        if (p == null) return;
+        var (cx, cy) = _getCameraCenter?.Invoke() ?? (0.0, 0.0);
+        double sw = _playViewportSurfaceW > 0 ? _playViewportSurfaceW : 0;
+        double sh = _playViewportSurfaceH > 0 ? _playViewportSurfaceH : 0;
+        GameViewportMath.GetVisibleWorldRectFromCenter(p, cx, cy, out left, out top, out widthTiles, out heightTiles, sw, sh, 1.0);
+    }
+
+    public double getPlayViewportLeft()
+    {
+        GetPlayViewportWorldRect(out var l, out _, out _, out _);
+        return l;
+    }
+
+    public double getPlayViewportTop()
+    {
+        GetPlayViewportWorldRect(out _, out var t, out _, out _);
+        return t;
+    }
+
+    public double getPlayViewportWidthTiles()
+    {
+        GetPlayViewportWorldRect(out _, out _, out var w, out _);
+        return w;
+    }
+
+    public double getPlayViewportHeightTiles()
+    {
+        GetPlayViewportWorldRect(out _, out _, out _, out var h);
+        return h;
+    }
 }
 
 /// <summary>API input expuesta a Lua.</summary>
+[LuaVisible]
 public class InputApi
 {
     public virtual bool isKeyDown(object key) => false;
@@ -314,6 +407,7 @@ public class InputApi
 }
 
 /// <summary>API time expuesta a Lua: time.delta, time.frame, time.seconds (tiempo total).</summary>
+[LuaVisible]
 public class TimeApi
 {
     public double delta { get; set; }
@@ -325,6 +419,7 @@ public class TimeApi
 }
 
 /// <summary>API audio expuesta a Lua. Por ID (ej. "sfx/jump"). El host puede inyectar una implementación real.</summary>
+[LuaVisible]
 public class AudioApi
 {
     public virtual void play(string id) { }
@@ -343,6 +438,7 @@ public class AudioApi
 }
 
 /// <summary>API physics en Lua: simulación/consultas de colliders. En Play usar <see cref="PlayScenePhysicsApi"/>.</summary>
+[LuaVisible]
 public class PhysicsApi
 {
     /// <summary>Segmento (x1,y1)→(x2,y2) en casillas contra colliders sólidos; nil si no hay golpe.</summary>
@@ -353,6 +449,7 @@ public class PhysicsApi
 }
 
 /// <summary>API ui: Show/Hide/SetFocus por Canvas; Get(canvasId, elementId) para binding. Input y render según plan (UI antes que mundo).</summary>
+[LuaVisible]
 public class UiApi
 {
     private UIRuntimeBackend? _backend;
@@ -380,6 +477,7 @@ public class UiApi
 }
 
 /// <summary>API game en Lua: escenas, salida y RNG opcional.</summary>
+[LuaVisible]
 public class GameApi
 {
     private Random _rng = new();
@@ -408,12 +506,17 @@ public class GameApi
 }
 
 /// <summary>Constantes de teclas para Lua.</summary>
+[LuaVisible]
 public class KeyConstants
 {
     public string W => "W";
     public string A => "A";
     public string S => "S";
     public string D => "D";
+    public string Left => "LEFT";
+    public string Right => "RIGHT";
+    public string Up => "UP";
+    public string Down => "DOWN";
     public string Space => "SPACE";
     public string E => "E";
     public string Q => "Q";
@@ -425,6 +528,7 @@ public class KeyConstants
 }
 
 /// <summary>Constantes de botones del ratón para Lua.</summary>
+[LuaVisible]
 public class MouseConstants
 {
     public int Left => 0;

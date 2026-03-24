@@ -41,5 +41,7 @@ public enum ProjectFileType
     Sprite,
     TileSet,
     Sound,
+    /// <summary>Descriptor de escena (<c>.scene</c> en <c>Scenes/</c>).</summary>
+    Scene,
     Generic
 }

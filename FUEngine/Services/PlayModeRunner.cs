@@ -48,6 +48,8 @@ public sealed class PlayModeRunner
     private readonly TileMap? _editorTileMapSnapshot;
     private TileMap? _playTileMap;
     private readonly PlayKeyboardSnapshot _keyboardSnap;
+    /// <summary>Devuelve el tamaño en píxeles del canvas de play del tab Juego (para alinear <c>world:getPlayViewport*</c> con el render).</summary>
+    public Func<(double Width, double Height)>? GetPlayViewportSurfacePixels { get; set; }
     private double _cameraWorldX;
     private double _cameraWorldY;
     private bool _warnedNativeInputNoMap;
@@ -81,17 +83,34 @@ public sealed class PlayModeRunner
     public double LastDeltaTimeSeconds => _lastDeltaTime;
     public double CurrentFps => _currentFps;
 
-    /// <summary>Si <see cref="ProjectInfo.UseNativeCameraFollow"/>, centro de cámara suavizado en casillas para el visor.</summary>
+    /// <summary>
+    /// Centro de cámara en casillas mundo para el visor WPF: seguimiento nativo al protagonista, o centro del marco del editor,
+    /// salvo cuando la pausa o la UI modal bloquean la sincronización con el editor.
+    /// </summary>
     public bool TryGetCameraCenterOverride(out double worldX, out double worldY)
     {
-        if (!_project.UseNativeCameraFollow)
+        if (_project.UseNativeCameraFollow)
         {
-            worldX = 0;
-            worldY = 0;
-            return false;
+            worldX = _cameraWorldX;
+            worldY = _cameraWorldY;
+            return true;
         }
-        worldX = _cameraWorldX;
-        worldY = _cameraWorldY;
+        if (ShouldApplyEditorViewportToPlayCamera())
+        {
+            worldX = _project.EditorViewportCenterWorldX;
+            worldY = _project.EditorViewportCenterWorldY;
+            return true;
+        }
+        worldX = 0;
+        worldY = 0;
+        return false;
+    }
+
+    /// <summary>Play usa el centro del marco azul del mapa salvo pausa o stack de UI (menús modales).</summary>
+    private bool ShouldApplyEditorViewportToPlayCamera()
+    {
+        if (_paused) return false;
+        if (_uiBackend != null && _uiBackend.StateStackDepth > 0) return false;
         return true;
     }
 
@@ -104,7 +123,7 @@ public sealed class PlayModeRunner
         return list;
     }
 
-    /// <summary>GameObjects de la escena en ejecución (para mini inspector del tab Juego).</summary>
+    /// <summary>GameObjects de la escena en ejecución (p. ej. jerarquía del tab Juego).</summary>
     public IReadOnlyList<GameObject> GetSceneObjects() => _sceneObjects;
 
     /// <summary>Inicia el juego. useMainScene: true = carga objetos desde disco (escena principal); false = escena actual del editor.</summary>
@@ -147,6 +166,28 @@ public sealed class PlayModeRunner
         _runtimeSeeds = TryLoadSeedsForPlay();
         _worldContext.TryExpandPrefab = (n, px, py, rot, v) => TryInstantiateSeedPrefab(n, px, py, rot, v);
 
+        _runtimeAnimations.Clear();
+        try
+        {
+            if (!string.IsNullOrEmpty(_project.AnimacionesPath) && File.Exists(_project.AnimacionesPath))
+                _runtimeAnimations.AddRange(AnimationSerialization.Load(_project.AnimacionesPath));
+        }
+        catch (Exception ex)
+        {
+            EditorLog.Warning($"Play: no se pudieron cargar animaciones.json: {ex.Message}", "Play");
+        }
+        _nativeAnimTextureProbe = string.IsNullOrEmpty(projectDir) ? null : new TextureAssetCache(projectDir);
+        _runtime.SetSpriteAnimationCallbacks(
+            (go, clip) => NativeAutoAnimationApplier.TryApplyClipForGameObject(_project, go, clip, _runtimeAnimations, _nativeAnimTextureProbe),
+            go =>
+            {
+                var s = go.GetComponent<SpriteComponent>();
+                if (s == null) return;
+                s.AnimationFramesPerSecond = 0;
+                s.NativeAutoAnimationKey = null;
+                s.AnimationTimeAccum = 0;
+            });
+
         foreach (var inst in _activeLayer.Instances)
         {
             var go = ObjectInstanceToGameObject(inst);
@@ -162,6 +203,12 @@ public sealed class PlayModeRunner
             ? _editorTileMapSnapshot.Clone()
             : LoadPlayTileMapFromDisk();
         worldApi.ConfigurePlayTilemap(_playTileMap, projectDir, _project.DefaultTilesetPath);
+        worldApi.ConfigurePlayViewport(_project, () =>
+        {
+            if (TryGetCameraCenterOverride(out var wx, out var wy))
+                return (wx, wy);
+            return (_cameraWorldX, _cameraWorldY);
+        });
         _runtime.SetWorldApi(worldApi);
         _runtime.SetInputApi(new WpfPlayInputApi(_keyboardSnap));
         var gameApi = new GameApi();
@@ -175,16 +222,23 @@ public sealed class PlayModeRunner
         uiApi.SetBackend(_uiBackend);
         _runtime.SetUiApi(uiApi);
 
+        var adsApi = new SimulatedAdsApi(
+            a => dispatcher.BeginInvoke(a),
+            msg => EditorLog.Info(msg ?? "", "Ads"));
+        _runtime.SetAdsApi(adsApi);
+
         _runtime.ScriptReloaded += OnScriptReloaded;
         _runtime.ScriptError = (path, line, msg) =>
             EditorLog.Error(line > 0 ? $"{path}:{line} {msg}" : $"{path} {msg}", "Lua", path, line > 0 ? line : null);
-        _runtime.PrintOutput = msg => EditorLog.Info(msg ?? "", "Lua");
+        _runtime.PrintOutput = msg => EditorLog.Log(msg ?? "", LogLevel.Lua, "Lua");
 
         foreach (var go in _sceneObjects)
         {
             _goToInstance.TryGetValue(go, out var oi);
             TryBindScriptsForGameObject(go, oi);
         }
+
+        BindLayerScripts();
 
         if (!string.IsNullOrWhiteSpace(_project.StartupMusicPath))
             _playAudioEngine.PlayMusicFromPath(_project.StartupMusicPath, loop: true);
@@ -200,17 +254,6 @@ public sealed class PlayModeRunner
         _gameTimeSeconds = 0;
         _warnedNativeInputNoMap = false;
         _warnedNativeInputColliderByInstance.Clear();
-        _runtimeAnimations.Clear();
-        try
-        {
-            if (!string.IsNullOrEmpty(_project.AnimacionesPath) && File.Exists(_project.AnimacionesPath))
-                _runtimeAnimations.AddRange(AnimationSerialization.Load(_project.AnimacionesPath));
-        }
-        catch (Exception ex)
-        {
-            EditorLog.Warning($"Play: no se pudieron cargar animaciones.json: {ex.Message}", "Play");
-        }
-        _nativeAnimTextureProbe = string.IsNullOrEmpty(projectDir) ? null : new TextureAssetCache(projectDir);
         _paused = false;
         _timer = new DispatcherTimer(DispatcherPriority.Send) { Interval = TimeSpan.FromMilliseconds(1000.0 / Math.Max(1, _project.Fps)) };
         _timer.Tick += Timer_Tick;
@@ -371,7 +414,9 @@ public sealed class PlayModeRunner
         var go = new GameObject
         {
             Name = string.IsNullOrEmpty(inst.Nombre) ? inst.InstanceId : inst.Nombre,
+            InstanceId = inst.InstanceId,
             RenderOrder = inst.LayerOrder,
+            RuntimeActive = inst.Enabled,
         };
         if (inst.Tags != null && inst.Tags.Count > 0)
             go.Tags = new List<string>(inst.Tags);
@@ -384,6 +429,8 @@ public sealed class PlayModeRunner
         go.Transform.ScaleY = (float)inst.ScaleY;
 
         TryAddSpriteFromInstance(go, inst, def);
+        ApplySpriteRendererInstanceData(go, inst);
+        TryApplyDefaultAnimationIfAny(go, inst);
 
         var scriptIds = inst.GetScriptIds(def);
         foreach (var scriptId in scriptIds)
@@ -394,7 +441,104 @@ public sealed class PlayModeRunner
         }
 
         TryAddColliderFromInstance(go, inst, def);
+        if (inst.PointLightEnabled)
+        {
+            go.AddComponent(new LightComponent
+            {
+                Radius = inst.PointLightRadius > 0 ? inst.PointLightRadius : 5f,
+                Intensity = inst.PointLightIntensity > 0 ? inst.PointLightIntensity : 1f,
+                ColorHex = string.IsNullOrWhiteSpace(inst.PointLightColorHex) ? "#ffffff" : inst.PointLightColorHex,
+            });
+        }
+
+        if (inst.RigidbodyEnabled)
+        {
+            go.AddComponent(new RigidbodyComponent
+            {
+                Mass = inst.RigidbodyMass > 0 ? inst.RigidbodyMass : 1f,
+                GravityScale = inst.RigidbodyGravityScale,
+                Drag = inst.RigidbodyDrag,
+                FreezeRotation = inst.RigidbodyFreezeRotation,
+            });
+        }
+
+        if (inst.HealthEnabled)
+        {
+            var hm = inst.HealthMax > 0 ? inst.HealthMax : 100f;
+            var hc = inst.HealthCurrent > 0 ? Math.Min(inst.HealthCurrent, hm) : hm;
+            go.AddComponent(new HealthComponent { MaxHealth = hm, CurrentHealth = hc, IsInvulnerable = inst.HealthInvulnerable });
+        }
+
+        if (inst.ProximitySensorEnabled)
+        {
+            go.AddComponent(new ProximitySensorComponent
+            {
+                DetectionRangeTiles = inst.ProximityDetectionRangeTiles > 0 ? inst.ProximityDetectionRangeTiles : 1f,
+                TargetTag = string.IsNullOrWhiteSpace(inst.ProximityTargetTag) ? "player" : inst.ProximityTargetTag.Trim(),
+            });
+        }
+
+        if (inst.CameraTargetEnabled)
+            go.AddComponent(new CameraTargetComponent());
+
+        if (inst.AudioSourceEnabled)
+        {
+            go.AddComponent(new AudioSourceComponent
+            {
+                AudioClipId = inst.AudioClipId,
+                Volume = inst.AudioVolume > 0 ? inst.AudioVolume : 1f,
+                Pitch = inst.AudioPitch > 0 ? inst.AudioPitch : 1f,
+                Loop = inst.AudioLoop,
+                SpatialBlend = inst.AudioSpatialBlend,
+            });
+        }
+
+        if (inst.ParticleEmitterEnabled)
+        {
+            go.AddComponent(new ParticleEmitterComponent
+            {
+                ParticleTexturePath = inst.ParticleTexturePath,
+                EmissionRate = inst.ParticleEmissionRate > 0 ? inst.ParticleEmissionRate : 10f,
+                LifeTime = inst.ParticleLifeTime > 0 ? inst.ParticleLifeTime : 1f,
+                GravityScale = inst.ParticleGravityScale,
+            });
+        }
+
         return go;
+    }
+
+    private void TryApplyDefaultAnimationIfAny(GameObject go, ObjectInstance inst)
+    {
+        if (string.IsNullOrWhiteSpace(inst.DefaultAnimationClipId) || !inst.AnimationAutoPlay) return;
+        NativeAutoAnimationApplier.TryApplyClipForGameObject(_project, go, inst.DefaultAnimationClipId.Trim(), _runtimeAnimations, _nativeAnimTextureProbe);
+    }
+
+    private static void ApplySpriteRendererInstanceData(GameObject go, ObjectInstance inst)
+    {
+        var sprite = go.GetComponent<SpriteComponent>();
+        if (sprite == null) return;
+        ParseTintHex(inst.SpriteColorTintHex, out var r, out var g, out var b);
+        sprite.ColorTintR = r;
+        sprite.ColorTintG = g;
+        sprite.ColorTintB = b;
+        sprite.FlipX = inst.SpriteFlipX;
+        sprite.FlipY = inst.SpriteFlipY;
+        sprite.SortOffset = inst.SpriteSortOffset;
+        sprite.AnimationSpeedMultiplier = inst.AnimationSpeedMultiplier > 0 ? inst.AnimationSpeedMultiplier : 1f;
+    }
+
+    private static void ParseTintHex(string? hex, out float r, out float g, out float b)
+    {
+        r = g = b = 1f;
+        if (string.IsNullOrWhiteSpace(hex)) return;
+        var s = hex.Trim();
+        if (s.StartsWith('#')) s = s.Substring(1);
+        if (s.Length == 6 && uint.TryParse(s, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var u))
+        {
+            r = ((u >> 16) & 0xff) / 255f;
+            g = ((u >> 8) & 0xff) / 255f;
+            b = (u & 0xff) / 255f;
+        }
     }
 
     private static void TryAddSpriteFromInstance(GameObject go, ObjectInstance inst, ObjectDefinition? def)
@@ -423,7 +567,8 @@ public sealed class PlayModeRunner
             int n = s.FrameRegions.Count;
             if (n <= 1) continue;
 
-            s.AnimationTimeAccum += (float)(deltaSeconds * s.AnimationFramesPerSecond);
+            float mult = s.AnimationSpeedMultiplier > 0 ? s.AnimationSpeedMultiplier : 1f;
+            s.AnimationTimeAccum += (float)(deltaSeconds * s.AnimationFramesPerSecond * mult);
             while (s.AnimationTimeAccum >= 1f)
             {
                 s.AnimationTimeAccum -= 1f;
@@ -453,18 +598,35 @@ public sealed class PlayModeRunner
         if (!hasCol && !isTrigger)
             return;
 
-        int w = def?.Width ?? 1;
-        int h = def?.Height ?? 1;
-        if (w < 1) w = 1;
-        if (h < 1) h = 1;
+        bool circle = string.Equals(inst.ColliderShape?.Trim(), "Circle", StringComparison.OrdinalIgnoreCase);
+        float hw, hh;
+        if (circle)
+        {
+            float rad = inst.ColliderCircleRadiusTiles > 0 ? inst.ColliderCircleRadiusTiles : 0.5f;
+            hw = rad;
+            hh = rad;
+        }
+        else
+        {
+            float wTiles = inst.ColliderBoxWidthTiles > 0 ? inst.ColliderBoxWidthTiles : (def?.Width ?? 1);
+            float hTiles = inst.ColliderBoxHeightTiles > 0 ? inst.ColliderBoxHeightTiles : (def?.Height ?? 1);
+            if (wTiles < 0.01f) wTiles = 1f;
+            if (hTiles < 0.01f) hTiles = 1f;
+            hw = wTiles * 0.5f;
+            hh = hTiles * 0.5f;
+        }
 
         var collider = new ColliderComponent
         {
-            TileHalfWidth = w * 0.5f,
-            TileHalfHeight = h * 0.5f,
+            Shape = circle ? ColliderShapeKind.Circle : ColliderShapeKind.Box,
+            TileHalfWidth = hw,
+            TileHalfHeight = hh,
+            OffsetX = inst.ColliderOffsetX,
+            OffsetY = inst.ColliderOffsetY,
             IsTrigger = isTrigger,
             BlocksMovement = !isTrigger && hasCol,
             IsStatic = !InstanceHasDynamicTag(inst),
+            Mass = inst.RigidbodyEnabled && inst.RigidbodyMass > 0 ? inst.RigidbodyMass : 1f,
         };
         go.AddComponent(collider);
     }
@@ -537,12 +699,64 @@ public sealed class PlayModeRunner
                 EditorLog.Error($"Hot reload '{relativePath}' en {go.Name}: {ex.Message}", "Lua", scriptPath, line > 0 ? line : null);
             }
         }
+
+        RebindLayerScriptsForPath(norm);
+    }
+
+    private void BindLayerScripts()
+    {
+        if (_runtime == null || _playTileMap == null) return;
+        _runtime.ClearLayerScriptInstances();
+        for (int i = 0; i < _playTileMap.Layers.Count; i++)
+        {
+            var d = _playTileMap.Layers[i];
+            if (!d.LayerScriptEnabled || string.IsNullOrWhiteSpace(d.LayerScriptId)) continue;
+            var rel = d.LayerScriptId.Trim();
+            try
+            {
+                _runtime.CreateLayerScriptInstance(rel, rel, d, i, d.LayerScriptProperties);
+            }
+            catch (Exception ex)
+            {
+                EditorLog.Error($"Play: script de capa «{rel}» (capa «{d.Name}»): {ex.Message}", "Lua", rel, null);
+            }
+        }
+    }
+
+    /// <summary>Tras <see cref="LuaScriptRuntime.ReloadScript"/>: vuelve a crear scripts de capa que usaban ese archivo.</summary>
+    private void RebindLayerScriptsForPath(string normalizedRelativePath)
+    {
+        if (_runtime == null || _playTileMap == null) return;
+        for (int i = 0; i < _playTileMap.Layers.Count; i++)
+        {
+            var d = _playTileMap.Layers[i];
+            if (!d.LayerScriptEnabled || string.IsNullOrWhiteSpace(d.LayerScriptId)) continue;
+            if (!string.Equals(ScriptLoader.NormalizeRelativePath(d.LayerScriptId.Trim()), normalizedRelativePath, StringComparison.OrdinalIgnoreCase))
+                continue;
+            var rel = d.LayerScriptId.Trim();
+            try
+            {
+                var inst = _runtime.CreateLayerScriptInstance(rel, rel, d, i, d.LayerScriptProperties);
+                _runtime.InvokeLayerOnStartFor(inst);
+            }
+            catch (Exception ex)
+            {
+                var line = TryParseLineFromLuaMessage(ex.Message);
+                EditorLog.Error($"Hot reload capa «{d.Name}» ({rel}): {ex.Message}", "Lua", rel, line > 0 ? line : null);
+            }
+        }
     }
 
     private void Timer_Tick(object? sender, EventArgs e)
     {
         if (_runtime == null || _paused) return;
         if (_pausedForBreakpoint) return;
+        var wapi = _runtime.GetWorldApi();
+        if (wapi != null)
+        {
+            var surf = GetPlayViewportSurfacePixels?.Invoke() ?? (800.0, 600.0);
+            wapi.SetPlayViewportSurfacePixels(surf.Item1, surf.Item2);
+        }
         if (_playTileMap != null && _project.ChunkStreaming)
             PreloadChunksFromPlayCache();
         var now = DateTime.UtcNow;
@@ -573,10 +787,13 @@ public sealed class PlayModeRunner
         _runtime.BeginTick(delta, _frameCount);
         FlushPendingSpawnBinds();
         _runtime.InvokeOnStarts();
+        _runtime.InvokeLayerOnStarts();
+        _runtime.InvokeLayerScripts();
         var hero = NativeProtagonistController.FindProtagonist(_sceneObjects, _project, _goToInstance);
         ValidateNativeInputDependencies(hero);
         NativeProtagonistController.ApplyNativeInputBeforeLua(_project, hero, _keyboardSnap, delta, this, _runtimeAnimations, _nativeAnimTextureProbe);
         _runtime.InvokeOnUpdates(activeForUpdate);
+        ApplyRigidbodyVelocityStep(delta, hero);
         _physicsWorld.StepPlayScene(
             _sceneObjects,
             _playTileMap,
@@ -589,6 +806,7 @@ public sealed class PlayModeRunner
             _triggerDirectedPairsLastFrame,
             (tgo, ogo) => _runtime.NotifyScripts(tgo, KnownEvents.OnTriggerEnter, CreateProxyFor(ogo)),
             (tgo, ogo) => _runtime.NotifyScripts(tgo, KnownEvents.OnTriggerExit, CreateProxyFor(ogo)));
+        UpdateProximitySensors();
         AppendColliderDebugOverlay();
         _runtime.InvokeOnLateUpdates(activeForUpdate);
         UpdateSmoothedCameraFollow(delta);
@@ -662,6 +880,7 @@ public sealed class PlayModeRunner
         {
             _runtime.GetWorldApi()?.ConfigurePlayTilemap(null, null, null);
             _runtime.ScriptReloaded -= OnScriptReloaded;
+            _runtime.ClearLayerScriptInstances();
             _runtime.Dispose();
             _runtime = null;
         }
@@ -741,6 +960,40 @@ public sealed class PlayModeRunner
         }
 
         return list;
+    }
+
+    /// <summary>Variables Lua en vivo (mismo criterio que <see cref="ScriptInstance.GetVariableSnapshot"/>) para el Inspector durante Play.</summary>
+    public bool TryGetLiveScriptVariables(string instanceId, string scriptId, out IReadOnlyDictionary<string, string>? snapshot)
+    {
+        snapshot = null;
+        if (_runtime == null || !IsRunning) return false;
+        foreach (var (go, sc, _, sid, iid, _, _) in _scriptBindings)
+        {
+            if (go.PendingDestroy) continue;
+            if (!string.Equals(iid ?? "", instanceId ?? "", StringComparison.OrdinalIgnoreCase)) continue;
+            if (!string.Equals(sid, scriptId, StringComparison.OrdinalIgnoreCase)) continue;
+            if (sc.ScriptInstanceHandle is not ScriptInstance si) continue;
+            snapshot = si.GetVariableSnapshot();
+            return snapshot != null;
+        }
+        return false;
+    }
+
+    /// <summary>Escribe una propiedad en el entorno Lua del script en ejecución (Inspector en caliente).</summary>
+    public bool TrySetLiveScriptVariable(string instanceId, string scriptId, string key, string? type, string? value)
+    {
+        if (_runtime == null || !IsRunning || string.IsNullOrEmpty(key)) return false;
+        foreach (var (go, sc, _, sid, iid, _, _) in _scriptBindings)
+        {
+            if (go.PendingDestroy) continue;
+            if (!string.Equals(iid ?? "", instanceId ?? "", StringComparison.OrdinalIgnoreCase)) continue;
+            if (!string.Equals(sid, scriptId, StringComparison.OrdinalIgnoreCase)) continue;
+            if (sc.ScriptInstanceHandle is not ScriptInstance si) continue;
+            var obj = _runtime.ResolveInspectorPropertyValue(type, value);
+            si.Set(key, obj);
+            return true;
+        }
+        return false;
     }
 
     private static string InferPropertyTypeFromLuaDisplay(string v)
@@ -859,17 +1112,93 @@ public sealed class PlayModeRunner
         }
     }
 
+    private GameObject? FindCameraFollowTarget()
+    {
+        foreach (var go in _sceneObjects)
+        {
+            if (go.PendingDestroy) continue;
+            if (go.GetComponent<CameraTargetComponent>() != null)
+                return go;
+        }
+        return NativeProtagonistController.FindProtagonist(_sceneObjects, _project, _goToInstance);
+    }
+
     private (int tx, int ty) GetCameraTileCenterForStreaming()
     {
-        var go = NativeProtagonistController.FindProtagonist(_sceneObjects, _project, _goToInstance);
+        var go = FindCameraFollowTarget();
         if (go != null)
             return ((int)Math.Floor(go.Transform.X), (int)Math.Floor(go.Transform.Y));
         return (0, 0);
     }
 
+    private void ApplyRigidbodyVelocityStep(double deltaSeconds, GameObject? nativeHero)
+    {
+        if (deltaSeconds <= 0) return;
+        float dt = (float)deltaSeconds;
+        double g = _project.PhysicsGravity;
+        foreach (var go in _sceneObjects)
+        {
+            if (go.PendingDestroy || !go.RuntimeActive) continue;
+            var rb = go.GetComponent<RigidbodyComponent>();
+            if (rb == null) continue;
+            if (_project.UseNativeInput && nativeHero != null && ReferenceEquals(go, nativeHero)) continue;
+
+            rb.VelocityY += (float)(g * rb.GravityScale * dt);
+            if (rb.Drag > 0)
+            {
+                float damp = MathF.Exp(-rb.Drag * dt);
+                rb.VelocityX *= damp;
+                rb.VelocityY *= damp;
+            }
+            go.Transform.X += rb.VelocityX * dt;
+            go.Transform.Y += rb.VelocityY * dt;
+        }
+    }
+
+    private void UpdateProximitySensors()
+    {
+        if (_runtime == null) return;
+        foreach (var go in _sceneObjects)
+        {
+            var prox = go.GetComponent<ProximitySensorComponent>();
+            if (prox == null || !go.RuntimeActive || go.PendingDestroy) continue;
+            var target = FindFirstWithTag(_sceneObjects, prox.TargetTag);
+            if (target == null)
+            {
+                prox.WasInside = false;
+                continue;
+            }
+            double dx = target.Transform.X - go.Transform.X;
+            double dy = target.Transform.Y - go.Transform.Y;
+            double r = prox.DetectionRangeTiles;
+            bool inside = dx * dx + dy * dy <= r * r;
+            if (inside && !prox.WasInside)
+                _runtime.NotifyScripts(go, KnownEvents.OnTriggerEnter, CreateProxyFor(target));
+            else if (!inside && prox.WasInside)
+                _runtime.NotifyScripts(go, KnownEvents.OnTriggerExit, CreateProxyFor(target));
+            prox.WasInside = inside;
+        }
+    }
+
+    private static GameObject? FindFirstWithTag(IReadOnlyList<GameObject> scene, string? tag)
+    {
+        if (string.IsNullOrWhiteSpace(tag)) return null;
+        foreach (var go in scene)
+        {
+            if (go.PendingDestroy || !go.RuntimeActive) continue;
+            if (go.Tags == null) continue;
+            foreach (var t in go.Tags)
+            {
+                if (string.Equals(t, tag, StringComparison.OrdinalIgnoreCase))
+                    return go;
+            }
+        }
+        return null;
+    }
+
     private void UpdateSmoothedCameraFollow(double dt)
     {
-        var h = NativeProtagonistController.FindProtagonist(_sceneObjects, _project, _goToInstance);
+        var h = FindCameraFollowTarget();
         if (h == null) return;
         double tx = h.Transform.X, ty = h.Transform.Y;
         if (!_project.UseNativeCameraFollow)

@@ -18,7 +18,7 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <Border Grid.Row="0" Background="#21262d" Padding="10,8" BorderBrush="#30363d" BorderThickness="0,0,0,1">
-            <TextBlock Text="Jerarquía" FontWeight="SemiBold" FontSize="13" Foreground="#e6edf3"/>
+            <TextBlock Text="Jerarquía de la escena" FontWeight="SemiBold" FontSize="13" Foreground="#e6edf3"/>
         </Border>
         <TreeView x:Name="HierarchyTree" Grid.Row="1" Margin="4,4,4,8" Background="Transparent" Foreground="#e6edf3"
                   AllowDrop="True"

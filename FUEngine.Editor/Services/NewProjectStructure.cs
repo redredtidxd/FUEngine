@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using FUEngine.Core;
 
@@ -28,7 +30,7 @@ public static class NewProjectStructure
             Name = "Start",
             MapPathRelative = "Maps/Start/map.map",
             ObjectsPathRelative = "Objects/Start/objects.objects",
-            DefaultTabKinds = new List<string> { "Scripts" }
+            DefaultTabKinds = new List<string> { "Juego" }
         },
         new SceneDefinition
         {
@@ -44,6 +46,12 @@ public static class NewProjectStructure
     /// <summary>Nombre del archivo de proyecto por defecto (nuevos proyectos).</summary>
     public const string ProjectFileName = "Project.FUE";
     public const string SettingsFileName = "Settings.json";
+
+    /// <summary>
+    /// Chunks por lado del mapa inicial por defecto. El ancho/alto en <strong>casillas mundo</strong> es
+    /// <c>InitialChunksW × <see cref="ProjectInfo.ChunkSize"/></c> (y lo mismo en H).
+    /// </summary>
+    public const int DefaultMapChunksPerSide = 4;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -63,12 +71,69 @@ public static class NewProjectStructure
     };
 
     /// <summary>
+    /// Orden por defecto de carpetas en la raíz cuando «Generar jerarquía estándar» está activo (coincide con la opción predeterminada del motor).
+    /// </summary>
+    public static readonly IReadOnlyList<string> DefaultStandardRootFolderNames = new[] { "Sprites", "Maps", "Scripts", "Audio", "Seeds" };
+
+    /// <summary>True si <paramref name="name"/> es un nombre de carpeta válido en Windows (sin * ? : etc.).</summary>
+    public static bool IsValidProjectFolderName(string name) =>
+        !string.IsNullOrWhiteSpace(name) && name.IndexOfAny(Path.GetInvalidFileNameChars()) < 0;
+
+    /// <summary>Comprueba si se puede crear el proyecto en <paramref name="path"/> (ruta absoluta o relativa normalizable).</summary>
+    public static bool TryValidateProjectOutputPath(string path, bool createFolderIfMissing, out string? error)
+    {
+        error = null;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            error = "empty";
+            return false;
+        }
+        if (path.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
+        {
+            error = "invalidPathChars";
+            return false;
+        }
+        try
+        {
+            var full = Path.GetFullPath(path);
+            var leaf = Path.GetFileName(full.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (string.IsNullOrEmpty(leaf) || !IsValidProjectFolderName(leaf))
+            {
+                error = "invalidFolderName";
+                return false;
+            }
+            if (Directory.Exists(full))
+                return true;
+            if (!createFolderIfMissing)
+            {
+                error = "missing";
+                return false;
+            }
+            var parent = Path.GetDirectoryName(full);
+            if (string.IsNullOrEmpty(parent))
+            {
+                error = "noParent";
+                return false;
+            }
+            return Directory.Exists(parent);
+        }
+        catch
+        {
+            error = "exception";
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Crea la estructura completa del proyecto en <paramref name="projectDir"/> y guarda
     /// el proyecto con <paramref name="project"/> (nombre, tile size, etc.).
     /// Opcional: <paramref name="logoSourcePath"/> se copia como logo.png; <paramref name="proyectoConfig"/> se guarda en proyecto.config.
+    /// <paramref name="generateStandardRootFolders"/> crea en raíz las carpetas del orden configurado en el motor (Sprites, Maps, …).
+    /// <paramref name="standardRootFolderNames"/> sustituye el orden (null = <see cref="DefaultStandardRootFolderNames"/>).
+    /// <paramref name="extraRootFolderNames"/> carpetas adicionales en raíz (además del orden; no sustituyen Sprites/Maps salvo lista personalizada completa).
     /// Devuelve la ruta a Project.json para poder cargar el proyecto.
     /// </summary>
-    public static string Create(string projectDir, ProjectInfo project, string? logoSourcePath = null, ProyectoConfigDto? proyectoConfig = null)
+    public static string Create(string projectDir, ProjectInfo project, string? logoSourcePath = null, ProyectoConfigDto? proyectoConfig = null, bool generateStandardRootFolders = true, IReadOnlyList<string>? standardRootFolderNames = null, IReadOnlyList<string>? extraRootFolderNames = null)
     {
         if (string.IsNullOrWhiteSpace(projectDir))
             throw new ArgumentException("Project directory is required.", nameof(projectDir));
@@ -84,12 +149,14 @@ public static class NewProjectStructure
         CreateDir(Path.Combine(dir, "Autoguardados", "Objetos"));
         CreateDir(Path.Combine(dir, "Autoguardados", "Escenas"));
         CreateDir(Path.Combine(dir, "Assets", "Tilesets"));
+        CreateDir(Path.Combine(dir, "Assets", "Textures"));
         CreateDir(Path.Combine(dir, "Assets", "Sprites"));
         CreateDir(Path.Combine(dir, "Assets", "Sonidos"));
         CreateDir(Path.Combine(dir, "Assets", "Animations"));
         CreateDir(Path.Combine(dir, "Assets", "Logos"));
         CreateDir(Path.Combine(dir, "Assets", "Placeholders"));
         CreateDir(Path.Combine(dir, "Maps"));
+        CreateDir(Path.Combine(dir, "Scenes"));
         CreateDir(Path.Combine(dir, "Scripts"));
         CreateDir(Path.Combine(dir, "Seeds"));
 
@@ -110,17 +177,70 @@ public static class NewProjectStructure
             Height = 1
         };
 
+        // Mapa finito: InitialChunksW/H × ChunkSize = casillas mundo (el editor muestra bordes y «+» por chunk).
+        int cs = Math.Max(1, project.ChunkSize);
+        int chunksW = project.InitialChunksW > 0 ? Math.Clamp(project.InitialChunksW, 1, 64) : DefaultMapChunksPerSide;
+        int chunksH = project.InitialChunksH > 0 ? Math.Clamp(project.InitialChunksH, 1, 64) : DefaultMapChunksPerSide;
+        int sideTilesW = chunksW * cs;
+        int sideTilesH = chunksH * cs;
         foreach (var scene in DefaultScenes)
         {
             var sceneMapPath = Path.Combine(dir, scene.MapPathRelative);
             var sceneObjectsPath = Path.Combine(dir, scene.ObjectsPathRelative);
             CreateDir(Path.GetDirectoryName(sceneMapPath)!);
             CreateDir(Path.GetDirectoryName(sceneObjectsPath)!);
-            MapSerialization.Save(new TileMap(project.ChunkSize), sceneMapPath);
+            // Solo la escena Start ejecuta el demo en Scripts/main.lua (script de capa Ground). End queda sin script de capa.
+            string? layerScript = string.Equals(scene.Id, "Start", StringComparison.OrdinalIgnoreCase)
+                ? "Scripts/main.lua"
+                : null;
+            MapSerialization.Save(CreateDefaultSceneTileMap(project.ChunkSize, project.LayerNames, sideTilesW, sideTilesH, layerScript), sceneMapPath);
             var sceneObjectLayer = new ObjectLayer();
             sceneObjectLayer.RegisterDefinition(defaultDef);
             ObjectsSerialization.Save(sceneObjectLayer, sceneObjectsPath);
         }
+
+        // Manifiesto de audio vacío (evita avisos al iniciar Play)
+        var audioDto = new AudioManifestDto { Sounds = new List<AudioManifestSoundDto>() };
+        File.WriteAllText(Path.Combine(dir, "audio.json"), JsonSerializer.Serialize(audioDto, SerializationDefaults.Options));
+
+        // Tileset por defecto: textura BMP 64×64 (cuadrícula 16×16) + descriptor .tileset.json
+        var bmpRel = "Assets/Tilesets/default_tileset.bmp";
+        var bmpAbs = Path.Combine(dir, "Assets", "Tilesets", "default_tileset.bmp");
+        WriteCheckerboardBmp64x64(bmpAbs);
+        var defaultTileset = new Tileset
+        {
+            Id = "default",
+            Name = "Predeterminado",
+            TexturePath = bmpRel.Replace('\\', '/'),
+            TileWidth = 16,
+            TileHeight = 16
+        };
+        defaultTileset.SetTile(new Tile { Id = 0 });
+        defaultTileset.SetTile(new Tile { Id = 1 });
+        defaultTileset.SetTile(new Tile { Id = 2 });
+        defaultTileset.SetTile(new Tile { Id = 3 });
+        var tilesetJsonAbs = Path.Combine(dir, "Assets", "Tilesets", "default.tileset.json");
+        TilesetPersistence.Save(tilesetJsonAbs, defaultTileset);
+        project.DefaultTilesetPath = "Assets/Tilesets/default.tileset.json";
+
+        if (string.IsNullOrWhiteSpace(project.DefaultFirstSceneBackgroundColor))
+            project.DefaultFirstSceneBackgroundColor = "#FFFFFF";
+        else
+            project.DefaultFirstSceneBackgroundColor = project.DefaultFirstSceneBackgroundColor.Trim();
+        if (string.IsNullOrWhiteSpace(project.EditorMapCanvasBackgroundColor))
+            project.EditorMapCanvasBackgroundColor = "#21262d";
+        else
+            project.EditorMapCanvasBackgroundColor = project.EditorMapCanvasBackgroundColor.Trim();
+        project.MapWidth = sideTilesW;
+        project.MapHeight = sideTilesH;
+        project.InitialChunksW = chunksW;
+        project.InitialChunksH = chunksH;
+        // Centro del mapa en casillas mundo (visor azul / cámara; el HUD usa origen 0,0 en el centro del mapa).
+        project.EditorViewportCenterWorldX = sideTilesW * 0.5;
+        project.EditorViewportCenterWorldY = sideTilesH * 0.5;
+
+        if (project.ProjectFormatVersion <= 0)
+            project.ProjectFormatVersion = ProjectSchema.CurrentFormatVersion;
 
         var projectPath = Path.Combine(dir, ProjectFileName);
         ProjectSerialization.Save(project, projectPath);
@@ -135,52 +255,76 @@ public static class NewProjectStructure
         };
         File.WriteAllText(Path.Combine(dir, SettingsFileName), JsonSerializer.Serialize(settings, JsonOptions));
 
-        // Scripts/main.lua (script por defecto: cuadrado que rebota en los bordes, compatible con world:instantiate y world:setPosition)
-        var mainLuaContent = @"-- FUEngine Default Startup Script
--- Se ejecuta al iniciar el proyecto. Cuadrado pixel art que rebota en los bordes.
+        // main.lua: límites = rectángulo de vista lógica (mismo que marco azul / resolución en Play).
+        var mainLuaContent = @"-- FUEngine · script de capa (Ground, escena Start)
+-- demo_square = seed (objeto); rebote dentro del viewport lógico (world:getPlayViewport*).
 
+local left, top, vw, vh = 0, 0, 20, 11
+local half = 0.5
 local square = nil
-local posX = 40
-local posY = 40
-local speedX = 40
-local speedY = 25
-local mapWidth = 320
-local mapHeight = 180
-local size = 8
+local posX, posY = 10, 5.5
+local vx, vy = 0, 0
 
-function onStart()
-    square = world:instantiate(""demo_square"", posX, posY)
+local function bumpTint()
+  if square == nil then return end
+  square:setSpriteTint(math.random(), math.random(), math.random())
 end
 
-function onUpdate(dt)
-    if square == nil then return end
-    posX = posX + speedX * dt
-    posY = posY + speedY * dt
-    if posX < 0 then posX = 0; speedX = -speedX end
-    if posX + size > mapWidth then posX = mapWidth - size; speedX = -speedX end
-    if posY < 0 then posY = 0; speedY = -speedY end
-    if posY + size > mapHeight then posY = mapHeight - size; speedY = -speedY end
-    world:setPosition(square, posX, posY)
+function onStart()
+  for _ = 1, 4 do _ = math.random() end
+  left = world:getPlayViewportLeft()
+  top = world:getPlayViewportTop()
+  vw = world:getPlayViewportWidthTiles()
+  vh = world:getPlayViewportHeightTiles()
+  posX = left + vw * 0.5
+  posY = top + vh * 0.5
+  square = world:instantiate(""demo_square"", posX, posY)
+  if square == nil then return end
+  square:setSpriteTint(0, 0, 0)
+  local angle = math.random() * math.pi * 2
+  local speed = 9
+  vx = math.cos(angle) * speed
+  vy = math.sin(angle) * speed
+end
+
+function onLayerUpdate(dt)
+  if square == nil then return end
+  left = world:getPlayViewportLeft()
+  top = world:getPlayViewportTop()
+  vw = world:getPlayViewportWidthTiles()
+  vh = world:getPlayViewportHeightTiles()
+  local right = left + vw
+  local bottom = top + vh
+  local nx = posX + vx * dt
+  local ny = posY + vy * dt
+  if nx - half < left then vx = -vx; nx = left + half; bumpTint() end
+  if nx + half > right then vx = -vx; nx = right - half; bumpTint() end
+  if ny - half < top then vy = -vy; ny = top + half; bumpTint() end
+  if ny + half > bottom then vy = -vy; ny = bottom - half; bumpTint() end
+  posX = nx
+  posY = ny
+  world:setPosition(square, posX, posY)
 end
 ";
         var scriptsPath = Path.Combine(dir, "Scripts", "main.lua");
         File.WriteAllText(scriptsPath, mainLuaContent);
 
-        // scripts.json en raíz (registro del editor; los archivos son .lua)
-        File.WriteAllText(Path.Combine(dir, "scripts.json"), "{\"scripts\":[{\"id\":\"main\",\"nombre\":\"Main\",\"path\":\"Scripts/main.lua\"}]}");
-
-        // animaciones.json
-        File.WriteAllText(Path.Combine(dir, "animaciones.json"), "{\"animations\":[]}");
+        // scripts.json y animaciones.json: se crean al abrir el proyecto (EnsureProjectFolders) si faltan.
 
         var seedsDir = Path.Combine(dir, "Seeds");
         var demoSquareSeed = new SeedDefinition
         {
             Id = "demo_square",
             Nombre = "Demo Square",
-            Descripcion = "Cuadrado pixel art por defecto para el script main.lua (rebote en bordes).",
-            Objects = new List<SeedObjectEntry>()
+            Descripcion = "Seed por defecto: instancia obj_default (cuadrado lógico, no tile). world:instantiate(\"demo_square\", x, y).",
+            Objects = new List<SeedObjectEntry>
+            {
+                new SeedObjectEntry { DefinitionId = "obj_default", OffsetX = 0, OffsetY = 0, Nombre = "DemoSquare" }
+            }
         };
-        SeedSerialization.Save(new List<SeedDefinition> { demoSquareSeed }, Path.Combine(seedsDir, "demo_square.seed"));
+        var seedList = new List<SeedDefinition> { demoSquareSeed };
+        SeedSerialization.Save(seedList, Path.Combine(seedsDir, "demo_square.seed"));
+        SeedSerialization.Save(seedList, Path.Combine(dir, "seeds.json"));
 
         // Logo: copiar a Assets/Logos/logo.png (ruta relativa en config) para no saturar la raíz
         var logosDir = Path.Combine(dir, "Assets", "Logos");
@@ -217,7 +361,86 @@ end
 
         ApplyTemplateContents(dir, proyectoConfig?.Plantilla ?? "Blank");
 
+        EnsureDefaultScriptsJsonIfMissing(dir);
+        EnsureDefaultAnimacionesIfMissing(dir);
+
         return projectPath;
+    }
+
+    /// <summary>BMP 64×64 RGB, patrón en damero para ver celdas de 16×16 (WPF carga BMP sin dependencias extra).</summary>
+    private static void WriteCheckerboardBmp64x64(string absolutePath)
+    {
+        const int w = 64, h = 64;
+        int stride = (w * 3 + 3) & ~3;
+        int pixelDataSize = stride * h;
+        int fileSize = 14 + 40 + pixelDataSize;
+        using var ms = new MemoryStream();
+        using var bw = new BinaryWriter(ms);
+        bw.Write((byte)'B');
+        bw.Write((byte)'M');
+        bw.Write(fileSize);
+        bw.Write((ushort)0);
+        bw.Write((ushort)0);
+        bw.Write(14 + 40);
+        bw.Write(40);
+        bw.Write(w);
+        bw.Write(h);
+        bw.Write((ushort)1);
+        bw.Write((ushort)24);
+        bw.Write(0);
+        bw.Write(pixelDataSize);
+        bw.Write(0);
+        bw.Write(0);
+        bw.Write(0);
+        bw.Write(0);
+        for (int y = 0; y < h; y++)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                byte b = (byte)(((x / 16) + (y / 16)) % 2 == 0 ? 210 : 130);
+                bw.Write(b);
+                bw.Write(b);
+                bw.Write(b);
+            }
+            for (int pad = w * 3; pad < stride; pad++)
+                bw.Write((byte)0);
+        }
+        var dir = Path.GetDirectoryName(absolutePath);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+        File.WriteAllBytes(absolutePath, ms.ToArray());
+    }
+
+    /// <summary>
+    /// Asegura scripts.json con entrada main si existe Scripts/main.lua (proyectos nuevos sin archivo hasta el primer arranque).
+    /// </summary>
+    public static void EnsureDefaultScriptsJsonIfMissing(string projectDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(projectDirectory)) return;
+        var path = Path.Combine(projectDirectory, "scripts.json");
+        if (File.Exists(path)) return;
+        var mainLua = Path.Combine(projectDirectory, "Scripts", "main.lua");
+        if (!File.Exists(mainLua)) return;
+        File.WriteAllText(path, "{\"scripts\":[{\"id\":\"main\",\"nombre\":\"Main\",\"path\":\"Scripts/main.lua\"}]}");
+    }
+
+    /// <summary>Asegura animaciones.json vacío si no existe.</summary>
+    public static void EnsureDefaultAnimacionesIfMissing(string projectDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(projectDirectory)) return;
+        var path = Path.Combine(projectDirectory, "animaciones.json");
+        if (File.Exists(path)) return;
+        File.WriteAllText(path, "{\"animations\":[]}");
+    }
+
+    /// <summary>Asegura audio.json vacío si no existe.</summary>
+    public static void EnsureDefaultAudioIfMissing(string projectDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(projectDirectory)) return;
+        var path = Path.Combine(projectDirectory, "audio.json");
+        if (File.Exists(path)) return;
+        var audioDto = new AudioManifestDto { Sounds = new List<AudioManifestSoundDto>() };
+        File.WriteAllText(path, JsonSerializer.Serialize(audioDto, SerializationDefaults.Options));
     }
 
     /// <summary>
@@ -251,6 +474,67 @@ end
             }
         }
         catch { /* ignore */ }
+    }
+
+    /// <summary>Mapa inicial: capas vacías; opcionalmente script de capa en Ground (p. ej. demo solo en escena Start).</summary>
+    private static TileMap CreateDefaultSceneTileMap(int chunkSize, IReadOnlyList<string> layerNames, int mapW, int mapH, string? layerScriptRelativePath)
+    {
+        _ = mapW;
+        _ = mapH;
+        var map = new TileMap(chunkSize);
+        while (map.Layers.Count > 0)
+            map.RemoveLayerAt(0);
+        int order = 0;
+        foreach (var name in layerNames)
+        {
+            var lt = name.Equals("Objects", StringComparison.OrdinalIgnoreCase) ? LayerType.Objects
+                : name.Equals("Foreground", StringComparison.OrdinalIgnoreCase) ? LayerType.Foreground
+                : LayerType.Background;
+            var desc = new MapLayerDescriptor { Name = name, LayerType = lt, SortOrder = order++ };
+            if (!string.IsNullOrEmpty(layerScriptRelativePath) &&
+                string.Equals(name, "Ground", StringComparison.OrdinalIgnoreCase))
+            {
+                desc.LayerScriptEnabled = true;
+                desc.LayerScriptId = layerScriptRelativePath;
+            }
+            map.AddLayer(desc);
+        }
+        return map;
+    }
+
+    private static void EnsureStandardRootFolders(string projectDir, IReadOnlyList<string>? names)
+    {
+        var list = names ?? DefaultStandardRootFolderNames;
+        foreach (var raw in list)
+        {
+            var seg = SanitizeRootFolderSegment(raw);
+            if (string.IsNullOrEmpty(seg)) continue;
+            CreateDir(Path.Combine(projectDir, seg));
+        }
+    }
+
+    /// <summary>Orden estándar + carpetas extra (sin duplicar por nombre, insensible a mayúsculas).</summary>
+    private static IReadOnlyList<string> MergeStandardAndExtraRootFolders(IReadOnlyList<string>? standardRootFolderNames, IReadOnlyList<string>? extraRootFolderNames)
+    {
+        var baseList = (standardRootFolderNames ?? DefaultStandardRootFolderNames).ToList();
+        foreach (var ex in extraRootFolderNames ?? Array.Empty<string>())
+        {
+            var s = SanitizeRootFolderSegment(ex);
+            if (string.IsNullOrEmpty(s)) continue;
+            if (!baseList.Contains(s, StringComparer.OrdinalIgnoreCase))
+                baseList.Add(s);
+        }
+        return baseList;
+    }
+
+    /// <summary>Un solo segmento de carpeta bajo la raíz; evita rutas y caracteres inválidos.</summary>
+    private static string SanitizeRootFolderSegment(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return "";
+        var t = raw.Trim().Trim('\\', '/');
+        if (t is "." or ".." || t.Contains('\\') || t.Contains('/')) return "";
+        if (t.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return "";
+        return t;
     }
 
     private static void CreateDir(string path)
@@ -343,10 +627,15 @@ end
         CreateDir(Path.Combine(dir, "Assets", "Animations"));
         CreateDir(Path.Combine(dir, "Assets", "Logos"));
         CreateDir(Path.Combine(dir, "Assets", "Tilesets"));
+        CreateDir(Path.Combine(dir, "Assets", "Textures"));
         CreateDir(Path.Combine(dir, "Assets", "Placeholders"));
         CreateDir(Path.Combine(dir, "Maps"));
+        CreateDir(Path.Combine(dir, "Scenes"));
         CreateDir(Path.Combine(dir, "Scripts"));
         CreateDir(Path.Combine(dir, "Seeds"));
+        EnsureDefaultScriptsJsonIfMissing(dir);
+        EnsureDefaultAnimacionesIfMissing(dir);
+        EnsureDefaultAudioIfMissing(dir);
     }
 
     /// <summary>Nombres reservados de Windows (carpetas/archivos no permitidos).</summary>

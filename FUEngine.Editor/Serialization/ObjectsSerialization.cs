@@ -69,9 +69,18 @@ public static class ObjectsSerialization
                 EnableInGameDrawing = d.EnableInGameDrawing
             }).ToList();
         var instances = layer.Instances
-            .Select(i => new ObjectInstanceDto
+            .Select(ToInstanceDto)
+            .ToList();
+        return new ObjectsDto { Definitions = definitions, Instances = instances };
+    }
+
+    public static ObjectInstanceDto ToInstanceDto(ObjectInstance i)
+    {
+        return new ObjectInstanceDto
             {
                 InstanceId = i.InstanceId,
+                SourceSeedId = i.SourceSeedId,
+                SourceSeedRelativePath = i.SourceSeedRelativePath,
                 DefinitionId = i.DefinitionId,
                 X = i.X,
                 Y = i.Y,
@@ -92,9 +101,51 @@ public static class ObjectsSerialization
                     Properties = (sp.Properties ?? new List<ScriptPropertyEntry>()).Select(p => new ScriptPropertyEntryDto { Key = p.Key, Type = p.Type ?? "string", Value = p.Value ?? "" }).ToList()
                 }).ToList(),
                 Tags = i.Tags != null ? new List<string>(i.Tags) : new List<string>(),
-                Visible = i.Visible
-            }).ToList();
-        return new ObjectsDto { Definitions = definitions, Instances = instances };
+                Visible = i.Visible,
+                Enabled = i.Enabled,
+                Pivot = i.Pivot,
+                PointLightEnabled = i.PointLightEnabled,
+                PointLightRadius = i.PointLightRadius,
+                PointLightIntensity = i.PointLightIntensity,
+                PointLightColorHex = string.IsNullOrEmpty(i.PointLightColorHex) ? null : i.PointLightColorHex,
+                SpriteColorTintHex = string.IsNullOrEmpty(i.SpriteColorTintHex) ? null : i.SpriteColorTintHex,
+                SpriteFlipX = i.SpriteFlipX,
+                SpriteFlipY = i.SpriteFlipY,
+                SpriteSortOffset = i.SpriteSortOffset,
+                DefaultAnimationClipId = i.DefaultAnimationClipId,
+                AnimationAutoPlay = i.AnimationAutoPlay,
+                AnimationSpeedMultiplier = i.AnimationSpeedMultiplier,
+                ParticleEmitterEnabled = i.ParticleEmitterEnabled,
+                ParticleTexturePath = i.ParticleTexturePath,
+                ParticleEmissionRate = i.ParticleEmissionRate,
+                ParticleLifeTime = i.ParticleLifeTime,
+                ParticleGravityScale = i.ParticleGravityScale,
+                ColliderShape = string.IsNullOrEmpty(i.ColliderShape) ? null : i.ColliderShape,
+                ColliderBoxWidthTiles = i.ColliderBoxWidthTiles,
+                ColliderBoxHeightTiles = i.ColliderBoxHeightTiles,
+                ColliderCircleRadiusTiles = i.ColliderCircleRadiusTiles,
+                ColliderOffsetX = i.ColliderOffsetX,
+                ColliderOffsetY = i.ColliderOffsetY,
+                RigidbodyEnabled = i.RigidbodyEnabled,
+                RigidbodyMass = i.RigidbodyMass,
+                RigidbodyGravityScale = i.RigidbodyGravityScale,
+                RigidbodyDrag = i.RigidbodyDrag,
+                RigidbodyFreezeRotation = i.RigidbodyFreezeRotation,
+                CameraTargetEnabled = i.CameraTargetEnabled,
+                AudioSourceEnabled = i.AudioSourceEnabled,
+                AudioClipId = i.AudioClipId,
+                AudioVolume = i.AudioVolume,
+                AudioPitch = i.AudioPitch,
+                AudioLoop = i.AudioLoop,
+                AudioSpatialBlend = i.AudioSpatialBlend,
+                ProximitySensorEnabled = i.ProximitySensorEnabled,
+                ProximityDetectionRangeTiles = i.ProximityDetectionRangeTiles,
+                ProximityTargetTag = string.IsNullOrEmpty(i.ProximityTargetTag) ? null : i.ProximityTargetTag,
+                HealthEnabled = i.HealthEnabled,
+                HealthMax = i.HealthMax,
+                HealthCurrent = i.HealthCurrent,
+                HealthInvulnerable = i.HealthInvulnerable
+            };
     }
 
     public static ObjectLayer FromDto(ObjectsDto dto)
@@ -124,10 +175,17 @@ public static class ObjectsSerialization
             });
         }
         foreach (var i in dto.Instances ?? new List<ObjectInstanceDto>())
-        {
-            layer.AddInstance(new ObjectInstance
+            layer.AddInstance(FromInstanceDto(i));
+        return layer;
+    }
+
+    public static ObjectInstance FromInstanceDto(ObjectInstanceDto i)
+    {
+        return new ObjectInstance
             {
                 InstanceId = i.InstanceId,
+                SourceSeedId = i.SourceSeedId,
+                SourceSeedRelativePath = i.SourceSeedRelativePath,
                 DefinitionId = i.DefinitionId,
                 X = i.X,
                 Y = i.Y,
@@ -148,9 +206,52 @@ public static class ObjectsSerialization
                     Properties = (sp.Properties ?? new List<ScriptPropertyEntryDto>()).Select(p => new ScriptPropertyEntry { Key = p.Key, Type = p.Type ?? "string", Value = p.Value ?? "" }).ToList()
                 }).ToList(),
                 Tags = i.Tags != null ? new List<string>(i.Tags) : new List<string>(),
-                Visible = i.Visible
-            });
-        }
-        return layer;
+                Visible = i.Visible,
+                Enabled = i.Enabled ?? true,
+                Pivot = i.Pivot,
+                PointLightEnabled = i.PointLightEnabled,
+                PointLightRadius = i.PointLightRadius <= 0 ? 5f : i.PointLightRadius,
+                PointLightIntensity = i.PointLightIntensity <= 0 ? 1f : i.PointLightIntensity,
+                PointLightColorHex = string.IsNullOrWhiteSpace(i.PointLightColorHex) ? "#ffffff" : i.PointLightColorHex!,
+                SpriteColorTintHex = string.IsNullOrWhiteSpace(i.SpriteColorTintHex) ? "#ffffff" : i.SpriteColorTintHex!,
+                SpriteFlipX = i.SpriteFlipX,
+                SpriteFlipY = i.SpriteFlipY,
+                SpriteSortOffset = i.SpriteSortOffset,
+                DefaultAnimationClipId = i.DefaultAnimationClipId,
+                AnimationAutoPlay = i.AnimationAutoPlay,
+                AnimationSpeedMultiplier = i.AnimationSpeedMultiplier <= 0 ? 1f : i.AnimationSpeedMultiplier,
+                ParticleEmitterEnabled = i.ParticleEmitterEnabled,
+                ParticleTexturePath = i.ParticleTexturePath,
+                ParticleEmissionRate = i.ParticleEmissionRate <= 0 ? 10f : i.ParticleEmissionRate,
+                ParticleLifeTime = i.ParticleLifeTime <= 0 ? 1f : i.ParticleLifeTime,
+                ParticleGravityScale = i.ParticleGravityScale,
+                ColliderShape = string.IsNullOrWhiteSpace(i.ColliderShape) ? "Box" : i.ColliderShape!,
+                ColliderBoxWidthTiles = i.ColliderBoxWidthTiles,
+                ColliderBoxHeightTiles = i.ColliderBoxHeightTiles,
+                ColliderCircleRadiusTiles = i.ColliderCircleRadiusTiles <= 0 ? 0.5f : i.ColliderCircleRadiusTiles,
+                ColliderOffsetX = i.ColliderOffsetX,
+                ColliderOffsetY = i.ColliderOffsetY,
+                RigidbodyEnabled = i.RigidbodyEnabled,
+                RigidbodyMass = i.RigidbodyMass <= 0 ? 1f : i.RigidbodyMass,
+                RigidbodyGravityScale = i.RigidbodyGravityScale,
+                RigidbodyDrag = i.RigidbodyDrag,
+                RigidbodyFreezeRotation = i.RigidbodyFreezeRotation,
+                CameraTargetEnabled = i.CameraTargetEnabled,
+                AudioSourceEnabled = i.AudioSourceEnabled,
+                AudioClipId = i.AudioClipId,
+                AudioVolume = i.AudioVolume <= 0 ? 1f : i.AudioVolume,
+                AudioPitch = i.AudioPitch <= 0 ? 1f : i.AudioPitch,
+                AudioLoop = i.AudioLoop,
+                AudioSpatialBlend = i.AudioSpatialBlend,
+                ProximitySensorEnabled = i.ProximitySensorEnabled,
+                ProximityDetectionRangeTiles = i.ProximityDetectionRangeTiles <= 0 ? 1f : i.ProximityDetectionRangeTiles,
+                ProximityTargetTag = string.IsNullOrWhiteSpace(i.ProximityTargetTag) ? "player" : i.ProximityTargetTag!,
+                HealthEnabled = i.HealthEnabled,
+                HealthMax = i.HealthMax <= 0 ? 100f : i.HealthMax,
+                HealthCurrent = i.HealthEnabled
+                    ? (i.HealthCurrent <= 0 ? (i.HealthMax <= 0 ? 100f : i.HealthMax) : i.HealthCurrent)
+                    : Math.Max(0f, i.HealthCurrent),
+                HealthInvulnerable = i.HealthInvulnerable
+            };
     }
 }

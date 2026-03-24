@@ -15,7 +15,7 @@
         <avalon:TextEditor x:Name="AvalonEditor" Grid.Row="1"
                            ShowLineNumbers="True"
                            FontFamily="Consolas" FontSize="13"
-                           Background="#0d1117" Foreground="#e6edf3"
+                           Background="#0d1117"
                            Padding="8,8,8,8"
                            BorderThickness="0"
                            TextChanged="AvalonEditor_OnTextChanged"
