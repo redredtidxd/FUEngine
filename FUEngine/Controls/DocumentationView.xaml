@@ -27,8 +27,7 @@
                          ToolTip="Filtra temas por título o contenido"/>
                 <ListBox x:Name="TopicList"
                          Background="#161b22" Foreground="#e6edf3" BorderBrush="#30363d"
-                         SelectionChanged="TopicList_OnSelectionChanged"
-                         DisplayMemberPath="Title"/>
+                         SelectionChanged="TopicList_OnSelectionChanged"/>
             </DockPanel>
             <GridSplitter Grid.Column="1" Width="8" HorizontalAlignment="Stretch" Background="Transparent"/>
             <Border Grid.Column="2" Background="#0d1117" BorderBrush="#30363d" BorderThickness="1" Padding="12,8" CornerRadius="4">

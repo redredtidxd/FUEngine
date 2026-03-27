@@ -188,11 +188,22 @@ public class ProjectInfo
             return Scenes[sceneIndex].GetObjectsPath(ProjectDirectory ?? "");
         return Path.Combine(ProjectDirectory ?? "", "objetos.json");
     }
-    public string AnimacionesPath => Path.Combine(ProjectDirectory ?? "", "animaciones.json");
-    /// <summary>Ruta absoluta del manifiesto de audio.</summary>
-    public string AudioManifestAbsolutePath => Path.Combine(ProjectDirectory ?? "", string.IsNullOrWhiteSpace(AudioManifestPath) ? "audio.json" : AudioManifestPath.Trim());
-    public string ScriptsPath => Path.Combine(ProjectDirectory ?? "", "scripts.json");
-    public string TriggerZonesPath => Path.Combine(ProjectDirectory ?? "", "triggerZones.json");
+    public string AnimacionesPath => ProjectIndexPaths.ResolveAnimacionesJson(ProjectDirectory);
+    /// <summary>Ruta absoluta del manifiesto de audio. Si la ruta es solo <c>audio.json</c>, resuelve raíz vs <c>Data/</c> como el resto de índices.</summary>
+    public string AudioManifestAbsolutePath
+    {
+        get
+        {
+            var dir = ProjectDirectory ?? "";
+            var rel = string.IsNullOrWhiteSpace(AudioManifestPath) ? "audio.json" : AudioManifestPath.Trim().Replace('/', Path.DirectorySeparatorChar);
+            if (string.Equals(Path.GetFileName(rel), "audio.json", StringComparison.OrdinalIgnoreCase) &&
+                !rel.Contains(Path.DirectorySeparatorChar))
+                return ProjectIndexPaths.Resolve(dir, "audio.json");
+            return Path.Combine(dir, rel);
+        }
+    }
+    public string ScriptsPath => ProjectIndexPaths.ResolveScriptsJson(ProjectDirectory);
+    public string TriggerZonesPath => ProjectIndexPaths.ResolveTriggerZonesJson(ProjectDirectory);
     /// <summary>Ruta del archivo de seeds (seeds.json). Para proyectos antiguos, cargar desde prefabs.json si no existe seeds.json y guardar en seeds.json.</summary>
-    public string SeedsPath => Path.Combine(ProjectDirectory ?? "", "seeds.json");
+    public string SeedsPath => ProjectIndexPaths.ResolveSeedsJson(ProjectDirectory);
 }

@@ -1,7 +1,9 @@
+using System;
 using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Threading;
 using FUEngine.Core;
 using FUEngine.Spotlight;
 
@@ -84,11 +86,31 @@ public partial class EditorWindow
 
     public void ShowDocumentation(string? initialTopicId)
     {
-        DiscordRichPresenceService.Instance.EnsureInitialized();
-        var pn = string.IsNullOrWhiteSpace(_project.Nombre) ? "Proyecto sin nombre" : _project.Nombre.Trim();
-        DiscordRichPresenceService.Instance.SetEditorActivity("Manual del motor", $"Ayuda integrada · {pn}");
-        DocumentationEmbedded.Open(initialTopicId);
-        DocumentationOverlay.Visibility = Visibility.Visible;
+        try
+        {
+            DocumentationEmbedded.Open(initialTopicId);
+            DocumentationOverlay.Visibility = Visibility.Visible;
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(
+                "No se pudo abrir la documentación integrada.\n\n" + ex.Message,
+                "FUEngine",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        Dispatcher.BeginInvoke(() =>
+        {
+            try
+            {
+                DiscordRichPresenceService.Instance.EnsureInitialized();
+                var pn = string.IsNullOrWhiteSpace(_project.Nombre) ? "Proyecto sin nombre" : _project.Nombre.Trim();
+                DiscordRichPresenceService.Instance.SetEditorActivity("Manual del motor", $"Ayuda integrada · {pn}");
+            }
+            catch { /* ignore */ }
+        }, DispatcherPriority.Background);
     }
 
     private void DocumentationBackdrop_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -97,6 +119,9 @@ public partial class EditorWindow
         SyncDiscordRichPresence();
         e.Handled = true;
     }
+
+    /// <summary>Evita que el clic en el panel (lista, splitter, borde) suba al backdrop y cierre el overlay.</summary>
+    private void DocumentationInner_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e) => e.Handled = true;
 
     private void DocumentationEmbedded_RequestClose(object? sender, EventArgs e)
     {

@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.Json;
 using FUEngine.Core;
 
@@ -7,6 +8,9 @@ public static class ScriptSerialization
 {
     public static void Save(ScriptRegistry registry, string path)
     {
+        var parent = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(parent))
+            Directory.CreateDirectory(parent);
         var list = registry.GetAll().Select(s => new ScriptItemDto
         {
             Id = s.Id,

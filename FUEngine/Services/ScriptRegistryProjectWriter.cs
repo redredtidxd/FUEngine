@@ -11,6 +11,12 @@ namespace FUEngine;
 /// </summary>
 public static class ScriptRegistryProjectWriter
 {
+    private static string GetScriptsJsonPath(string projectDirectory)
+    {
+        var root = Path.GetFullPath(projectDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        return ProjectIndexPaths.ResolveScriptsJson(root);
+    }
+
     /// <summary>
     /// Registra el .lua en scripts.json si aún no hay una entrada con la misma ruta relativa.
     /// </summary>
@@ -49,7 +55,7 @@ public static class ScriptRegistryProjectWriter
 
         relativePathForJson = ScriptLoader.NormalizeRelativePath(rel.Replace('\\', '/'));
 
-        var scriptsPath = Path.Combine(root, "scripts.json");
+        var scriptsPath = GetScriptsJsonPath(projectDirectory);
         ScriptRegistry registry;
         try
         {
@@ -105,7 +111,7 @@ public static class ScriptRegistryProjectWriter
         if (!relLua.EndsWith(".lua", StringComparison.OrdinalIgnoreCase))
             return true;
 
-        var scriptsPath = Path.Combine(Path.GetFullPath(projectDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)), "scripts.json");
+        var scriptsPath = GetScriptsJsonPath(projectDirectory);
         ScriptRegistry registry;
         try
         {
@@ -154,7 +160,7 @@ public static class ScriptRegistryProjectWriter
         if (!TryGetNormalizedRelative(projectDirectory, newLuaAbsolutePath, out var newRel, out errorMessage))
             return false;
 
-        var scriptsPath = Path.Combine(Path.GetFullPath(projectDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)), "scripts.json");
+        var scriptsPath = GetScriptsJsonPath(projectDirectory);
         ScriptRegistry registry;
         try
         {
@@ -209,7 +215,7 @@ public static class ScriptRegistryProjectWriter
             return false;
         }
 
-        var scriptsPath = Path.Combine(root, "scripts.json");
+        var scriptsPath = GetScriptsJsonPath(projectDirectory);
         ScriptRegistry registry;
         try
         {
@@ -269,7 +275,7 @@ public static class ScriptRegistryProjectWriter
         }
 
         var prefix = rel.TrimEnd('/');
-        var scriptsPath = Path.Combine(root, "scripts.json");
+        var scriptsPath = GetScriptsJsonPath(projectDirectory);
         ScriptRegistry registry;
         try
         {

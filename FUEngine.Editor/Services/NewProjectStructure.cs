@@ -159,6 +159,8 @@ public static class NewProjectStructure
         CreateDir(Path.Combine(dir, "Scenes"));
         CreateDir(Path.Combine(dir, "Scripts"));
         CreateDir(Path.Combine(dir, "Seeds"));
+        CreateDir(Path.Combine(dir, ProjectIndexPaths.DataFolderName));
+        CreateDir(Path.Combine(dir, "Assets", "Audio"));
 
         // Escenas por defecto: Start y End (cada una con su mapa y objetos)
         project.Scenes = DefaultScenes.ToList();
@@ -199,9 +201,9 @@ public static class NewProjectStructure
             ObjectsSerialization.Save(sceneObjectLayer, sceneObjectsPath);
         }
 
-        // Manifiesto de audio vacío (evita avisos al iniciar Play)
+        // Manifiesto de audio vacío bajo Data/ (índices de sistema separados de la raíz)
         var audioDto = new AudioManifestDto { Sounds = new List<AudioManifestSoundDto>() };
-        File.WriteAllText(Path.Combine(dir, "audio.json"), JsonSerializer.Serialize(audioDto, SerializationDefaults.Options));
+        File.WriteAllText(Path.Combine(dir, ProjectIndexPaths.DataFolderName, "audio.json"), JsonSerializer.Serialize(audioDto, SerializationDefaults.Options));
 
         // Tileset por defecto: textura BMP 64×64 (cuadrícula 16×16) + descriptor .tileset.json
         var bmpRel = "Assets/Tilesets/default_tileset.bmp";
@@ -231,6 +233,7 @@ public static class NewProjectStructure
             project.EditorMapCanvasBackgroundColor = "#21262d";
         else
             project.EditorMapCanvasBackgroundColor = project.EditorMapCanvasBackgroundColor.Trim();
+        project.AudioManifestPath = "Data/audio.json";
         project.MapWidth = sideTilesW;
         project.MapHeight = sideTilesH;
         project.InitialChunksW = chunksW;
@@ -325,7 +328,7 @@ end
         };
         var seedList = new List<SeedDefinition> { demoSquareSeed };
         SeedSerialization.Save(seedList, Path.Combine(seedsDir, "demo_square.seed"));
-        SeedSerialization.Save(seedList, Path.Combine(dir, "seeds.json"));
+        SeedSerialization.Save(seedList, Path.Combine(dir, ProjectIndexPaths.DataFolderName, "seeds.json"));
 
         // Logo: copiar a Assets/Logos/logo.png (ruta relativa en config) para no saturar la raíz
         var logosDir = Path.Combine(dir, "Assets", "Logos");
@@ -418,10 +421,13 @@ end
     public static void EnsureDefaultScriptsJsonIfMissing(string projectDirectory)
     {
         if (string.IsNullOrWhiteSpace(projectDirectory)) return;
-        var path = Path.Combine(projectDirectory, "scripts.json");
+        var path = ProjectIndexPaths.ResolveScriptsJson(projectDirectory);
         if (File.Exists(path)) return;
         var mainLua = Path.Combine(projectDirectory, "Scripts", "main.lua");
         if (!File.Exists(mainLua)) return;
+        var parent = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(parent))
+            Directory.CreateDirectory(parent);
         File.WriteAllText(path, "{\"scripts\":[{\"id\":\"main\",\"nombre\":\"Main\",\"path\":\"Scripts/main.lua\"}]}");
     }
 
@@ -429,8 +435,11 @@ end
     public static void EnsureDefaultAnimacionesIfMissing(string projectDirectory)
     {
         if (string.IsNullOrWhiteSpace(projectDirectory)) return;
-        var path = Path.Combine(projectDirectory, "animaciones.json");
+        var path = ProjectIndexPaths.ResolveAnimacionesJson(projectDirectory);
         if (File.Exists(path)) return;
+        var parent = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(parent))
+            Directory.CreateDirectory(parent);
         File.WriteAllText(path, "{\"animations\":[]}");
     }
 
@@ -438,8 +447,11 @@ end
     public static void EnsureDefaultAudioIfMissing(string projectDirectory)
     {
         if (string.IsNullOrWhiteSpace(projectDirectory)) return;
-        var path = Path.Combine(projectDirectory, "audio.json");
+        var path = ProjectIndexPaths.Resolve(projectDirectory, "audio.json");
         if (File.Exists(path)) return;
+        var parent = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(parent))
+            Directory.CreateDirectory(parent);
         var audioDto = new AudioManifestDto { Sounds = new List<AudioManifestSoundDto>() };
         File.WriteAllText(path, JsonSerializer.Serialize(audioDto, SerializationDefaults.Options));
     }
@@ -634,6 +646,7 @@ end
         CreateDir(Path.Combine(dir, "Autoguardados", "Escenas"));
         CreateDir(Path.Combine(dir, "Assets", "Sprites"));
         CreateDir(Path.Combine(dir, "Assets", "Sonidos"));
+        CreateDir(Path.Combine(dir, "Assets", "Audio"));
         CreateDir(Path.Combine(dir, "Assets", "Animations"));
         CreateDir(Path.Combine(dir, "Assets", "Logos"));
         CreateDir(Path.Combine(dir, "Assets", "Tilesets"));
@@ -643,6 +656,7 @@ end
         CreateDir(Path.Combine(dir, "Scenes"));
         CreateDir(Path.Combine(dir, "Scripts"));
         CreateDir(Path.Combine(dir, "Seeds"));
+        CreateDir(Path.Combine(dir, ProjectIndexPaths.DataFolderName));
         EnsureDefaultScriptsJsonIfMissing(dir);
         EnsureDefaultAnimacionesIfMissing(dir);
         EnsureDefaultAudioIfMissing(dir);

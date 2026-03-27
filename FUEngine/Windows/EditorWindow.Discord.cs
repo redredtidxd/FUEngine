@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Windows.Controls;
 
@@ -39,6 +40,30 @@ public partial class EditorWindow
             DiscordRichPresenceService.Instance.SetEditorActivity(
                 "Probando juego",
                 $"Modo sandbox · {projectName}");
+            return;
+        }
+
+        var explorerManifest = _selection?.SelectedExplorerItem;
+        if (explorerManifest != null && !explorerManifest.IsFolder &&
+            !string.IsNullOrEmpty(explorerManifest.FullPath) &&
+            ProjectManifestPaths.IsActiveProjectManifestFile(explorerManifest.FullPath, _project.ProjectDirectory) &&
+            !string.Equals(tag, "Scripts", StringComparison.Ordinal))
+        {
+            DiscordRichPresenceService.Instance.SetEditorActivity("Configurando ajustes globales", $"Proyecto: {projectName}");
+            return;
+        }
+
+        var explorerSeed = _selection?.SelectedExplorerItem;
+        if (explorerSeed != null && !explorerSeed.IsFolder &&
+            !string.IsNullOrEmpty(explorerSeed.FullPath) &&
+            explorerSeed.FullPath.EndsWith(".seed", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(tag, "Scripts", StringComparison.Ordinal))
+        {
+            var label = Path.GetFileNameWithoutExtension(explorerSeed.FullPath);
+            if (SeedExplorerHelpers.TryGetFirstSeed(explorerSeed.FullPath, out var sd) && sd != null &&
+                !string.IsNullOrWhiteSpace(sd.Nombre))
+                label = sd.Nombre.Trim();
+            DiscordRichPresenceService.Instance.SetEditorActivity($"Modificando semilla: {label}", $"Proyecto: {projectName}");
             return;
         }
 

@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Linq;
 using System.Windows;
@@ -25,6 +26,13 @@ public partial class EditorWindow
         }
         if (_selection.SelectedExplorerItem != null && !_selection.SelectedExplorerItem.IsFolder)
         {
+            if (ProjectManifestPaths.IsActiveProjectManifestFile(_selection.SelectedExplorerItem.FullPath, _project.ProjectDirectory))
+            {
+                var manifest = GetOrCreateProjectManifestPanel();
+                manifest.LoadFromProject(_project, GetProjectFilePath());
+                InspectorPanel.Content = manifest;
+                return;
+            }
             var quick = GetOrCreateQuickPropertiesPanel();
             quick.SetItem(_selection.SelectedExplorerItem, _project, _tileMap, _objectLayer, _scriptRegistry);
             InspectorPanel.Content = quick;
@@ -213,7 +221,7 @@ public partial class EditorWindow
     {
         if (_cachedMapPropertiesPanel != null) return _cachedMapPropertiesPanel;
         _cachedMapPropertiesPanel = new MapPropertiesInspectorPanel();
-        _cachedMapPropertiesPanel.RequestOpenProjectConfig += (_, _) => MenuConfigProyecto_OnClick(this, new RoutedEventArgs());
+        _cachedMapPropertiesPanel.RequestOpenProjectConfig += (_, _) => MenuEditorProyectoAvanzado_OnClick(this, new RoutedEventArgs());
         return _cachedMapPropertiesPanel;
     }
 
@@ -272,6 +280,42 @@ public partial class EditorWindow
         _cachedAnimationInspectorPanel = null;
         _cachedLayerInspectorPanel = null;
         _cachedQuickPanel = null;
+        _cachedProjectManifestPanel = null;
+    }
+
+    private ProjectManifestPanel GetOrCreateProjectManifestPanel()
+    {
+        if (_cachedProjectManifestPanel != null) return _cachedProjectManifestPanel;
+        _cachedProjectManifestPanel = new ProjectManifestPanel();
+        _cachedProjectManifestPanel.RequestSaveAfterApply += ProjectManifest_OnSaveAfterApply;
+        _cachedProjectManifestPanel.RequestExportBuild += (_, _) => MenuExportBuild_OnClick(this, new RoutedEventArgs());
+        _cachedProjectManifestPanel.RequestIntegrityCheck += (_, _) => MenuVerificarIntegridad_OnClick(this, new RoutedEventArgs());
+        _cachedProjectManifestPanel.RequestOpenProjectFolder += ProjectManifest_OnOpenProjectFolder;
+        _cachedProjectManifestPanel.RequestAdvancedConfig += (_, _) => MenuEditorProyectoAvanzado_OnClick(this, new RoutedEventArgs());
+        return _cachedProjectManifestPanel;
+    }
+
+    private void ProjectManifest_OnSaveAfterApply(object? sender, EventArgs e)
+    {
+        if (_cachedProjectManifestPanel == null) return;
+        if (!_cachedProjectManifestPanel.TryApplyToProject(_project)) return;
+        TrySaveProjectInfo();
+        ClampViewportCenterForCurrentMap();
+        ApplyEditorVisualColorsFromProject();
+        DrawMap();
+        var path = GetProjectFilePath();
+        if (!string.IsNullOrEmpty(path))
+            ProjectExplorer?.SetModified(path, true);
+        ConfigureAutoSave();
+        SyncDiscordRichPresence();
+    }
+
+    private void ProjectManifest_OnOpenProjectFolder(object? sender, EventArgs e)
+    {
+        var dir = _project.ProjectDirectory;
+        if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) return;
+        try { System.Diagnostics.Process.Start("explorer.exe", dir); }
+        catch (Exception ex) { EditorLog.Warning($"No se pudo abrir la carpeta: {ex.Message}", "Proyecto"); }
     }
 
     private QuickPropertiesPanel GetOrCreateQuickPropertiesPanel()
@@ -279,6 +323,7 @@ public partial class EditorWindow
         if (_cachedQuickPanel != null) return _cachedQuickPanel;
         _cachedQuickPanel = new QuickPropertiesPanel();
         _cachedQuickPanel.RequestOpenInEditor += Quick_RequestOpenInEditor;
+        _cachedQuickPanel.RequestOpenScriptPath += Quick_RequestOpenScriptPath;
         _cachedQuickPanel.RequestDuplicate += Quick_RequestDuplicate;
         _cachedQuickPanel.RequestRename += Quick_RequestRename;
         _cachedQuickPanel.RequestShowInFolder += Quick_RequestShowInFolder;

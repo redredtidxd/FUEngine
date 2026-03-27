@@ -52,6 +52,33 @@ public static class GameViewportMath
         heightTiles = pxH / (double)ts;
     }
 
+    /// <summary>Indica si la casilla mundo está dentro del rectángulo de juego del mapa finito [Origin, Origin+Size) en X e Y.</summary>
+    public static bool IsWorldTileInsideFiniteMapBounds(ProjectInfo p, int worldTx, int worldTy)
+    {
+        if (p.Infinite) return true;
+        int ox = p.MapBoundsOriginWorldTileX;
+        int oy = p.MapBoundsOriginWorldTileY;
+        int mw = Math.Max(1, p.MapWidth);
+        int mh = Math.Max(1, p.MapHeight);
+        return worldTx >= ox && worldTx < ox + mw && worldTy >= oy && worldTy < oy + mh;
+    }
+
+    /// <summary>Ajusta una casilla mundo al rectángulo del mapa finito (inclusive en el borde interior).</summary>
+    public static void ClampWorldTileToFiniteMapBounds(ProjectInfo p, ref int worldTx, ref int worldTy)
+    {
+        if (p.Infinite) return;
+        int ox = p.MapBoundsOriginWorldTileX;
+        int oy = p.MapBoundsOriginWorldTileY;
+        int mw = Math.Max(1, p.MapWidth);
+        int mh = Math.Max(1, p.MapHeight);
+        int maxX = ox + mw - 1;
+        int maxY = oy + mh - 1;
+        if (worldTx < ox) worldTx = ox;
+        else if (worldTx > maxX) worldTx = maxX;
+        if (worldTy < oy) worldTy = oy;
+        else if (worldTy > maxY) worldTy = maxY;
+    }
+
     /// <summary>Centro geométrico del mapa finito en casillas mundo (rectángulo [Origin, Origin+Size) en X/Y).</summary>
     public static void GetFiniteMapCenterWorldTile(ProjectInfo p, out double centerWx, out double centerWy)
     {

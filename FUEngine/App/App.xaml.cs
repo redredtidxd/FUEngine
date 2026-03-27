@@ -22,6 +22,7 @@ public partial class App : System.Windows.Application
     private void App_OnStartup(object sender, StartupEventArgs e)
     {
         RegisterGlobalExceptionHandlers();
+        FUEngineAppPaths.EnsureLayout();
 
         if (PlayerLaunchArgs.TryParse(e.Args, out var dataDir))
         {
@@ -185,6 +186,7 @@ public partial class App : System.Windows.Application
             var ex = args.ExceptionObject as Exception;
             var msg = ex != null ? $"{ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}" : args.ExceptionObject?.ToString() ?? "Error desconocido";
             EditorLog.Critical($"CRASH MOTOR (AppDomain): {msg}", "FATAL");
+            CrashReportWriter.TryWrite("AppDomain.UnhandledException", ex, args.IsTerminating);
         };
 
         DispatcherUnhandledException += (_, args) =>
@@ -214,6 +216,7 @@ public partial class App : System.Windows.Application
 
             QueueDeferredUiCrashLog(
                 $"CRASH UI: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
+            CrashReportWriter.TryWrite("DispatcherUnhandledException", ex, false);
         };
 
         TaskScheduler.UnobservedTaskException += (_, args) =>

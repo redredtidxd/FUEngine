@@ -48,7 +48,7 @@ public static class EditorLog
     /// <summary>Ruta del .log de sesión (LocalApplicationData/FUEngine/logs).</summary>
     public static string SessionLogFilePath { get; private set; } = "";
 
-    /// <summary>Carpeta donde se guardan los .log de sesión (<c>LocalApplicationData/FUEngine/logs</c>).</summary>
+    /// <summary>Carpeta donde se guardan los .log de sesión (<c>%LocalAppData%/FUEngine/logs</c>).</summary>
     public static string LogsDirectory
     {
         get
@@ -58,7 +58,7 @@ public static class EditorLog
                 var d = Path.GetDirectoryName(SessionLogFilePath);
                 if (!string.IsNullOrEmpty(d)) return d;
             }
-            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FUEngine", "logs");
+            return FUEngineAppPaths.LogsDirectory;
         }
     }
 
@@ -84,7 +84,8 @@ public static class EditorLog
     {
         try
         {
-            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FUEngine", "logs");
+            FUEngineAppPaths.EnsureLayout();
+            var dir = FUEngineAppPaths.LogsDirectory;
             Directory.CreateDirectory(dir);
             SessionLogFilePath = Path.Combine(dir, $"session_{DateTime.Now:yyyyMMdd}.log");
         }

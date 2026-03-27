@@ -1,8 +1,11 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using FUEngine.Help;
 
 namespace FUEngine;
@@ -10,6 +13,8 @@ namespace FUEngine;
 public partial class DocumentationView : System.Windows.Controls.UserControl
 {
     private List<DocumentationTopic> _allTopics = new();
+    private List<DocumentationTopic> _visibleTopics = new();
+
     private bool _topicsInitialized;
     private DocumentationTopic? _current;
 
@@ -18,13 +23,27 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
         InitializeComponent();
     }
 
-    /// <summary>Si true, solo temas <see cref="EngineDocumentation.IsLuaReferenceSidebarTopic"/> (pestaña Lua del host).</summary>
     public bool LuaReferenceMode { get; set; }
 
-    /// <summary>Si coincide con un <see cref="DocumentationTopic.Id"/>, ese tema se selecciona al abrir.</summary>
     public string? InitialTopicId { get; set; }
 
     public event EventHandler? RequestClose;
+
+    private static System.Windows.Media.Color HexColor(string hex)
+    {
+        hex = hex.TrimStart('#');
+        return System.Windows.Media.Color.FromRgb(
+            Convert.ToByte(hex[..2], 16),
+            Convert.ToByte(hex.Substring(2, 2), 16),
+            Convert.ToByte(hex.Substring(4, 2), 16));
+    }
+
+    private static SolidColorBrush B(string hex)
+    {
+        var br = new SolidColorBrush(HexColor(hex));
+        if (br.CanFreeze) br.Freeze();
+        return br;
+    }
 
     private void EnsureTopicsLoaded()
     {
@@ -40,11 +59,11 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
             if (intro != null)
             {
                 q.Remove(intro);
-                q.Sort((a, b) => string.Compare(a.Title, b.Title, StringComparison.OrdinalIgnoreCase));
+                q.Sort((a, b) => string.Compare(a.Title ?? "", b.Title ?? "", StringComparison.OrdinalIgnoreCase));
                 q.Insert(0, intro);
             }
             else
-                q.Sort((a, b) => string.Compare(a.Title, b.Title, StringComparison.OrdinalIgnoreCase));
+                q.Sort((a, b) => string.Compare(a.Title ?? "", b.Title ?? "", StringComparison.OrdinalIgnoreCase));
         }
         _allTopics = q;
     }
@@ -62,7 +81,7 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
             var t = _allTopics.FirstOrDefault(x => x.Id == id);
             if (t != null)
             {
-                SelectTopicInList(t);
+                SelectTopicInListById(t.Id);
                 return;
             }
         }
@@ -83,13 +102,13 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
         base.OnPreviewKeyDown(e);
     }
 
-    private void SelectTopicInList(DocumentationTopic topic)
+    private void SelectTopicInListById(string topicId)
     {
-        foreach (var item in TopicList.Items)
+        for (var i = 0; i < _visibleTopics.Count; i++)
         {
-            if (item is DocumentationTopic dt && dt.Id == topic.Id)
+            if (string.Equals(_visibleTopics[i].Id, topicId, StringComparison.Ordinal))
             {
-                TopicList.SelectedItem = item;
+                TopicList.SelectedIndex = i;
                 return;
             }
         }
@@ -101,14 +120,10 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
         ApplyFilter();
         if (!string.IsNullOrEmpty(prevId))
         {
-            var t = TopicList.Items.Cast<object>().OfType<DocumentationTopic>().FirstOrDefault(x => x.Id == prevId);
-            if (t != null)
-            {
-                TopicList.SelectedItem = t;
-                return;
-            }
+            SelectTopicInListById(prevId);
+            return;
         }
-        if (TopicList.Items.Count > 0 && TopicList.SelectedItem == null)
+        if (TopicList.Items.Count > 0 && TopicList.SelectedIndex < 0)
             TopicList.SelectedIndex = 0;
     }
 
@@ -121,83 +136,241 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
         {
             var ql = q.ToLowerInvariant();
             src = _allTopics.Where(t =>
-                t.Title.ToLowerInvariant().Contains(ql)
+                (t.Title?.ToLowerInvariant().Contains(ql) ?? false)
+                || (t.Subtitle?.ToLowerInvariant().Contains(ql) ?? false)
+                || (t.EnMotor?.ToLowerInvariant().Contains(ql) ?? false)
                 || (t.ParaQue?.ToLowerInvariant().Contains(ql) ?? false)
                 || (t.PorQueImporta?.ToLowerInvariant().Contains(ql) ?? false)
-                || t.Paragraphs.Any(p => p.ToLowerInvariant().Contains(ql))
-                || (t.Bullets?.Any(b => b.ToLowerInvariant().Contains(ql)) ?? false));
+                || (t.Paragraphs?.Any(p => !string.IsNullOrEmpty(p) && p.ToLowerInvariant().Contains(ql)) ?? false)
+                || (t.Bullets?.Any(b => !string.IsNullOrEmpty(b) && b.ToLowerInvariant().Contains(ql)) ?? false));
         }
-        TopicList.Items.Clear();
-        foreach (var t in src)
-            TopicList.Items.Add(t);
+
+        _visibleTopics = src.ToList();
+
+        TopicList.SelectionChanged -= TopicList_OnSelectionChanged;
+        try
+        {
+            TopicList.Items.Clear();
+            foreach (var t in _visibleTopics)
+                TopicList.Items.Add(FormatTopicListLabel(t));
+        }
+        finally
+        {
+            TopicList.SelectionChanged += TopicList_OnSelectionChanged;
+        }
+    }
+
+    private string FormatTopicListLabel(DocumentationTopic t)
+    {
+        var title = t.Title ?? "";
+        var sameTitle = _visibleTopics.Count(x => string.Equals(x.Title ?? "", title, StringComparison.Ordinal)) > 1;
+        return sameTitle ? $"{title}  ({t.Id})" : title;
     }
 
     private void TopicList_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (TopicList.SelectedItem is not DocumentationTopic topic)
+        var idx = TopicList.SelectedIndex;
+        if (idx < 0 || idx >= _visibleTopics.Count)
         {
-            DetailPanel.Children.Clear();
             _current = null;
+            DetailPanel?.Children.Clear();
             return;
         }
+
+        var topic = _visibleTopics[idx];
         _current = topic;
-        RebuildDetail(topic);
+
+        try
+        {
+            RebuildDetail(topic);
+        }
+        catch (Exception ex)
+        {
+            var msg = ex.Message;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try
+                {
+                    EditorLog.Error("Documentación: error al componer el tema. " + msg, "Ayuda");
+                }
+                catch { /* ignore */ }
+            }), DispatcherPriority.Background);
+            DetailPanel?.Children.Clear();
+            DetailPanel?.Children.Add(new TextBlock
+            {
+                Text = "Error al mostrar el tema: " + ex.Message,
+                Foreground = B("f85149"),
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 13
+            });
+        }
+
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            try
+            {
+                DetailScroll?.ScrollToHome();
+            }
+            catch { /* ignore */ }
+        }), DispatcherPriority.ApplicationIdle);
     }
 
     private void RebuildDetail(DocumentationTopic topic)
     {
+        if (DetailPanel == null) return;
         DetailPanel.Children.Clear();
-        var accent = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x58, 0xa6, 0xff));
-        var primary = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xe6, 0xed, 0xf3));
-        var muted = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x8b, 0x94, 0x9e));
+
+        var titleAccent = LuaReferenceMode ? B("79c0ff") : B("58a6ff");
+        var sectionAccent = LuaReferenceMode ? B("a371f7") : B("58a6ff");
+        var body = B("e6edf3");
+        var muted = B("8b949e");
+        var motorBorder = B("ffa657");
+        var motorBg = B("161b22");
 
         DetailPanel.Children.Add(new TextBlock
         {
-            Text = topic.Title,
-            FontSize = 20,
+            Text = topic.Title ?? "",
+            FontSize = LuaReferenceMode ? 23 : 22,
             FontWeight = FontWeights.SemiBold,
-            Foreground = primary,
+            Foreground = titleAccent,
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 0, 0, 12)
+            Margin = new Thickness(0, 0, 0, 6)
         });
 
-        if (!string.IsNullOrEmpty(topic.ParaQue))
+        if (!string.IsNullOrWhiteSpace(topic.Subtitle))
         {
-            DetailPanel.Children.Add(LabelRow("Para qué", accent));
-            DetailPanel.Children.Add(BodyParagraph(topic.ParaQue, primary));
-        }
-        if (!string.IsNullOrEmpty(topic.PorQueImporta))
-        {
-            DetailPanel.Children.Add(LabelRow("Por qué importa", accent));
-            DetailPanel.Children.Add(BodyParagraph(topic.PorQueImporta, primary));
-        }
-
-        foreach (var p in topic.Paragraphs)
-            DetailPanel.Children.Add(BodyParagraph(p, primary));
-
-        if (topic.Bullets is { Count: > 0 } bullets)
-        {
-            DetailPanel.Children.Add(new TextBlock { Text = "Puntos clave", Foreground = accent, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 6) });
-            foreach (var b in bullets)
+            DetailPanel.Children.Add(new TextBlock
             {
+                Text = topic.Subtitle,
+                FontSize = 14,
+                FontStyle = FontStyles.Italic,
+                Foreground = muted,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 14)
+            });
+        }
+
+        DetailPanel.Children.Add(new Border
+        {
+            Height = 1,
+            Background = B("30363d"),
+            Margin = new Thickness(0, 0, 0, 16)
+        });
+
+        void AddSection(string label, string? text, SolidColorBrush labelBrush)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            DetailPanel.Children.Add(new TextBlock
+            {
+                Text = label,
+                FontSize = 12,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = labelBrush,
+                Margin = new Thickness(0, 14, 0, 6)
+            });
+            DetailPanel.Children.Add(new TextBlock
+            {
+                Text = text,
+                FontSize = 13,
+                Foreground = body,
+                TextWrapping = TextWrapping.Wrap,
+                LineHeight = 20,
+                Margin = new Thickness(0, 0, 0, 4)
+            });
+        }
+
+        AddSection("Para qué", topic.ParaQue, sectionAccent);
+        AddSection("Por qué importa", topic.PorQueImporta, sectionAccent);
+
+        if (!string.IsNullOrWhiteSpace(topic.EnMotor))
+        {
+            var callout = new Border
+            {
+                BorderThickness = new Thickness(4, 0, 0, 0),
+                BorderBrush = motorBorder,
+                Background = motorBg,
+                CornerRadius = new CornerRadius(0, 4, 4, 0),
+                Padding = new Thickness(12, 10, 12, 10),
+                Margin = new Thickness(0, 16, 0, 8)
+            };
+            var inner = new StackPanel();
+            inner.Children.Add(new TextBlock
+            {
+                Text = "En FUEngine",
+                FontSize = 12,
+                FontWeight = FontWeights.Bold,
+                Foreground = motorBorder,
+                Margin = new Thickness(0, 0, 0, 6)
+            });
+            inner.Children.Add(new TextBlock
+            {
+                Text = topic.EnMotor,
+                FontSize = 13,
+                Foreground = body,
+                TextWrapping = TextWrapping.Wrap,
+                LineHeight = 20
+            });
+            callout.Child = inner;
+            DetailPanel.Children.Add(callout);
+        }
+
+        if (topic.Paragraphs is { Count: > 0 })
+        {
+            DetailPanel.Children.Add(new TextBlock
+            {
+                Text = "Contenido",
+                FontSize = 12,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = muted,
+                Margin = new Thickness(0, 18, 0, 8)
+            });
+            foreach (var p in topic.Paragraphs)
+            {
+                if (string.IsNullOrEmpty(p)) continue;
                 DetailPanel.Children.Add(new TextBlock
                 {
-                    Text = "• " + b,
-                    Foreground = muted,
-                    TextWrapping = TextWrapping.Wrap,
+                    Text = p,
                     FontSize = 13,
+                    Foreground = body,
+                    TextWrapping = TextWrapping.Wrap,
                     LineHeight = 20,
-                    Margin = new Thickness(0, 2, 0, 0)
+                    Margin = new Thickness(0, 0, 0, 10)
                 });
             }
         }
 
-        DetailScroll.ScrollToTop();
+        if (topic.Bullets is { Count: > 0 } bullets)
+        {
+            DetailPanel.Children.Add(new TextBlock
+            {
+                Text = "Puntos clave",
+                FontSize = 12,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = B("7ee787"),
+                Margin = new Thickness(0, 14, 0, 8)
+            });
+            foreach (var b in bullets)
+            {
+                if (string.IsNullOrEmpty(b)) continue;
+                var row = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
+                row.Children.Add(new TextBlock
+                {
+                    Text = "• ",
+                    Foreground = B("7ee787"),
+                    FontSize = 13,
+                    VerticalAlignment = VerticalAlignment.Top,
+                    Margin = new Thickness(0, 0, 6, 0)
+                });
+                row.Children.Add(new TextBlock
+                {
+                    Text = b,
+                    FontSize = 13,
+                    Foreground = body,
+                    TextWrapping = TextWrapping.Wrap,
+                    LineHeight = 20
+                });
+                DetailPanel.Children.Add(row);
+            }
+        }
     }
-
-    private static TextBlock LabelRow(string text, System.Windows.Media.Brush accent) =>
-        new() { Text = text, Foreground = accent, FontWeight = FontWeights.SemiBold, FontSize = 13, Margin = new Thickness(0, 8, 0, 4) };
-
-    private static TextBlock BodyParagraph(string text, System.Windows.Media.Brush foreground) =>
-        new() { Text = text, Foreground = foreground, TextWrapping = TextWrapping.Wrap, FontSize = 13, LineHeight = 20, Margin = new Thickness(0, 0, 0, 8) };
 }

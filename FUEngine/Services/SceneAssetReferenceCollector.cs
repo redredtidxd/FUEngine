@@ -33,10 +33,10 @@ public static class SceneAssetReferenceCollector
             if (File.Exists(fullObj)) set.Add(fullObj);
         }
 
-        var scriptsPath = Path.Combine(projectDir, "scripts.json");
+        var scriptsPath = ProjectIndexPaths.ResolveScriptsJson(projectDir);
         if (File.Exists(scriptsPath)) set.Add(scriptsPath);
 
-        var animPath = Path.Combine(projectDir, "animaciones.json");
+        var animPath = ProjectIndexPaths.ResolveAnimacionesJson(projectDir);
         if (File.Exists(animPath)) set.Add(animPath);
 
         if (objectLayer?.Definitions != null)

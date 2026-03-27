@@ -55,16 +55,20 @@ public partial class ScriptsTabContent : System.Windows.Controls.UserControl
 
         if (!string.IsNullOrEmpty(_projectDirectory))
         {
-            var rootJson = Path.Combine(_projectDirectory, "scripts.json");
-            if (File.Exists(rootJson) && !seen.Contains("scripts.json"))
+            var rootJson = ProjectIndexPaths.ResolveScriptsJson(_projectDirectory);
+            if (File.Exists(rootJson))
             {
-                rows.Insert(0, new ScriptListItem
+                var relReg = NormRel(Path.GetRelativePath(_projectDirectory, rootJson));
+                if (!seen.Contains(relReg))
                 {
-                    Id = "__file_scripts_json__",
-                    Display = "scripts.json · registro",
-                    OpenRelativePath = "scripts.json"
-                });
-                seen.Add("scripts.json");
+                    rows.Insert(0, new ScriptListItem
+                    {
+                        Id = "__file_scripts_json__",
+                        Display = $"{Path.GetFileName(rootJson)} · registro",
+                        OpenRelativePath = relReg
+                    });
+                    seen.Add(relReg);
+                }
             }
 
             var scriptsDir = Path.Combine(_projectDirectory, "Scripts");

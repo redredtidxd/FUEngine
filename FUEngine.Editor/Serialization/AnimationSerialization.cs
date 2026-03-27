@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.Json;
 using FUEngine.Core;
 
@@ -16,6 +17,9 @@ public static class AnimationSerialization
         }).ToList();
         var dto = new AnimationsDto { Animations = list };
         var json = JsonSerializer.Serialize(dto, SerializationDefaults.Options);
+        var parent = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(parent))
+            Directory.CreateDirectory(parent);
         File.WriteAllText(path, json);
     }
 

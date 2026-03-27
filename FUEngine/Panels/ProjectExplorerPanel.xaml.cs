@@ -26,6 +26,9 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
     /// <summary>Modo compacto (Small Explorer bajo Jerarquía) vs completo (Large Explorer tab).</summary>
     public bool IsCompactMode { get; set; }
 
+    /// <summary>Oculta la carpeta <c>Data/</c> en el árbol (índices del sistema); configurable en preferencias del motor.</summary>
+    public bool HideDataFolderInExplorer { get; set; } = true;
+
     public const string DataFormatExplorerItem = "FUEngine.ExplorerItem";
     public const string DataFormatAssetPath = "FUEngine.AssetPath";
 
@@ -45,11 +48,8 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
     /// <summary>Arrastrar un objeto desde la jerarquía/inspector sobre una carpeta del explorador: guardar como .seed en esa ruta.</summary>
     public event EventHandler<(string InstanceId, string TargetFolderPath)>? RequestExportObjectAsSeed;
 
-    /// <summary>Crear desde menú contextual del explorador: capas, triggers, objetos.</summary>
-    public event EventHandler? RequestCreateTileLayer;
-    public event EventHandler? RequestCreateObjectLayer;
+    /// <summary>Crear desde menú contextual del explorador: triggers, etc. (objetos: solo desde la jerarquía del mapa).</summary>
     public event EventHandler? RequestCreateTriggerZone;
-    public event EventHandler? RequestCreateObject;
 
     public void OpenInEditor(ProjectExplorerItem? item)
     {
@@ -135,6 +135,9 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
         if (sender is System.Windows.Controls.ListBox lb && lb.SelectedItem is string path)
             SelectPathInTree(path);
     }
+
+    /// <summary>Selecciona un archivo o carpeta en el árbol y dispara <see cref="SelectionChanged"/>.</summary>
+    public void SelectAbsolutePath(string? fullPath) => SelectPathInTree(fullPath);
 
     private void SelectPathInTree(string? fullPath)
     {
@@ -563,7 +566,8 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
             Color = source.Color,
             Rating = source.Rating,
             CustomMetadata = source.CustomMetadata != null ? new Dictionary<string, string>(source.CustomMetadata) : null,
-            IsLocked = source.IsLocked
+            IsLocked = source.IsLocked,
+            IsProjectManifestFile = source.IsProjectManifestFile
         };
         if (_metadataService != null && !string.IsNullOrEmpty(source.FullPath))
         {
@@ -616,6 +620,17 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
         return IsPathModifiedRecursive(_rootFull, fullPath);
     }
 
+    private void TagProjectManifest(ProjectExplorerItem item)
+    {
+        if (item.IsFolder || string.IsNullOrEmpty(item.FullPath)) return;
+        if (ProjectManifestPaths.IsActiveProjectManifestFile(item.FullPath, _projectDirectory))
+        {
+            item.IsProjectManifestFile = true;
+            if (item.FileType == ProjectFileType.Project)
+                item.Icon = "⚙";
+        }
+    }
+
     private static bool IsPathModifiedRecursive(ProjectExplorerItem node, string fullPath)
     {
         if (string.Equals(node.FullPath, fullPath, StringComparison.OrdinalIgnoreCase))
@@ -665,6 +680,7 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
                 "scripts.json" => ProjectFileType.Scripts,
                 "animaciones.json" => ProjectFileType.Animations,
                 _ when ext == ".png" || ext == ".jpg" || ext == ".jpeg" => ProjectFileType.Sprite,
+                _ when string.Equals(ext, ".seed", StringComparison.OrdinalIgnoreCase) => ProjectFileType.Seed,
                 _ when ext == ".json" => ProjectFileType.Generic,
                 _ when ext == ".scene" => ProjectFileType.Scene,
                 _ when ext == ".wav" || ext == ".ogg" || ext == ".mp3" => ProjectFileType.Sound,
@@ -680,6 +696,7 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
                 ProjectFileType.Scene => "🎞",
                 ProjectFileType.Sprite => "🖼",
                 ProjectFileType.Sound => "🔊",
+                ProjectFileType.Seed => "🌱",
                 _ => name.EndsWith("Settings.json", StringComparison.OrdinalIgnoreCase) ? "⚙" : "📄"
             };
             rootFiles.Add((file, name, type, icon));
@@ -690,6 +707,8 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
         {
             var name = Path.GetFileName(dir);
             if (name == null || name.StartsWith(".", StringComparison.Ordinal)) continue;
+            if (HideDataFolderInExplorer && string.Equals(name, "Data", StringComparison.OrdinalIgnoreCase))
+                continue;
             rootDirs.Add((dir, name));
         }
 
@@ -729,7 +748,7 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
         }
         foreach (var (path, name, type, icon) in rootFiles.OrderBy(f => OrderKey(f.name)).ThenBy(f => f.name, StringComparer.OrdinalIgnoreCase))
         {
-            root.Children.Add(new ProjectExplorerItem
+            var fileItem = new ProjectExplorerItem
             {
                 Name = name,
                 FullPath = path,
@@ -737,7 +756,9 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
                 FileType = type,
                 Icon = icon,
                 IsMissing = !File.Exists(path)
-            });
+            };
+            TagProjectManifest(fileItem);
+            root.Children.Add(fileItem);
         }
     }
 
@@ -747,6 +768,7 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
         {
             var parentName = Path.GetFileName(dirPath);
             var isMapsFolder = string.Equals(parentName, "Maps", StringComparison.OrdinalIgnoreCase);
+            var isDataFolder = string.Equals(parentName, "Data", StringComparison.OrdinalIgnoreCase);
             var fileList = new List<(string path, string name, ProjectFileType type, string icon)>();
             foreach (var file in Directory.GetFiles(dirPath))
             {
@@ -760,20 +782,36 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
                     ".json" when isMapsFolder => ProjectFileType.Map,
                     ".json" => ProjectFileType.Generic,
                     ".scene" => ProjectFileType.Scene,
+                    ".seed" => ProjectFileType.Seed,
                     _ => ProjectFileType.Generic
                 };
+                if (isDataFolder && ext == ".json")
+                {
+                    type = name.ToLowerInvariant() switch
+                    {
+                        "scripts.json" => ProjectFileType.Scripts,
+                        "animaciones.json" => ProjectFileType.Animations,
+                        "seeds.json" => ProjectFileType.Generic,
+                        "audio.json" => ProjectFileType.Generic,
+                        "triggerzones.json" => ProjectFileType.Generic,
+                        _ => type
+                    };
+                }
                 var icon = type == ProjectFileType.Map ? "🗺" : type switch
                 {
                     ProjectFileType.Scene => "🎞",
+                    ProjectFileType.Scripts => "📜",
+                    ProjectFileType.Animations => "🎬",
                     ProjectFileType.Sprite => "🖼",
                     ProjectFileType.Sound => "🔊",
+                    ProjectFileType.Seed => "🌱",
                     _ => "📄"
                 };
                 fileList.Add((file, name, type, icon));
             }
             foreach (var (path, name, type, icon) in fileList.OrderBy(f => f.name, StringComparer.OrdinalIgnoreCase))
             {
-                folder.Children.Add(new ProjectExplorerItem
+                var fileItem = new ProjectExplorerItem
                 {
                     Name = name,
                     FullPath = path,
@@ -781,7 +819,9 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
                     FileType = type,
                     Icon = icon,
                     IsMissing = !File.Exists(path)
-                });
+                };
+                TagProjectManifest(fileItem);
+                folder.Children.Add(fileItem);
             }
             var subDirs = Directory.GetDirectories(dirPath)
                 .Select(sub => (path: sub, name: Path.GetFileName(sub)))
@@ -816,7 +856,8 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
             3 => item.FileType == ProjectFileType.Scripts,
             4 => item.FileType == ProjectFileType.Animations,
             5 => item.FileType == ProjectFileType.TileSet || (item.FileType == ProjectFileType.Generic && (item.FullPath?.Contains("Tileset", StringComparison.OrdinalIgnoreCase) == true || item.Name?.Contains("tileset", StringComparison.OrdinalIgnoreCase) == true)),
-            6 => item.FileType == ProjectFileType.Generic && (item.FullPath != null && item.FullPath.Replace("\\", "/").IndexOf("/Seeds/", StringComparison.OrdinalIgnoreCase) >= 0 || item.Name?.StartsWith("seed", StringComparison.OrdinalIgnoreCase) == true),
+            6 => item.FileType == ProjectFileType.Seed
+                 || (item.FileType == ProjectFileType.Generic && (item.FullPath != null && item.FullPath.Replace("\\", "/").IndexOf("/Seeds/", StringComparison.OrdinalIgnoreCase) >= 0 || item.Name?.StartsWith("seed", StringComparison.OrdinalIgnoreCase) == true)),
             _ => true
         };
     }
@@ -857,7 +898,13 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
     {
         if (item == null || item.IsFolder || string.IsNullOrEmpty(item.FullPath)) return;
         var ext = Path.GetExtension(item.FullPath).ToLowerInvariant();
-        if (ext == ".fue" || ext == ".seed") return;
+        if (ext == ".fue") return;
+        if (ext == ".seed")
+        {
+            _metadataService?.RecordRecent(item.FullPath);
+            RequestOpenInEditor?.Invoke(this, item);
+            return;
+        }
         _metadataService?.RecordRecent(item.FullPath);
         if (CreativeSuiteMetadata.IsImagePath(item.FullPath))
         {
@@ -957,6 +1004,7 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
                     ProjectFileType.Scene => "Descriptor de escena (.scene)",
                     ProjectFileType.Sprite => "Imagen / sprite",
                     ProjectFileType.TileSet => "TileSet",
+                    ProjectFileType.Seed => "Seed prefab (.seed)",
                     _ => Path.GetFileName(item.FullPath ?? "")
                 };
         }
@@ -1135,21 +1183,12 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
             var miCarpeta = new MenuItem { Header = "Carpeta" };
             miCarpeta.Click += (_, _) => CreateNewFolder(targetDir);
             nuevo.Items.Add(miCarpeta);
-            var miTileLayer = new MenuItem { Header = "Nuevo Tile Layer" };
-            miTileLayer.Click += (_, _) => RequestCreateTileLayer?.Invoke(this, EventArgs.Empty);
-            nuevo.Items.Add(miTileLayer);
-            var miObjectLayer = new MenuItem { Header = "Nuevo Object Layer" };
-            miObjectLayer.Click += (_, _) => RequestCreateObjectLayer?.Invoke(this, EventArgs.Empty);
-            nuevo.Items.Add(miObjectLayer);
             var miPixelGroup = new MenuItem { Header = "Nuevo Pixel/Tile Group" };
             miPixelGroup.Click += (_, _) => System.Windows.MessageBox.Show("Crear grupo: usa la Jerarquía del mapa para añadir grupos.", "Explorador", System.Windows.MessageBoxButton.OK);
             nuevo.Items.Add(miPixelGroup);
             var miTriggerZone = new MenuItem { Header = "Nuevo Trigger Zone" };
             miTriggerZone.Click += (_, _) => RequestCreateTriggerZone?.Invoke(this, EventArgs.Empty);
             nuevo.Items.Add(miTriggerZone);
-            var miObjeto = new MenuItem { Header = "Nuevo Objeto" };
-            miObjeto.Click += (_, _) => RequestCreateObject?.Invoke(this, EventArgs.Empty);
-            nuevo.Items.Add(miObjeto);
             var miTileSet = new MenuItem { Header = "Archivo TileSet" };
             miTileSet.Click += (_, _) => CreateNewTileSet(targetDir);
             nuevo.Items.Add(miTileSet);
@@ -1208,15 +1247,6 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
                 var miFav = new MenuItem { Header = isFav ? "Quitar de favoritos" : "Añadir a favoritos" };
                 miFav.Click += (_, _) => { if (isFav) _metadataService.RemoveFavorite(item.FullPath); else _metadataService.AddFavorite(item.FullPath); RefreshQuickLists(); };
                 menu.Items.Add(miFav);
-                var isPin = _metadataService.IsPinned(item.FullPath);
-                var miPin = new MenuItem { Header = isPin ? "Desfijar" : "Fijar" };
-                miPin.Click += (_, _) =>
-                {
-                    if (isPin) { _metadataService.RemovePinned(item.FullPath); _metadataService.RemoveFavorite(item.FullPath); }
-                    else { _metadataService.AddPinned(item.FullPath); _metadataService.AddFavorite(item.FullPath); }
-                    RefreshQuickLists();
-                };
-                menu.Items.Add(miPin);
             }
             var miDup = new MenuItem { Header = "Duplicar" };
             miDup.Click += (_, _) => DuplicateItem(item);

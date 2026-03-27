@@ -7,7 +7,7 @@ namespace FUEngine;
 
 
 /// <summary>
-/// Configuración global del motor (guardada en settings.json).
+/// Configuración global del motor (preferencias del editor en <c>%LocalAppData%/FUEngine/Config/user_preferences.json</c>).
 /// </summary>
 public class EngineSettings
 {
@@ -42,6 +42,10 @@ public class EngineSettings
 
     [JsonPropertyName("autoUpdateChannel")]
     public string AutoUpdateChannel { get; set; } = "Stable"; // Stable, Beta
+
+    /// <summary>Si true, la carpeta <c>Data/</c> (índices JSON del sistema) no aparece en el Explorador del editor; sigue visible en el disco.</summary>
+    [JsonPropertyName("hideDataFolderInExplorer")]
+    public bool HideDataFolderInExplorer { get; set; } = true;
 
     /// <summary>Hub, LastProject, NewProject.</summary>
     [JsonPropertyName("startupBehavior")]
@@ -383,9 +387,7 @@ public class EngineSettings
     [JsonPropertyName("favoriteTileTypes")]
     public List<string> FavoriteTileTypes { get; set; } = new();
 
-    private static string SettingsPath =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "FUEngine", "settings.json");
+    private static string SettingsPath => FUEngineAppPaths.UserPreferencesPath;
 
     /// <summary>Nombre de la carpeta por defecto para proyectos del usuario (dentro del perfil).</summary>
     public const string DefaultProjectsFolderName = "MisProyectosEditor";
@@ -413,28 +415,46 @@ public class EngineSettings
     /// <summary>Carga la configuración guardada o devuelve valores por defecto.</summary>
     public static EngineSettings Load()
     {
+        FUEngineAppPaths.EnsureLayout();
         try
         {
-            if (File.Exists(SettingsPath))
+            var path = SettingsPath;
+            if (!File.Exists(path) && File.Exists(FUEngineAppPaths.LegacySettingsPath))
             {
-                var json = File.ReadAllText(SettingsPath);
+                try
+                {
+                    var dir = Path.GetDirectoryName(path);
+                    if (!string.IsNullOrEmpty(dir))
+                        Directory.CreateDirectory(dir);
+                    File.Copy(FUEngineAppPaths.LegacySettingsPath, path, overwrite: false);
+                }
+                catch { path = FUEngineAppPaths.LegacySettingsPath; }
+            }
+
+            if (File.Exists(path))
+            {
+                var json = File.ReadAllText(path);
                 var options = new System.Text.Json.JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true,
                     PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
                 };
-                return System.Text.Json.JsonSerializer.Deserialize<EngineSettings>(json, options) ?? new EngineSettings();
+                var loaded = System.Text.Json.JsonSerializer.Deserialize<EngineSettings>(json, options) ?? new EngineSettings();
+                if (string.Equals(path, FUEngineAppPaths.LegacySettingsPath, StringComparison.OrdinalIgnoreCase))
+                    Save(loaded);
+                return loaded;
             }
         }
         catch { /* use default */ }
         return new EngineSettings();
     }
 
-    /// <summary>Guarda la configuración en settings.json (crea la carpeta si no existe).</summary>
+    /// <summary>Guarda la configuración en Config/user_preferences.json (crea la carpeta si no existe).</summary>
     public static void Save(EngineSettings settings)
     {
         try
         {
+            FUEngineAppPaths.EnsureLayout();
             var dir = Path.GetDirectoryName(SettingsPath);
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                 Directory.CreateDirectory(dir);

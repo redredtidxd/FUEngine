@@ -28,6 +28,8 @@ public class ProjectExplorerItem
     public Dictionary<string, string>? CustomMetadata { get; set; }
     /// <summary>Si está bloqueado no se permite renombrar/eliminar sin confirmación.</summary>
     public bool IsLocked { get; set; }
+    /// <summary>Project.FUE / proyecto.json canónico del proyecto abierto (resaltado en el árbol).</summary>
+    public bool IsProjectManifestFile { get; set; }
 }
 
 public enum ProjectFileType
@@ -43,5 +45,7 @@ public enum ProjectFileType
     Sound,
     /// <summary>Descriptor de escena (<c>.scene</c> en <c>Scenes/</c>).</summary>
     Scene,
+    /// <summary>Prefab / seed (<c>.seed</c>).</summary>
+    Seed,
     Generic
 }

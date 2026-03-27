@@ -26,6 +26,11 @@ public partial class AboutWindow : Window
         sb.AppendLine($"OS: {GetOsInfo()}");
 
         TxtVersion.Text = sb.ToString();
+
+        TxtLicense.Text =
+            "Copyright © Red Redtid. Uso sujeto a LICENSE.md en el repositorio. " +
+            "No es licencia MIT/Apache ni «open source» OSI; productos comerciales: revenue share según el acuerdo. " +
+            "Build pública sin garantías.";
     }
 
     private static string GetOsInfo()

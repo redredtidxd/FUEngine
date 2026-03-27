@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using FUEngine.Core;
 using FUEngine.Editor;
 
 namespace FUEngine;
@@ -51,13 +52,13 @@ public static class UnusedAssetScanner
             catch { /* ignore */ }
         }
 
-        var scriptsPath = Path.Combine(projectDirectory, "scripts.json");
+        var scriptsPath = ProjectIndexPaths.ResolveScriptsJson(projectDirectory);
         if (File.Exists(scriptsPath)) set.Add(scriptsPath);
 
-        var animPath = Path.Combine(projectDirectory, "animaciones.json");
+        var animPath = ProjectIndexPaths.ResolveAnimacionesJson(projectDirectory);
         if (File.Exists(animPath)) set.Add(animPath);
 
-        var seedsPath = Path.Combine(projectDirectory, "seeds.json");
+        var seedsPath = ProjectIndexPaths.ResolveSeedsJson(projectDirectory);
         if (File.Exists(seedsPath)) set.Add(seedsPath);
         var prefabsPath = Path.Combine(projectDirectory, "prefabs.json");
         if (File.Exists(prefabsPath)) set.Add(prefabsPath);

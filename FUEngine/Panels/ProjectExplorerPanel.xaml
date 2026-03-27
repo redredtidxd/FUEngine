@@ -102,15 +102,30 @@
             </TreeView.ItemContainerStyle>
             <TreeView.ItemTemplate>
                 <HierarchicalDataTemplate DataType="{x:Type local:ProjectExplorerItem}" ItemsSource="{Binding Children}">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" ToolTip="{Binding FullPath}">
-                        <TextBlock Text="{Binding Icon}" Width="18" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                        <Border Width="6" Height="10" Margin="0,0,4,0" CornerRadius="1" VerticalAlignment="Center"
-                                Background="{Binding Color, Converter={StaticResource StringToBrush}}"
-                                Visibility="{Binding Color, Converter={StaticResource NullToVisibilityConverter}}"/>
-                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="160"/>
-                        <TextBlock Text=" ●" Foreground="#58a6ff" Visibility="{Binding IsModified, Converter={StaticResource BoolToVis}}" Margin="2,0,0,0"/>
-                        <TextBlock Text=" ⚠" Foreground="#f85149" Visibility="{Binding IsMissing, Converter={StaticResource BoolToVis}}" Margin="2,0,0,0"/>
-                    </StackPanel>
+                    <Border Padding="2,4" CornerRadius="3" Margin="0,1" ToolTip="{Binding FullPath}">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsProjectManifestFile}" Value="True">
+                                        <Setter Property="Background" Value="#3a3220"/>
+                                        <Setter Property="BorderBrush" Value="#a88b32"/>
+                                        <Setter Property="BorderThickness" Value="1"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Icon}" Width="18" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <Border Width="6" Height="10" Margin="0,0,4,0" CornerRadius="1" VerticalAlignment="Center"
+                                    Background="{Binding Color, Converter={StaticResource StringToBrush}}"
+                                    Visibility="{Binding Color, Converter={StaticResource NullToVisibilityConverter}}"/>
+                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="160"/>
+                            <TextBlock Text=" ●" Foreground="#58a6ff" Visibility="{Binding IsModified, Converter={StaticResource BoolToVis}}" Margin="2,0,0,0"/>
+                            <TextBlock Text=" ⚠" Foreground="#f85149" Visibility="{Binding IsMissing, Converter={StaticResource BoolToVis}}" Margin="2,0,0,0"/>
+                        </StackPanel>
+                    </Border>
                 </HierarchicalDataTemplate>
             </TreeView.ItemTemplate>
             </TreeView>
@@ -120,10 +135,25 @@
                      PreviewMouseLeftButtonDown="ProjectList_OnPreviewMouseLeftButtonDown">
                 <ListBox.ItemTemplate>
                     <DataTemplate DataType="{x:Type local:ProjectExplorerItem}">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding Icon}" Width="18" FontSize="12" Margin="0,0,6,0"/>
-                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                        </StackPanel>
+                        <Border Padding="4,2" CornerRadius="3">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsProjectManifestFile}" Value="True">
+                                            <Setter Property="Background" Value="#3a3220"/>
+                                            <Setter Property="BorderBrush" Value="#a88b32"/>
+                                            <Setter Property="BorderThickness" Value="1"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Icon}" Width="18" FontSize="12" Margin="0,0,6,0"/>
+                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </Border>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
@@ -138,8 +168,21 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type local:ProjectExplorerItem}">
-                            <Border Width="72" Height="72" Margin="4" Background="#21262d" CornerRadius="4" Padding="4" Cursor="Hand"
+                            <Border Width="72" Height="72" Margin="4" CornerRadius="4" Padding="4" Cursor="Hand"
                                     MouseLeftButtonDown="ProjectGridItem_OnMouseDown">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="#21262d"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsProjectManifestFile}" Value="True">
+                                                <Setter Property="Background" Value="#3a3220"/>
+                                                <Setter Property="BorderBrush" Value="#a88b32"/>
+                                                <Setter Property="BorderThickness" Value="1"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Icon}" FontSize="24" HorizontalAlignment="Center" Foreground="#e6edf3"/>
                                     <TextBlock Text="{Binding Name}" Foreground="#e6edf3" FontSize="10" TextAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="64" Margin="0,4,0,0"/>

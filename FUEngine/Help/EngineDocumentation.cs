@@ -1,7 +1,9 @@
+using System.Runtime.CompilerServices;
+
 namespace FUEngine.Help;
 
 /// <summary>Contenido de ayuda in-app: qué es cada parte del motor, para qué sirve y por qué existe.</summary>
-public static class EngineDocumentation
+public static partial class EngineDocumentation
 {
     public const string QuickStartTopicId = "quick-start";
 
@@ -19,7 +21,14 @@ public static class EngineDocumentation
                || id.StartsWith("lua-guide-", StringComparison.Ordinal);
     }
 
-    public static IReadOnlyList<DocumentationTopic> Topics { get; } = BuildTopics();
+    /// <summary>
+    /// Inicialización diferida: el primer acceso ocurre después de todos los inicializadores de campos estáticos
+    /// del tipo (p. ej. <c>ManualPresentation</c> en el otro partial), evitando NRE por orden de partials/CLR.
+    /// </summary>
+    private static IReadOnlyList<DocumentationTopic>? _topics;
+
+    public static IReadOnlyList<DocumentationTopic> Topics =>
+        LazyInitializer.EnsureInitialized(ref _topics, BuildTopics);
 
     private static IReadOnlyList<DocumentationTopic> BuildTopics()
     {
@@ -33,7 +42,7 @@ public static class EngineDocumentation
             paragraphs: new[]
             {
                 "Abre o crea un proyecto desde la pantalla de inicio (Hub). Cada proyecto es una carpeta con configuración y escenas; el Hub también ofrece biblioteca global, Lua global, estado del motor y FUEngine Spotlight (Ctrl+P), un buscador integrado en la misma ventana para proyectos y la guía AI-ONBOARDING. Con Discord en ejecución, el estado del motor puede mostrarse en tu perfil (Rich Presence): pestañas del Hub, del editor, ayuda integrada, Spotlight y ventanas modales (configuración, exportación, etc.) actualizan el texto. El cliente envía un botón «Ver en GitHub» al repositorio público del motor (https://github.com/redredtidxd/FUEngine); suele verse al abrir el perfil completo o en la vista de actividad. Si no aparece, revisa en el Developer Portal de Discord (aplicación FUEngine) la configuración de Rich Presence y dominios o reglas de URLs para botones, y la consola del editor (categoría Discord) por errores del RPC. Si Discord no está abierto o falla la conexión, también puede haber avisos ahí.",
-                "Abre una escena (Archivo → Abrir escena o pestañas Scene). La escena enlaza mapa, objetos, triggers, scripts y UI.",
+                "Abre una escena (Mapa → Abrir escena o pestañas Scene). La escena enlaza mapa, objetos, triggers, scripts y UI.",
                 "Al abrir el editor, la primera pestaña central es Mapa (edición del tilemap); la pestaña Juego muestra Play embebido. Pinta tiles con la capa activa en el panel de capas a la derecha y coloca objetos con la herramienta Colocar o desde la jerarquía.",
                 "Guarda con Ctrl+S o Guardar todo. Prueba el juego con Proyecto → Iniciar juego o el panel de Play / pestaña Juego.",
                 "Los scripts Lua viven en archivos .lua registrados en el proyecto; se asignan a objetos en el Inspector (lista Scripts). En la pestaña Scripts el editor sugiere APIs mientras escribes (Ctrl+Espacio para forzar sugerencias)."
@@ -42,7 +51,7 @@ public static class EngineDocumentation
             {
                 "Explorador de archivos = disco del proyecto. Jerarquía de la escena = nodos lógicos (Scene, Map/Layers, objetos, triggers, UI).",
                 "Si algo no se ve: revisa capa visible, herramienta activa y pestaña correcta (Mapa vs Scripts vs Juego).",
-                "Con el proyecto abierto: menú Ayuda (documentación rápida / completa) o menú Proyecto → mismas guías sin salir del flujo de trabajo.",
+                "Con el proyecto abierto: menú Ayuda (manual rápido / manual completo / API Lua).",
                 "Más temas en el manual: Depuración, Hot reload, Escenas múltiples, Triggers mapa vs objeto, Exportación build, FAQ troubleshooting.",
                 "Si clonaste el repositorio: ver el tema «Compilar desde el repositorio» y README.md en la raíz (tools\\publicar.bat abre la carpeta con FUEngine.exe)."
             }),
@@ -141,17 +150,19 @@ public static class EngineDocumentation
 
         new(
             id: "menus-principales",
-            title: "Menús principales (Archivo, Editar, Proyecto, …)",
+            title: "Menús principales (Archivo, Editar, Proyecto, Mapa, …)",
             paraQue: "Operaciones globales: guardar, deshacer, exportar, configuración y simulación.",
             porQueImporta: "Muchas acciones no tienen botón dedicado y solo están en menú.",
             paragraphs: new[]
             {
-                "Archivo: nuevo/abrir proyecto, crear/abrir/duplicar/eliminar/importar escenas, guardar mapa y guardar todo, exportar parcial, salir.",
-                "Editar: deshacer/rehacer, copiar/pegar/duplicar zonas de tiles, snapshots del mapa, borrar selección.",
-                "Proyecto: configuración del proyecto, propiedades del mapa, tamaño de tiles, integridad, limpieza de huérfanos, snapshots de proyecto, simulación, export build, iniciar/detener/pausar juego.",
-                "Assets: biblioteca global para copiar recursos al proyecto.",
-                "Ver: visibilidad de paneles y submenú de escenas. Herramientas: mismo conjunto que la barra de herramientas del mapa.",
-                "Ayuda: documentación rápida/completa, atajos, acerca de. Configuración: preferencias del motor."
+                "Archivo: nuevo/abrir proyecto, guardar escena (mapa+objetos+UI), guardar escena como copia, guardar todo, importar assets a Assets/Sprites y Assets/Audio, exportar parcial, salir al Hub o salir del motor.",
+                "Editar: deshacer/rehacer, copiar/pegar/duplicar zonas de tiles, snapshots del mapa, borrar selección, preferencias del editor (tema, idioma, AppData), atajos de teclado.",
+                "Proyecto: ajustes del manifiesto .FUE (Inspector), editor avanzado (chunks, rutas), scripts, biblioteca global, integridad, huérfanos, limpiar caché (Vulkan/Cache en AppData), snapshots, simulación, export build, iniciar/detener/pausar juego.",
+                "Mapa: crear/abrir/duplicar/eliminar/importar escenas, fondo del visor y propiedades del mapa, regenerar colisiones (flujo del editor de colisiones).",
+                "Semillas: crear .seed en Seeds/ y abrir carpeta GlobalTemplates (AppData).",
+                "Ventana: paneles (jerarquía, inspector), pestañas (Mapa, Explorador, Scripts, Consola, Juego), restablecer disposición de pestañas y paneles.",
+                "Herramientas: mismo conjunto que la barra de herramientas del mapa.",
+                "Ayuda: manual rápido/completo, API Lua, abrir carpeta de logs, reportar bug en GitHub, acerca de (versión y licencia). Preferencias del motor: Editar → Preferencias del editor."
             }),
 
         new(
@@ -186,11 +197,11 @@ public static class EngineDocumentation
             paragraphs: new[]
             {
                 "Jerarquía: raíz «Scene: nombre»; «Map · archivo» con Layers. Instancias de objetos, triggers y Canvas UI cuelgan directamente de la escena (sin carpetas Objetos/UI). La carpeta Groups agrupa píxeles/tiles.",
-                "Desde la jerarquía: capas desde Map/Layers o el panel de capas; objetos, triggers y UI como hijos de la escena; duplicar, renombrar, propiedades. Arrastrar un .seed al nodo escena o a la capa Objetos instancia. Arrastrar un objeto al explorador guarda un .seed.",
+                "Desde la jerarquía: capas desde Map/Layers o el panel de capas; objetos, triggers y UI como hijos de la escena; duplicar, renombrar, propiedades. Arrastrar un .seed al nodo escena, a la capa Objetos o al canvas del mapa instancia en esa posición. Arrastrar un objeto al explorador guarda un .seed.",
                 "Clic derecho en la raíz escena o en el fondo vacío: crear objeto, trigger, grupo, Nuevo Mapa (archivo .map nuevo), UI (Canvas, Text, Button, Panel, TabControl). Las capas solo desde Map/Layers o el panel de capas.",
                 "Explorador: árbol de carpetas del proyecto; vistas lista y cuadrícula con carpeta actual y migas. Clic en el fondo deselecciona. Clic derecho en carpeta: Nuevo (Tile Layer, Object Layer, Trigger, Objeto, TileSet JSON, Seed, Script JSON, .lua, Sonido importado o grabado, etc.).",
                 "Sobre un archivo: Abrir, favoritos, fijar, duplicar, eliminar, renombrar, mostrar en carpeta, propiedades, copiar ruta.",
-                "Doble clic: .lua y .json abren la pestaña Scripts; los archivos .FUE y .seed no abren editor con doble clic (usa menú contextual, arrastra seeds a la jerarquía o búscalos en Spotlight en el editor).",
+                "Clic en el manifiesto del proyecto (Project.FUE o proyecto.json canónico): Inspector con panel de control del proyecto (resolución, tile, autoría, cámara, colores, guardar, exportar, integridad, carpeta). El manifiesto se resalta en el explorador. Doble clic en el .FUE del manifiesto abre la configuración avanzada del proyecto. En proyectos nuevos, los JSON de índice (scripts, seeds, animaciones, audio) suelen estar en la carpeta Data; el explorador puede ocultar Data en preferencias del motor. Clic en un .seed: Inspector con resumen del prefab y «Abrir script asociado» si aplica. Doble clic en .lua y .json abre la pestaña Scripts; doble clic en .seed abre el .lua del seed si está registrado.",
                 "Imágenes: «Editar colisiones…» abre el editor de colisiones. .lua: «Abrir en Tile por script» si aplica."
             }),
 
@@ -221,7 +232,7 @@ public static class EngineDocumentation
                 "Nada o contexto general: vista resumen del mapa (conteos, herramienta, capa) — Overview.",
                 "Un objeto: ObjectInspector — cabecera (nombre, ID abreviado, activo en Play), bloque Identidad (GUID solo lectura, regenerar, tipo, etiquetas, capa Z, visible), Transform, luz puntual opcional, expander «Sprite, física y gameplay (Play)»: tinte/flip/sort, clip de animación por defecto, forma de colisión Box/Circle y tamaños, rigidbody, CameraTarget, ProximitySensor, Health, AudioSource, ParticleEmitter (persistidos en objetos.json). Interacción y scripts.",
                 "Scripts: lista y «Añadir componente…» (visibilidad, sprite avanzado, colisión, rigidbody, luz, animación, audio, proximidad, salud, cámara, partículas, foco en scripts). Arrastrar un .lua al panel añade el script si está en scripts.json. Arrastrar un objeto desde la jerarquía sobre un campo tipo referencia rellena el InstanceId.",
-                "Propiedades del script: líneas -- @prop nombre: tipo = valor (prioridad) o variables globales en la raíz del .lua; tipos incl. object (InstanceId). Con Play activo, sincronización hot y edición al perder foco.",
+                "Propiedades del script: líneas -- @prop nombre: tipo = valor (prioridad) o variables globales en la raíz del .lua; tipos incl. object (InstanceId). Con Play activo, sincronización hot y edición al perder foco. El expander «Variables de script (@prop / globales)» en el inspector es donde el diseñador cambia esos valores por instancia (ver temas «Conectar scripts con el motor» y «Objeto + script + Inspector: hitbox, partículas y @prop»).",
                 "Varios objetos seleccionados: MultiObjectInspector. Trigger: TriggerZoneInspector. Capa: LayerInspector (incluye script de capa Lua y entradas futuras de componentes). Tile bajo cursor: TileInspector. Animación: AnimationInspector. UI: UIElementInspector. Archivo en explorador: panel rápido de propiedades de asset."
             }),
 
@@ -327,7 +338,10 @@ public static class EngineDocumentation
                 "game: loadScene(name), quit(), setRandomSeed, randomInt, randomDouble.",
                 "ads: loadInterstitial/loadRewarded (callbacks opcionales), showInterstitial/showRewarded (callbacks con bool de éxito), showBanner, isRewardedReady, setTestMode, setTagForChildDirectedTreatment. En modo Play del editor se usa un simulador (sin SDK real) que registra en consola.",
                 "Debug (si está inyectado): drawLine, drawCircle — colores RGBA 0–255; útil para depurar en la vista de juego.",
-                "ComponentProxy: typeName, invoke(method, ...), invokeWithResult(...). Para ScriptComponent llama métodos expuestos en la instancia Lua."
+                "ComponentProxy: typeName, invoke(method, ...), invokeWithResult(...). Para ScriptComponent llama métodos expuestos en la instancia Lua.",
+                "Operadores y tipos Lua: == compara valores; tablas solo son iguales por identidad. Usa tonumber/tostring al mezclar números y cadenas desde UI o JSON.",
+                "Iteración: for i = 1, #lista do con arrays densos; pairs para diccionarios; evita modificar la tabla que iteras salvo que sepas el comportamiento de Lua.",
+                "Errores: un error en onUpdate puede detener la ejecución del script en ese frame; la consola muestra archivo y línea si el runtime lo reporta. pcall protege bloques experimentales."
             },
             bullets: new[]
             {
@@ -335,7 +349,10 @@ public static class EngineDocumentation
                 "world.raycastCombined elige el impacto más cercano entre tiles y objetos.",
                 "getPlayer devuelve el primer objeto llamado «Player» (comparación case-insensitive).",
                 "Más detalle: tema «Física y raycast: mapa vs colliders en escena» (cuándo usar cada tabla).",
-                "self.addComponent(typeName) puede devolver false si el host no tiene factory para ese tipo (añadir componentes en runtime no está garantizado)."
+                "self.addComponent(typeName) puede devolver false si el host no tiene factory para ese tipo (añadir componentes en runtime no está garantizado).",
+                "Sintaxis : vs . y patrones nil-safe: pestaña «Lua — sintaxis y librería» (guías colon-syntax, nil-safe-patterns, print-debug).",
+                "Fragmentos de movimiento, cooldowns y dbggrid: tema «Lua: patrones y fragmentos útiles».",
+                "Registrar script en el objeto, hitbox y partículas desde el inspector: «Conectar scripts con el motor» y «Objeto + script + Inspector: hitbox, partículas y @prop»."
             }),
 
         new(
@@ -349,11 +366,14 @@ public static class EngineDocumentation
                 "El editor usa resaltado de sintaxis Lua y JSON (definición Lua embebida en el motor, alineada al tema oscuro). El color base del texto no depende solo del tema de la ventana: el resaltado aplica tonos distintos a comentarios, cadenas y palabras clave. Mientras escribes, aparecen sugerencias para identificadores y miembros tras escribir un punto (world., self., ads., …). Ctrl+Espacio fuerza el menú de completado; Escape lo cierra. Las entradas muestran iconos pequeños (tablas, métodos, ads).",
                 "Las palabras clave Lua vienen de LuaLanguageKeywords (misma lista que Spotlight). Cada una tiene tema propio en la pestaña «Lua — sintaxis y librería» del panel de documentación (Ayuda / Proyecto o enlace Lua (sintaxis) en el Hub); Spotlight (Ctrl+P) abre ese tema al confirmar la entrada.",
                 "Los nombres tras «tabla.» se generan por reflexión desde clases [LuaVisible] en FUEngine.Runtime (jerarquía de tipos y campos públicos; incluye layer., component. tras getComponent, Key./Mouse., etc.); MergeDynamic sigue añadiendo globales extra.",
-                "Menú contextual en la lista: abrir en el editor, abrir con aplicación externa o mostrar en el explorador de Windows."
+                "Menú contextual en la lista: abrir en el editor, abrir con aplicación externa o mostrar en el explorador de Windows.",
+                "Snippets: escribe dbggrid y acepta la plantilla para insertar depuración de rejilla (Debug.drawGrid) en un onUpdate — útil para ver alineación mundo/tiles.",
+                "Comillas y cadenas: usa comillas dobles o simples de forma consistente; escapa comillas internas si construyes rutas o ids en tiempo de ejecución."
             },
             bullets: new[]
             {
-                "Si la lista aparece vacía o abre rutas incorrectas al elegir Main, el proyecto debe tener directorio asignado antes de cargar scripts (flujo normal al abrir un proyecto)."
+                "Si la lista aparece vacía o abre rutas incorrectas al elegir Main, el proyecto debe tener directorio asignado antes de cargar scripts (flujo normal al abrir un proyecto).",
+                "Patrones Lua (movimiento, cooldowns): tema «Lua: patrones y fragmentos útiles»."
             }),
 
         new(
@@ -458,7 +478,7 @@ public static class EngineDocumentation
             {
                 "Pixel art: prioridad a nearest, sin AA por defecto, escala entera.",
                 "Arte HD o rotaciones suaves: ahí tienen sentido bilinear / MSAA / FXAA como opciones de proyecto o ventana.",
-                "Proyecto → Configuración del proyecto → pestaña Juego: Antialiasing global (ninguno / FXAA / MSAA reservado), muestras MSAA, filtrado de texturas (nearest vs bilinear). Se guardan en proyecto.json; el runtime Vulkan las aplicará cuando exista soporte.",
+                "Proyecto → Editor avanzado del proyecto → pestaña Juego: Antialiasing global (ninguno / FXAA / MSAA reservado), muestras MSAA, filtrado de texturas (nearest vs bilinear). Se guardan en proyecto.json; el runtime Vulkan las aplicará cuando exista soporte.",
                 "Inspector de capa → Añadir componente: catálogo con script Lua de capa (activo) y entradas reservadas (parallax automático, color grading, tilt-shift, clima, FXAA por capa, viento, agua, auto-tile, capa de daño)."
             }),
 
@@ -493,15 +513,19 @@ public static class EngineDocumentation
             paragraphs: new[]
             {
                 "La consola del editor muestra mensajes del motor, del log de Lua (print) y errores con ruta cuando el runtime los reporta.",
+                "Filtra por categoría (Info, advertencia, Lua, error) si el panel lo permite; los toasts resumen errores graves sin abrir el panel completo.",
                 "Breakpoints: desde el flujo de Play puedes marcar líneas; el juego se pausa y puedes reanudar cuando el soporte esté activo.",
                 "Debug.drawLine y Debug.drawCircle dibujan en coordenadas de mundo sobre la vista de juego embebida (RGBA 0–255).",
                 "Si un script no corre: revisa que esté en scripts.json, asignado al objeto, que el objeto tenga Enabled activo y que no haya error de sintaxis en el chunk inicial.",
-                "Hot reload al guardar .lua: la consola muestra si la recarga falló; entonces revisa el mensaje de error NLua."
+                "Hot reload al guardar .lua: la consola muestra si la recarga falló; entonces revisa el mensaje de error NLua.",
+                "Stack de Lua a veces menciona [C#]; la línea útil suele ser la del archivo .lua indicada en el mensaje."
             },
             bullets: new[]
             {
                 "Revisa también la pestaña Scripts: errores de carga aparecen al abrir o al guardar según configuración.",
-                "ChunkEntitySleep: objetos fuera del radio de chunks pueden no recibir onUpdate (optimización)."
+                "ChunkEntitySleep: objetos fuera del radio de chunks pueden no recibir onUpdate (optimización).",
+                "pcall en Lua: tema guía «pcall y xpcall» en la pestaña Lua.",
+                "Discord: errores del RPC van a consola (categoría Discord) — ver tema «Discord (Rich Presence)»."
             }),
 
         new(
@@ -694,8 +718,10 @@ public static class EngineDocumentation
             {
                 "Desde el menú Proyecto, exportar build empaqueta según ProjectBuildService y ventanas asociadas.",
                 "Incluye ejecutable, datos del proyecto y recursos referenciados cuando la ruta es correcta.",
-                "ads_export.json u otros ficheros auxiliares pueden crearse en la carpeta de salida.",
-                "Prueba siempre el .exe generado fuera del editor en una carpeta limpia."
+                "ads_export.json u otros ficheros auxiliares pueden crearse en la carpeta de salida (integración anuncios según AdsExportProvider del proyecto).",
+                "Prueba siempre el .exe generado fuera del editor en una carpeta limpia.",
+                "Antes de distribuir: ejecuta integridad del proyecto y revisa que audio.json y rutas de assets apunten a archivos incluidos en el paquete.",
+                "El build del juego es distinto de compilar el editor FUEngine desde el código (README.md: tools\\publicar.bat)."
             }),
 
         new(
@@ -902,12 +928,16 @@ public static class EngineDocumentation
                 "La sintaxis recomendada es comentario en la primera línea del bloque: -- @prop nombre: tipo = valor.",
                 "Tipos comunes: int, float, bool, string, object (InstanceId de otro objeto en escena).",
                 "Los nombres de eventos reservados (onUpdate, onStart, …) no deben usarse como variables editables.",
-                "En Play con depuración, el inspector puede sincronizar valores con Lua si la función está implementada.",
-                "MergeDynamic y otros mecanismos pueden añadir globales extra al entorno NLua."
+                "En Play con depuración, el inspector puede sincronizar valores con Lua si la función está implementada (LiveVariables / hot variables según versión).",
+                "MergeDynamic y otros mecanismos pueden añadir globales extra al entorno NLua.",
+                "Ejemplo: -- @prop velocidad: float = 4.5 — aparece en el inspector con tipo acotado; object referencia otro InstanceId de la escena para enlazar entidades en datos.",
+                "Variables con el mismo nombre que hooks reservados (onUpdate, onStart…) no deben usarse como @prop: el motor las ignora o entra en conflicto — ver KnownEvents."
             },
             bullets: new[]
             {
-                "Ver LuaScriptVariableParser y documentación técnica en AI-ONBOARDING.md §11."
+                "Ver LuaScriptVariableParser y documentación técnica en AI-ONBOARDING.md §11.",
+                "Multiselección: el inspector de varios objetos puede no mostrar @prop; edita uno a la vez para valores por instancia.",
+                "Flujo completo objeto + lista de scripts + hitbox/partículas: tema «Objeto + script + Inspector: hitbox, partículas y @prop»."
             }),
 
         new(
@@ -1062,20 +1092,23 @@ public static class EngineDocumentation
                 "Panel «Estado del motor»: último autoguardado detectado entre carpetas Autoguardados/Mapa de los proyectos recientes; conteo de la biblioteca global (texturas tileset/sprite/imagen/UI y .lua en el índice); versión del ejecutable con enlaces a AI-ONBOARDING (docs) y a esta documentación.",
                 "Acciones rápidas: pestaña «Scripts globales» (lista + ScriptEditorControl con resaltado y autocompletado en SharedAssets/Scripts); «Biblioteca» lleva a la pestaña Assets; «No usados» abre el escáner; botón «Buscar en el motor…» abre el panel Spotlight en esta ventana (sin atajo de teclado).",
                 "Tips rotativos y recordatorio de atajos; barra inferior: resumen de líneas [Error]/[Critical] en el log de sesión del día y uso aproximado de RAM del proceso; botones «Carpeta» (abre LocalApplicationData/FUEngine/logs) y «Limpiar» (vacía el .log de hoy en disco).",
-                "Crear proyecto en el Hub muestra el asistente en un overlay (datos básicos, mapa y tiles: tamaño de tile y de chunk con mini vista previa; sin mapa infinito ni plantilla/paleta en el asistente — la paleta por defecto está en Configuración del motor → Motor). «Generar jerarquía estándar» y carpetas extra/temas: pestaña Explorador. En el editor, Proyecto → Nuevo proyecto usa el mismo control. Recientes en AppData (recent.json). Al borrar o refrescar, el scroll de las listas vuelve arriba.",
-                "FUEngine Spotlight (Ctrl+P o Ctrl+Espacio): mismo buscador integrado en el Hub o en el editor (overlay en la ventana actual, no una ventana extra). Búsqueda unificada con totales del índice, coincidencias por categoría y lista agrupada; incluye manual integrado, Lua (API por reflexión con textos «para qué sirve» en LuaSpotlightDescriptions, hooks KnownEvents, palabras clave con tema dedicado en la pestaña «Lua — sintaxis y librería», biblioteca estándar; el juego en ejecución solo expone parte de la biblioteca Lua — ver LuaEnvironment), archivos .lua/.map/.seed, objetos en escena; en el Hub también proyectos recientes. Confirmar una palabra clave Lua abre su tema concreto en esa pestaña; hooks y API siguen enlazando al manual general. «Novedades» / onboarding abre docs/AI-ONBOARDING.md."
+                "Crear proyecto en el Hub muestra el asistente en un overlay (datos básicos, mapa y tiles: tamaño de tile y de chunk con mini vista previa; sin mapa infinito ni plantilla/paleta en el asistente — la paleta por defecto está en Configuración del motor → Motor). «Generar jerarquía estándar» y carpetas extra/temas: pestaña Explorador. En el editor, Proyecto → Nuevo proyecto usa el mismo control. Recientes en AppData: Storage/project_history.json (migración desde recent.json). Miniaturas del Hub: ProjectThumbs/*.png al usar Guardar todo. Al borrar o refrescar, el scroll de las listas vuelve arriba.",
+                "FUEngine Spotlight (Ctrl+P o Ctrl+Espacio): mismo buscador integrado en el Hub o en el editor (overlay en la ventana actual, no una ventana extra). Búsqueda unificada con totales del índice, coincidencias por categoría y lista agrupada; incluye manual integrado, Lua (API por reflexión con textos «para qué sirve» en LuaSpotlightDescriptions, hooks KnownEvents, palabras clave con tema dedicado en la pestaña «Lua — sintaxis y librería», biblioteca estándar; el juego en ejecución solo expone parte de la biblioteca Lua — ver LuaEnvironment), archivos .lua/.map/.seed, objetos en escena; en el Hub también proyectos recientes. Confirmar una palabra clave Lua abre su tema concreto en esa pestaña; hooks y API siguen enlazando al manual general. «Novedades» / onboarding abre docs/AI-ONBOARDING.md.",
+                "Pulsa un resultado de documentación para abrir el tema en el panel de ayuda sin salir del flujo: el manual in-app y la referencia Lua comparten el mismo host (dos pestañas: manual general y Lua).",
+                "Desde Spotlight puedes saltar a un hook concreto (onUpdate, onLayerUpdate…) y leer el párrafo asociado; combínalo con el tema «Eventos y hooks Lua» en el manual completo."
             },
             bullets: new[]
             {
                 "Pestaña Assets: mismo índice de biblioteca global que alimenta el resumen del Hub.",
-                "Referencia técnica del repo: docs/AI-ONBOARDING.md (enlace en Hub y Spotlight). docs/CHANGELOG.md opcional desde Spotlight si buscas «changelog»."
+                "Referencia técnica del repo: docs/AI-ONBOARDING.md (enlace en Hub y Spotlight). docs/CHANGELOG.md opcional desde Spotlight si buscas «changelog».",
+                "Discord: estado del motor en el perfil — tema «Discord (Rich Presence)»."
             }),
 
         new(
             id: "asistente-nuevo-proyecto-jerarquia",
             title: "Crear proyecto: Explorador (carpetas) y asistente",
             paraQue: "Controlar qué carpetas extra aparecen en la raíz y qué valores por defecto lleva el proyecto nuevo.",
-            porQueImporta: "settings.json guarda orden estándar, extras y tema; el asistente valida nombre y ruta antes de crear.",
+            porQueImporta: "Config/user_preferences.json (antes settings.json en la raíz de AppData) guarda orden estándar, extras y tema; el asistente valida nombre y ruta antes de crear.",
             paragraphs: new[]
             {
                 "En el asistente (Hub o Proyecto → Nuevo proyecto) marca «Generar jerarquía estándar» para crear en la raíz el orden Sprites, Maps, Scripts, Audio, Seeds (o tu lista personalizada si eliges Personalizado en Configuración del motor → Explorador).",
@@ -1171,8 +1204,110 @@ public static class EngineDocumentation
                 "Si Play no refleja cambios: guarda escena, revisa script asignado y consola de errores Lua.",
                 "Partículas/trail: los datos se guardan; el dibujo en el visor puede no coincidir con tus expectativas hasta que el render esté completo (ver tema dedicado).",
                 "BootstrapScriptId: no confíes en ejecución automática al pulsar Play sin comprobar el tema «BootstrapScriptId (aviso)»."
+            }),
+
+        new(
+            id: "discord-rich-presence",
+            title: "Discord (Rich Presence)",
+            paraQue: "Mostrar en Discord en qué parte del motor trabajas (Hub, editor, ayuda, modales).",
+            porQueImporta: "El cliente solo actualiza el estado si Discord está abierto; no sustituye documentación ni soporte.",
+            paragraphs: new[]
+            {
+                "Con la aplicación Discord en ejecución, FUEngine puede enviar actividad enriquecida: pestaña o ventana visible (Hub, Mapa, Scripts, Juego, Consola, documentación, Spotlight, diálogos de configuración o exportación, etc.).",
+                "El perfil puede incluir un botón «Ver en GitHub» al repositorio público del motor (según configuración de la aplicación Discord y políticas de URL). Si no ves el botón, revisa el Developer Portal de Discord y la consola del editor (categoría Discord) por errores del RPC.",
+                "La pestaña Juego con Play en marcha puede mostrar estado de «probando» o similar; al cambiar de pestaña, el texto suele reflejar la vista activa (p. ej. Consola cuando la ves).",
+                "Si no usas Discord, desactivar o ignorar esta función no afecta al guardado de proyectos ni al runtime Lua."
+            },
+            bullets: new[]
+            {
+                "No envía contenido de tus scripts ni rutas de proyecto a Discord; solo metadatos de estado del editor.",
+                "Problemas de conexión: mensajes en consola; el motor sigue funcionando sin Rich Presence."
+            }),
+
+        new(
+            id: "lua-patrones-snippets",
+            title: "Lua: patrones y fragmentos útiles",
+            paraQue: "Copiar ideas probadas: movimiento, timers, depuración en pantalla.",
+            porQueImporta: "Evita reinventar cada vez la misma estructura en onUpdate.",
+            paragraphs: new[]
+            {
+                "Movimiento por segundo: local speed = 5; self:move(vx * time.delta * speed, vy * time.delta * speed) — vx/vy dirección normalizada o -1..1 según input.",
+                "Cooldown sin coroutines: local last = 0; en onUpdate: if time.seconds - last > 2 then last = time.seconds; audio.play(\"sfx\") end.",
+                "Snippet dbggrid (mini-IDE): inserta un onUpdate con Debug.drawGrid para ver la rejilla de casillas en la vista de juego; útil para alinear colisiones con tiles.",
+                "Listar objetos: world.getObjects() / getAllObjects() devuelven proxies según el runtime; para un subconjunto suele ser más claro findByTag(\"enemigo\") o findNearestByTag(x, y, \"player\").",
+                "Capas: en main.lua de capa, guarda referencias en onStart (world:instantiate, etc.) y en onLayerUpdate actualiza posiciones; no uses self.",
+                "Depuración: Debug.drawLine(x1,y1,x2,y2,r,g,b,a) y drawCircle en coordenadas de mundo; colores 0–255. Limpia dibujos que no necesites cada frame para no saturar."
+            },
+            bullets: new[]
+            {
+                "Más sintaxis Lua: pestaña «Lua — sintaxis y librería» (palabras reservadas y guías pairs/pcall/…).",
+                "APIs completas: tema «Scripting Lua — referencia completa de APIs»."
+            }),
+
+        new(
+            id: "configuracion-motor-editor",
+            title: "Configuración del motor (preferencias globales)",
+            paraQue: "Ajustar Hub, explorador, autoguardado, atajos y comportamiento al arrancar sin tocar un proyecto concreto.",
+            porQueImporta: "EngineSettings vive aparte del proyecto.FUE; no se empaqueta en el juego exportado.",
+            paragraphs: new[]
+            {
+                "Menú Configuración o equivalente abre preferencias: idioma, tema, escala de UI, StartupBehavior (abrir Hub, último proyecto o asistente nuevo), paleta por defecto para proyectos nuevos.",
+                "Pestaña Explorador: orden de carpetas estándar al crear proyecto, carpetas extra por línea, temas predefinidos (Jam, UI+Prefabs…), opciones de logs automáticos del motor.",
+                "Atajos: presets (estilo Unity, Photoshop) y lista editable; conflicto con otra app = cambia el binding o el preset.",
+                "Autoguardado del editor y carpeta de backups pueden configurarse aquí y en proyecto; revisa espacio en disco en proyectos grandes.",
+                "La documentación in-app que lees se actualiza con el ejecutable; AI-ONBOARDING.md en el repo puede ser más reciente en desarrollo — enlaces desde Hub y Spotlight."
+            },
+            bullets: new[]
+            {
+                "Proyecto abierto: Proyecto → Editor avanzado del proyecto es distinto (resolución, física, FPS, escenas).",
+                "README.md del repo exige tools\\publicar.bat para generar FUEngine.exe desde fuente."
+            }),
+
+        new(
+            id: "scripts-conectar-motor",
+            title: "Conectar scripts con el motor (flujo de trabajo)",
+            paraQue: "Pasos claros: registrar el .lua, asignarlo al objeto, exponer parámetros y usar APIs en hooks.",
+            porQueImporta: "Sin scripts.json y sin entrada en la lista del objeto, el archivo no se ejecuta en Play.",
+            paragraphs: new[]
+            {
+                "1) Registro: el archivo .lua debe estar en Scripts/ y listado en scripts.json (id + path). La pestaña Scripts permite editar el registro.",
+                "2) Asignación: selecciona el objeto en la jerarquía → Inspector → expander «Scripts (Lua)» → combo «Agregar» elige el id del script → Agregar. Puedes tener varios scripts por instancia; el orden importa si comparten estado.",
+                "3) Código: en el .lua define hooks (onStart, onUpdate(dt), …). El motor inyecta self (proxy del objeto), world, input, time, etc. No uses local function onStart — deben ser funciones globales del chunk que NLua busca por nombre.",
+                "4) Datos por instancia: las propiedades editables aparecen en «Variables de script (@prop / globales)» debajo de la lista de scripts. Se generan desde comentarios -- @prop en el código o desde heurística de asignaciones globales en la raíz del archivo.",
+                "5) Play: guarda el mapa/objetos (Ctrl+S / Guardar todo). Los errores de Lua salen en la consola con ruta al .lua.",
+                "Arrastrar un .lua desde el explorador al panel de scripts solo funciona si ese script ya está en scripts.json (el editor valida antes de añadir)."
+            },
+            bullets: new[]
+            {
+                "Capas del mapa: asigna el .lua en el inspector de la capa (Ground, etc.), no en la lista de objetos — ver «Scripts de capa del mapa».",
+                "getComponent:invoke solo enruta métodos hacia otros ScriptComponent; los componentes C# (Collider, etc.) aún no exponen setters genéricos por invoke — ajusta hitbox y partículas en el Inspector o en datos.",
+                "Tema relacionado: «Objeto + script + Inspector: hitbox, partículas y @prop»."
+            }),
+
+        new(
+            id: "objeto-script-inspector-gameplay",
+            title: "Objeto + script + Inspector: hitbox, partículas y @prop",
+            paraQue: "Combinar datos del motor (collider, ParticleEmitter) con parámetros tunables del script en la misma instancia.",
+            porQueImporta: "La jerarquía selecciona el objeto; el Inspector mezcla componentes de gameplay y variables del script.",
+            paragraphs: new[]
+            {
+                "Jerarquía: clic en el objeto bajo «Scene: …» → el Inspector muestra identidad, transform, luz opcional, expander «Sprite, física y gameplay (Play)» y más abajo Interacción, Scripts (Lua) y Variables de script (@prop / globales).",
+                "Hitbox (AABB en Play): en «Sprite, física y gameplay», sección Collider (Box / Circle): forma, ancho y alto en casillas para caja, radio para círculo, offsets X/Y. Esos valores se guardan en la instancia (objetos.json) y el runtime crea ColliderComponent al iniciar Play. Cambiarlos en el editor es la forma soportada; en Lua, ComponentProxy.invoke no modifica ColliderComponent (solo ScriptComponent). Para lógica dinámica usa triggers, raycast o rediseña el tamaño en datos antes de Play.",
+                "Partículas: marca «Habilitar ParticleEmitter» y la ruta de textura en el mismo expander. El motor guarda también tasas y vida en la instancia (ParticleEmissionRate, ParticleLifeTime, ParticleGravityScale en datos); si tu build del editor solo muestra textura en la UI, el resto puede seguir existiendo en JSON o evolucionar en el inspector — en Play, PlayModeRunner crea ParticleEmitterComponent con textura, emisión, vida y gravedad.",
+                "Script que «usa» partículas: opción A — confías en los datos del motor: activas el componente y ajustas cifras en inspector/JSON; tu Lua solo reacciona (p. ej. self.active = false al terminar). Opción B — parámetros de diseño en el script: define -- @prop emision: float = 12, tinteParticulas: string = \"#FFAA00\" y en onUpdate lees esas variables (inyectadas como globales) para decidir self:setSpriteTint, audio.play o ramas de lógica; el diseñador cambia emision y tinte en «Variables de script» sin tocar el código.",
+                "Color del sprite (tinte visible): SpriteColorTintHex / setSpriteTint en Lua; no confundir con un «color de partícula» global si el visor de partículas aún es limitado — combina tinte de sprite + textura de partícula.",
+                "«Añadir propiedad» bajo Variables de script añade entradas al ScriptPropertyEntry de la instancia aunque no estén en el .lua todavía; alinear nombre y tipo con @prop evita inconsistencias.",
+                "Orden práctico: primero tipo de objeto y collider; luego scripts; luego @prop; por último prueba Play y revisa consola."
+            },
+            bullets: new[]
+            {
+                "Ejemplo mental: «Chispas» — ParticleEmitter habilitado + textura; script con @prop intensidad: float = 1 y en onUpdate if intensidad > 0 then … usando audio o visibilidad.",
+                "Multiselección: varios objetos seleccionados no muestran bien las variables de script; edita uno a la vez.",
+                "Referencias: «Variables de script: @prop», «Componentes: inspector, objetos.json y Play», «Partículas y trail: datos guardados»."
             })
         };
+        for (var i = 0; i < topics.Count; i++)
+            topics[i] = ApplyManualPresentation(topics[i]);
         topics.AddRange(LuaReferenceDocumentation.BuildTopics());
         return topics;
     }
@@ -1186,7 +1321,9 @@ public sealed class DocumentationTopic
         string? paraQue,
         string? porQueImporta,
         IReadOnlyList<string> paragraphs,
-        IReadOnlyList<string>? bullets = null)
+        IReadOnlyList<string>? bullets = null,
+        string? subtitle = null,
+        string? enMotor = null)
     {
         Id = id;
         Title = title;
@@ -1194,6 +1331,8 @@ public sealed class DocumentationTopic
         PorQueImporta = porQueImporta;
         Paragraphs = paragraphs;
         Bullets = bullets;
+        Subtitle = subtitle;
+        EnMotor = enMotor;
     }
 
     public string Id { get; }
@@ -1202,4 +1341,8 @@ public sealed class DocumentationTopic
     public string? PorQueImporta { get; }
     public IReadOnlyList<string> Paragraphs { get; }
     public IReadOnlyList<string>? Bullets { get; }
+    /// <summary>Línea bajo el título (contexto o tipo de tema).</summary>
+    public string? Subtitle { get; }
+    /// <summary>Cómo encaja en FUEngine frente a un Lua «genérico» u otro motor.</summary>
+    public string? EnMotor { get; }
 }

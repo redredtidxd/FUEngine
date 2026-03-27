@@ -34,6 +34,7 @@
                 <StackPanel>
                     <TextBlock Text="Acciones rápidas" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
                     <Button x:Name="BtnOpen" Content="Abrir" Padding="8,4" Margin="0,0,0,4" Background="#238636" Foreground="White" BorderThickness="0" Click="BtnOpen_OnClick"/>
+                    <Button x:Name="BtnOpenScript" Content="Abrir script asociado" Padding="8,4" Margin="0,0,0,4" Background="#1f6feb" Foreground="White" BorderThickness="0" Visibility="Collapsed" Click="BtnOpenScript_OnClick"/>
                     <Button x:Name="BtnDuplicate" Content="Duplicar" Padding="8,4" Margin="0,0,0,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnDuplicate_OnClick"/>
                     <Button x:Name="BtnRename" Content="Renombrar" Padding="8,4" Margin="0,0,0,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnRename_OnClick"/>
                     <Button x:Name="BtnShowInFolder" Content="Mostrar en carpeta" Padding="8,4" Margin="0,0,0,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnShowInFolder_OnClick"/>

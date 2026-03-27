@@ -35,4 +35,7 @@ public interface IMapEditorToolContext
     int ActiveLayerIndex { get; }
     /// <summary>True si la capa activa está bloqueada (no se puede pintar).</summary>
     bool IsActiveLayerLocked { get; }
+
+    /// <summary>Mapa finito: casilla dentro del rectángulo jugable; mapa infinito: siempre true.</summary>
+    bool IsFinitePaintableTile(int tx, int ty);
 }

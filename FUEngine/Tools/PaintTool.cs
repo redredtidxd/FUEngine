@@ -21,6 +21,7 @@ public sealed class PaintTool : ITool
     {
         if (_ctx.IsActiveLayerLocked) return;
         var (tx, ty) = _ctx.GetTileAt(canvasPos);
+        if (!_ctx.IsFinitePaintableTile(tx, ty)) return;
         _lastPaintedPos = (tx, ty);
 
         if (shift)
@@ -51,6 +52,7 @@ public sealed class PaintTool : ITool
         var newTile = _ctx.CreateTileData(_ctx.SelectedTileType);
         if (_ctx.BrushSize <= 1)
         {
+            if (!_ctx.IsFinitePaintableTile(tx, ty)) return;
             _ctx.TileMap.TryGetTile(layerIdx, tx, ty, out var prevTile);
             _ctx.History.Push(new PaintTileCommand(_ctx.TileMap, layerIdx, tx, ty, prevTile, newTile));
         }
@@ -61,9 +63,11 @@ public sealed class PaintTool : ITool
             for (int dy = 0; dy < _ctx.BrushSize; dy++)
             {
                 int px = tx + dx, py = ty + dy;
+                if (!_ctx.IsFinitePaintableTile(px, py)) continue;
                 _ctx.TileMap.TryGetTile(layerIdx, px, py, out var prev);
                 batch.Add(px, py, prev, newTile.Clone());
             }
+            if (batch.Count == 0) return;
             _ctx.History.Push(batch);
         }
         _ctx.SetMapModified();

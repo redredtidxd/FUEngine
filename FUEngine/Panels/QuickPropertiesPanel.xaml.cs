@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -13,8 +14,11 @@ public partial class QuickPropertiesPanel : System.Windows.Controls.UserControl
     private static readonly System.Windows.Media.Brush LabelBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xe6, 0xed, 0xf3));
     private static readonly System.Windows.Media.Brush ValueBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x8b, 0x94, 0x9e));
     private ProjectExplorerItem? _currentItem;
+    private string? _scriptPathToOpen;
 
     public event EventHandler<ProjectExplorerItem>? RequestOpenInEditor;
+    /// <summary>Abrir un .lua concreto (p. ej. desde un .seed).</summary>
+    public event EventHandler<string>? RequestOpenScriptPath;
     public event EventHandler<ProjectExplorerItem>? RequestDuplicate;
     public event EventHandler<ProjectExplorerItem>? RequestRename;
     public event EventHandler<ProjectExplorerItem>? RequestShowInFolder;
@@ -28,6 +32,8 @@ public partial class QuickPropertiesPanel : System.Windows.Controls.UserControl
     public void SetItem(ProjectExplorerItem? item, ProjectInfo? project, TileMap? tileMap, ObjectLayer? objectLayer, ScriptRegistry? scriptRegistry)
     {
         _currentItem = item;
+        _scriptPathToOpen = null;
+        if (BtnOpenScript != null) BtnOpenScript.Visibility = Visibility.Collapsed;
         if (ImgPreview != null) { ImgPreview.Source = null; }
         if (PreviewSection != null) PreviewSection.Visibility = Visibility.Collapsed;
         if (item == null)
@@ -160,7 +166,7 @@ public partial class QuickPropertiesPanel : System.Windows.Controls.UserControl
         {
             try
             {
-                var path = Path.Combine(project.ProjectDirectory ?? "", "animaciones.json");
+                var path = project.AnimacionesPath;
                 var anims = File.Exists(path) ? AnimationSerialization.Load(path) : new List<AnimationDefinition>();
                 AddSummaryLine("Animaciones", anims.Count.ToString());
                 AddSummaryHeader("Animaciones");
@@ -175,6 +181,69 @@ public partial class QuickPropertiesPanel : System.Windows.Controls.UserControl
                 SummaryPanel.Visibility = Visibility.Visible;
             }
             catch { AddSummaryLine("Animaciones", "0"); SummaryPanel.Visibility = Visibility.Visible; }
+        }
+        else if ((ext == ".seed" || item.FileType == ProjectFileType.Seed) && project != null && !string.IsNullOrEmpty(fullPath) && File.Exists(fullPath))
+        {
+            TxtType.Text = "Seed (prefab)";
+            TxtHint.Text = "Doble clic abre el script Lua si está registrado. Arrastra el archivo al mapa para colocar una instancia.";
+            TxtHint.Visibility = Visibility.Visible;
+            if (SeedExplorerHelpers.TryGetFirstSeed(fullPath, out var s) && s != null)
+            {
+                AddSummaryLine("Id", s.Id ?? "—");
+                AddSummaryLine("Nombre", s.Nombre ?? "—");
+                if (!string.IsNullOrWhiteSpace(s.Descripcion))
+                    AddSummaryLine("Descripción", s.Descripcion!);
+                if (s.Tags is { Count: > 0 })
+                    AddSummaryLine("Etiquetas", string.Join(", ", s.Tags));
+                AddSummaryLine("Objetos en seed", (s.Objects?.Count ?? 0).ToString());
+                var first = s.Objects?.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.SerializedInstanceJson)) ?? s.Objects?.FirstOrDefault();
+                if (first != null && !string.IsNullOrWhiteSpace(first.SerializedInstanceJson))
+                {
+                    try
+                    {
+                        var dto = System.Text.Json.JsonSerializer.Deserialize<ObjectInstanceDto>(first.SerializedInstanceJson, SerializationDefaults.Options);
+                        if (dto != null)
+                        {
+                            AddSummaryLine("Entidad (instancia)", string.IsNullOrWhiteSpace(dto.Nombre) ? "—" : dto.Nombre);
+                            AddSummaryLine("DefinitionId", dto.DefinitionId ?? "—");
+                            if (dto.ScriptIds is { Count: > 0 })
+                                AddSummaryLine("Scripts (orden)", string.Join(", ", dto.ScriptIds));
+                            if (dto.ScriptProperties is { Count: > 0 })
+                            {
+                                AddSummaryHeader("@prop / variables");
+                                foreach (var sp in dto.ScriptProperties.Take(12))
+                                {
+                                    foreach (var p in sp.Properties.Take(8))
+                                        AddSummaryLine($"  {sp.ScriptId}:{p.Key}", $"{p.Type} = {p.Value}");
+                                }
+                            }
+                        }
+                    }
+                    catch { /* JSON parcial */ }
+                }
+            }
+            SummaryPanel.Visibility = Visibility.Visible;
+            var pd = project.ProjectDirectory ?? "";
+            _scriptPathToOpen = SeedExplorerHelpers.TryResolveScriptPath(fullPath, pd, objectLayer, scriptRegistry);
+            if (!string.IsNullOrEmpty(_scriptPathToOpen) && File.Exists(_scriptPathToOpen) && BtnOpenScript != null)
+                BtnOpenScript.Visibility = Visibility.Visible;
+            var thumb = SeedExplorerHelpers.TryResolveSpritePreviewPath(fullPath, pd, objectLayer);
+            if (!string.IsNullOrEmpty(thumb) && File.Exists(thumb) && ImgPreview != null && PreviewSection != null)
+            {
+                try
+                {
+                    var bmp = new BitmapImage();
+                    bmp.BeginInit();
+                    bmp.CacheOption = BitmapCacheOption.OnLoad;
+                    bmp.UriSource = new Uri(thumb, UriKind.Absolute);
+                    bmp.DecodePixelWidth = 96;
+                    bmp.EndInit();
+                    bmp.Freeze();
+                    ImgPreview.Source = bmp;
+                    PreviewSection.Visibility = Visibility.Visible;
+                }
+                catch { /* ignore */ }
+            }
         }
         else         if (item.FileType == ProjectFileType.Sprite || item.FileType == ProjectFileType.Sound)
         {
@@ -221,6 +290,12 @@ public partial class QuickPropertiesPanel : System.Windows.Controls.UserControl
     private void BtnOpen_OnClick(object sender, RoutedEventArgs e)
     {
         if (_currentItem != null && !_currentItem.IsFolder) RequestOpenInEditor?.Invoke(this, _currentItem);
+    }
+
+    private void BtnOpenScript_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(_scriptPathToOpen))
+            RequestOpenScriptPath?.Invoke(this, _scriptPathToOpen);
     }
 
     private void BtnDuplicate_OnClick(object sender, RoutedEventArgs e)

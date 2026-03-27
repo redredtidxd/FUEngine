@@ -8,6 +8,7 @@ namespace FUEngine;
 /// <summary>
 /// Sugerencias para el mini-IDE Lua (AvalonEdit). Palabras clave desde <see cref="LuaLanguageKeywords"/>; miembros tras «tabla.» vía reflexión
 /// (<see cref="LuaVisibleAttribute"/> en <see cref="FUEngine.Runtime"/>). <see cref="MergeDynamic"/> añade globales extra.
+/// Caché en disco reservada bajo <see cref="FUEngineAppPaths.LuaMetadataCacheDirectory"/> para futuras optimizaciones.
 /// </summary>
 public static class LuaEditorCompletionCatalog
 {

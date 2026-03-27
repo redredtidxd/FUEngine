@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
@@ -7,6 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -336,10 +338,31 @@ public partial class StartupWindow : Window
 
     public void ShowDocumentation(string? initialTopicId)
     {
-        DiscordRichPresenceService.Instance.EnsureInitialized();
-        DiscordRichPresenceService.Instance.SetHub("FUEngine · Manual del motor", "Documentación integrada (Ayuda)");
-        DocumentationEmbedded.Open(initialTopicId);
-        DocumentationOverlay.Visibility = Visibility.Visible;
+        try
+        {
+            DocumentationEmbedded.Open(initialTopicId);
+            DocumentationOverlay.Visibility = Visibility.Visible;
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(this,
+                "No se pudo abrir la documentación integrada.\n\n" + ex.Message,
+                "FUEngine",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        // RPC de Discord: fuera del camino crítico; no debe bloquear ni tumbar el Hub si falla el cliente nativo.
+        Dispatcher.BeginInvoke(() =>
+        {
+            try
+            {
+                DiscordRichPresenceService.Instance.EnsureInitialized();
+                DiscordRichPresenceService.Instance.SetHub("FUEngine · Manual del motor", "Documentación integrada (Ayuda)");
+            }
+            catch { /* ignore */ }
+        }, System.Windows.Threading.DispatcherPriority.Background);
     }
 
     private void DocumentationBackdrop_OnMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -348,6 +371,9 @@ public partial class StartupWindow : Window
         RefreshDiscordStartupPresence();
         e.Handled = true;
     }
+
+    /// <summary>Evita que el clic en el panel (lista, splitter, borde) suba al backdrop y cierre el overlay.</summary>
+    private void DocumentationInner_OnMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => e.Handled = true;
 
     private void DocumentationEmbedded_RequestClose(object? sender, EventArgs e)
     {
@@ -634,13 +660,15 @@ public partial class StartupWindow : Window
         };
         if (!Directory.Exists(projectDir))
             Directory.CreateDirectory(projectDir);
+        Directory.CreateDirectory(System.IO.Path.Combine(projectDir, FUEngine.Core.ProjectIndexPaths.DataFolderName));
+        project.AudioManifestPath = "Data/audio.json";
         var projectPath = System.IO.Path.Combine(projectDir, FUEngine.Editor.NewProjectStructure.ProjectFileName);
         ProjectSerialization.Save(project, projectPath);
         File.WriteAllText(System.IO.Path.Combine(projectDir, "mapa.json"), TemplateProvider.ToJson(templateData.Map));
         File.WriteAllText(System.IO.Path.Combine(projectDir, "objetos.json"), TemplateProvider.ToJson(templateData.Objects));
         var scriptsMerged = TemplateProvider.MergeWithCommonModules(templateData.Scripts);
-        File.WriteAllText(System.IO.Path.Combine(projectDir, "scripts.json"), TemplateProvider.ToJson(scriptsMerged));
-        File.WriteAllText(System.IO.Path.Combine(projectDir, "animaciones.json"), TemplateProvider.ToJson(templateData.Animations));
+        File.WriteAllText(System.IO.Path.Combine(projectDir, FUEngine.Core.ProjectIndexPaths.DataFolderName, "scripts.json"), TemplateProvider.ToJson(scriptsMerged));
+        File.WriteAllText(System.IO.Path.Combine(projectDir, FUEngine.Core.ProjectIndexPaths.DataFolderName, "animaciones.json"), TemplateProvider.ToJson(templateData.Animations));
         StartupService.AddRecentProject(projectPath, project.Nombre, project.Descripcion, FUEngine.Core.EngineVersion.Current);
         OpenEditor(project);
         Close();
@@ -703,6 +731,30 @@ public partial class StartupWindow : Window
     private void GeneratePreviewAsync(RecentProjectInfo item)
     {
         var path = item.Path;
+        try
+        {
+            var thumb = FUEngineAppPaths.GetThumbnailPathForProjectJson(path);
+            if (System.IO.File.Exists(thumb))
+            {
+                Dispatcher.BeginInvoke(() =>
+                {
+                    try
+                    {
+                        var bmp = new BitmapImage();
+                        bmp.BeginInit();
+                        bmp.CacheOption = BitmapCacheOption.OnLoad;
+                        bmp.UriSource = new Uri(System.IO.Path.GetFullPath(thumb), UriKind.Absolute);
+                        bmp.EndInit();
+                        if (bmp.CanFreeze) bmp.Freeze();
+                        item.Preview = bmp;
+                    }
+                    catch { /* miniatura corrupta: se ignora */ }
+                }, DispatcherPriority.Background);
+                return;
+            }
+        }
+        catch { /* continuar con generación desde mapa */ }
+
         var projectDir = System.IO.Path.GetDirectoryName(path) ?? path;
         var ui = Dispatcher;
         System.Threading.Tasks.Task.Run(() =>
@@ -1201,13 +1253,15 @@ public partial class StartupWindow : Window
         };
         if (!Directory.Exists(projectDir))
             Directory.CreateDirectory(projectDir);
+        Directory.CreateDirectory(System.IO.Path.Combine(projectDir, FUEngine.Core.ProjectIndexPaths.DataFolderName));
+        project.AudioManifestPath = "Data/audio.json";
         var projectPath = System.IO.Path.Combine(projectDir, FUEngine.Editor.NewProjectStructure.ProjectFileName);
         ProjectSerialization.Save(project, projectPath);
         File.WriteAllText(System.IO.Path.Combine(projectDir, "mapa.json"), TemplateProvider.ToJson(templateData.Map));
         File.WriteAllText(System.IO.Path.Combine(projectDir, "objetos.json"), TemplateProvider.ToJson(templateData.Objects));
         var scriptsMerged = TemplateProvider.MergeWithCommonModules(templateData.Scripts);
-        File.WriteAllText(System.IO.Path.Combine(projectDir, "scripts.json"), TemplateProvider.ToJson(scriptsMerged));
-        File.WriteAllText(System.IO.Path.Combine(projectDir, "animaciones.json"), TemplateProvider.ToJson(templateData.Animations));
+        File.WriteAllText(System.IO.Path.Combine(projectDir, FUEngine.Core.ProjectIndexPaths.DataFolderName, "scripts.json"), TemplateProvider.ToJson(scriptsMerged));
+        File.WriteAllText(System.IO.Path.Combine(projectDir, FUEngine.Core.ProjectIndexPaths.DataFolderName, "animaciones.json"), TemplateProvider.ToJson(templateData.Animations));
         StartupService.AddRecentProject(projectPath, project.Nombre, project.Descripcion, FUEngine.Core.EngineVersion.Current);
         OpenEditor(project);
         Close();

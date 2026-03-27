@@ -14,5 +14,5 @@ namespace FUEngine.Core;
 /// </summary>
 public static class EngineVersion
 {
-    public const string Current = "0.0.1";
+    public const string Current = "1.1";
 }

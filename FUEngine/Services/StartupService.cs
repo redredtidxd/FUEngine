@@ -11,10 +11,8 @@ namespace FUEngine;
 /// </summary>
 public static class StartupService
 {
-    /// <summary>Ruta en AppData (no junto al .exe) para que actualizar el motor no borre la lista.</summary>
-    private static string RecentPath =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "FUEngine", "recent.json");
+    /// <summary>Ruta en AppData: <c>Storage/project_history.json</c> (antes <c>recent.json</c> en la raíz).</summary>
+    private static string RecentPath => FUEngineAppPaths.ProjectHistoryPath;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -32,8 +30,22 @@ public static class StartupService
     {
         try
         {
-            if (!File.Exists(RecentPath)) return new List<RecentProjectInfo>();
-            var json = File.ReadAllText(RecentPath);
+            FUEngineAppPaths.EnsureLayout();
+            var path = RecentPath;
+            if (!File.Exists(path) && File.Exists(FUEngineAppPaths.LegacyRecentPath))
+            {
+                try
+                {
+                    var dir = Path.GetDirectoryName(path);
+                    if (!string.IsNullOrEmpty(dir))
+                        Directory.CreateDirectory(dir);
+                    File.Copy(FUEngineAppPaths.LegacyRecentPath, path, overwrite: false);
+                }
+                catch { path = FUEngineAppPaths.LegacyRecentPath; }
+            }
+
+            if (!File.Exists(path)) return new List<RecentProjectInfo>();
+            var json = File.ReadAllText(path);
             var list = JsonSerializer.Deserialize<List<RecentProjectInfo>>(json, JsonOptions);
             list ??= new List<RecentProjectInfo>();
             foreach (var p in list)

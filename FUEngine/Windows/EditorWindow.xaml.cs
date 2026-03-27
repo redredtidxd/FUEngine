@@ -192,6 +192,7 @@ public partial class EditorWindow : Window
     private LayerInspectorPanel? _cachedLayerInspectorPanel;
     private AnimationInspectorPanel? _cachedAnimationInspectorPanel;
     private QuickPropertiesPanel? _cachedQuickPanel;
+    private ProjectManifestPanel? _cachedProjectManifestPanel;
     private ToolController? _toolController;
     private IMapEditorToolContext? _toolContext;
     private PaintTool? _paintTool;
@@ -337,6 +338,7 @@ public partial class EditorWindow : Window
         if (ProjectExplorer != null)
         {
             ProjectExplorer.SetProject(_project.ProjectDirectory ?? "", _project.Nombre ?? "Proyecto");
+            ProjectExplorer.HideDataFolderInExplorer = EngineSettings.Load().HideDataFolderInExplorer;
             ProjectExplorer.SetMetadataService(_explorerMetadataService);
             ProjectExplorer.IsCompactMode = true;
             ProjectExplorer.ApplyCompactMode();
@@ -344,10 +346,7 @@ public partial class EditorWindow : Window
             ProjectExplorer.RequestOpenInEditor += ProjectExplorer_OnRequestOpenInEditor;
             ProjectExplorer.RequestOpenInCollisionsEditor += ProjectExplorer_OnRequestOpenInCollisionsEditor;
             ProjectExplorer.RequestOpenInScriptableTile += ProjectExplorer_OnRequestOpenInScriptableTile;
-            ProjectExplorer.RequestCreateTileLayer += Explorer_OnRequestCreateTileLayer;
-            ProjectExplorer.RequestCreateObjectLayer += Explorer_OnRequestCreateObjectLayer;
             ProjectExplorer.RequestCreateTriggerZone += Explorer_OnRequestCreateTriggerZone;
-            ProjectExplorer.RequestCreateObject += Explorer_OnRequestCreateObject;
             ProjectExplorer.LuaScriptRegistered += ProjectExplorer_OnLuaScriptRegistered;
             ProjectExplorer.ScriptsRegistryChanged += ProjectExplorer_OnScriptsRegistryChanged;
             ProjectExplorer.RequestExportObjectAsSeed += ProjectExplorer_OnRequestExportObjectAsSeed;
@@ -618,23 +617,34 @@ public partial class EditorWindow : Window
     private void ProjectExplorer_OnSelectionChanged(object? sender, ProjectExplorerItem? item)
     {
         _selection.SelectedExplorerItem = item;
-        if (item == null || item.IsFolder)
-        {
-            RefreshInspector();
-            return;
-        }
-        if (InspectorPanel == null) return;
-        var quick = GetOrCreateQuickPropertiesPanel();
-        quick.SetItem(item, _project, _tileMap, _objectLayer, _scriptRegistry);
-        InspectorPanel.Content = quick;
+        RefreshInspector();
+        SyncDiscordRichPresence();
     }
 
     private void ProjectExplorer_OnRequestOpenInEditor(object? sender, ProjectExplorerItem? item)
     {
         if (item == null || item.IsFolder || string.IsNullOrEmpty(item.FullPath)) return;
         var ext = System.IO.Path.GetExtension(item.FullPath);
-        if (string.Equals(ext, ".fue", StringComparison.OrdinalIgnoreCase)) return;
-        if (string.Equals(ext, ".seed", StringComparison.OrdinalIgnoreCase)) return;
+        if (string.Equals(ext, ".fue", StringComparison.OrdinalIgnoreCase))
+        {
+            if (ProjectManifestPaths.IsActiveProjectManifestFile(item.FullPath, _project.ProjectDirectory))
+                MenuEditorProyectoAvanzado_OnClick(this, new RoutedEventArgs());
+            SyncDiscordRichPresence();
+            return;
+        }
+        if (string.Equals(ext, ".seed", StringComparison.OrdinalIgnoreCase))
+        {
+            var scriptPath = SeedExplorerHelpers.TryResolveScriptPath(item.FullPath, _project?.ProjectDirectory, _objectLayer, _scriptRegistry);
+            if (string.IsNullOrEmpty(scriptPath) || !File.Exists(scriptPath))
+            {
+                EditorLog.Toast("No hay script registrado en scripts.json para este seed.", LogLevel.Warning, "Seed");
+                return;
+            }
+            AddOrSelectTab("Scripts");
+            (GetTabByKind("Scripts")?.Content as ScriptsTabContent)?.OpenFile(scriptPath);
+            SyncDiscordRichPresence();
+            return;
+        }
         var openInScriptsTab = string.Equals(ext, ".lua", StringComparison.OrdinalIgnoreCase)
             || string.Equals(ext, ".cs", StringComparison.OrdinalIgnoreCase)
             || string.Equals(ext, ".json", StringComparison.OrdinalIgnoreCase)
@@ -688,6 +698,14 @@ public partial class EditorWindow : Window
     private void Quick_RequestOpenInEditor(object? sender, ProjectExplorerItem item)
     {
         ProjectExplorer_OnRequestOpenInEditor(sender, item);
+    }
+
+    private void Quick_RequestOpenScriptPath(object? sender, string path)
+    {
+        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
+        AddOrSelectTab("Scripts");
+        (GetTabByKind("Scripts")?.Content as ScriptsTabContent)?.OpenFile(path);
+        SyncDiscordRichPresence();
     }
 
     private void Quick_RequestDuplicate(object? sender, ProjectExplorerItem item)
@@ -1147,6 +1165,54 @@ public partial class EditorWindow : Window
             GetCurrentSceneObjectsPath(),
             _objectLayer);
         ProjectExplorer?.SetSceneUsedPaths(paths);
+    }
+
+    /// <summary>Guarda mapa, objetos y UI de la escena activa en disco.</summary>
+    private bool TrySaveCurrentSceneToDisk()
+    {
+        if (_openScenes.Count == 0 || _currentSceneIndex < 0 || _currentSceneIndex >= _openScenes.Count)
+            return false;
+        var state = _openScenes[_currentSceneIndex];
+        var mapPath = GetCurrentSceneMapPath();
+        var objectsPath = GetCurrentSceneObjectsPath();
+        try
+        {
+            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(mapPath)!);
+            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(objectsPath)!);
+            MapSerialization.Save(_tileMap, mapPath);
+            ObjectsSerialization.Save(_objectLayer, objectsPath);
+            CanvasControllerLuaTemplate.EnsureCanvasControllerScriptIfNeeded(_project.ProjectDirectory, _objectLayer);
+            SaveUIRootForState(state);
+            ProjectExplorer?.SetModified(mapPath, false);
+            ProjectExplorer?.SetModified(objectsPath, false);
+            RefreshSceneUsedPaths();
+            UpdateMapTabDirtyState();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            EditorLog.Error($"Guardar escena: {ex.Message}", "Guardar");
+            return false;
+        }
+    }
+
+    /// <summary>Selecciona el manifiesto del proyecto (.FUE) en el explorador y muestra el Inspector de manifiesto.</summary>
+    private void FocusProjectManifestInExplorer()
+    {
+        var path = GetProjectFilePath();
+        if (string.IsNullOrEmpty(path) || ProjectExplorer == null) return;
+        FUEngineAppPaths.EnsureLayout();
+        ProjectExplorer.SelectAbsolutePath(path);
+        RefreshInspector();
+    }
+
+    /// <summary>Abre el panel de propiedades del mapa / fondo del visor en el Inspector.</summary>
+    private void ShowMapSceneSettingsInInspector()
+    {
+        if (InspectorPanel == null) return;
+        var panel = GetOrCreateMapPropertiesPanel();
+        panel.SetProject(_project);
+        InspectorPanel.Content = panel;
     }
 
     /// <summary>Guarda mapa y objetos de todas las escenas abiertas.</summary>
@@ -1816,6 +1882,15 @@ public partial class EditorWindow : Window
             e.Handled = true;
             return;
         }
+        if (!_project.Infinite)
+        {
+            var (btx, bty) = GetTileAt(pos);
+            if (!GameViewportMath.IsWorldTileInsideFiniteMapBounds(_project, btx, bty))
+            {
+                e.Handled = true;
+                return;
+            }
+        }
         var ctrl = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
         var shift = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
         _toolController?.HandleMouseDown(pos, ctrl, shift);
@@ -1858,6 +1933,7 @@ public partial class EditorWindow : Window
         if (_rectDragging && _toolMode == ToolMode.Rectangulo)
         {
             var (tx, ty) = GetTileAt(pos);
+            if (!_project.Infinite) GameViewportMath.ClampWorldTileToFiniteMapBounds(_project, ref tx, ref ty);
             _rectEndTx = tx;
             _rectEndTy = ty;
             DrawMap();
@@ -1866,6 +1942,7 @@ public partial class EditorWindow : Window
         if (_zoneDragging && _toolMode == ToolMode.Zona)
         {
             var (tx, ty) = GetTileAt(pos);
+            if (!_project.Infinite) GameViewportMath.ClampWorldTileToFiniteMapBounds(_project, ref tx, ref ty);
             _zoneMinTx = Math.Min(_zoneStartTx, tx);
             _zoneMaxTx = Math.Max(_zoneStartTx, tx);
             _zoneMinTy = Math.Min(_zoneStartTy, ty);
@@ -1876,6 +1953,7 @@ public partial class EditorWindow : Window
         if (_selection.IsTileSelectionDragging)
         {
             var (tx, ty) = GetTileAt(pos);
+            if (!_project.Infinite) GameViewportMath.ClampWorldTileToFiniteMapBounds(_project, ref tx, ref ty);
             _selection.UpdateTileSelectionDragEnd(tx, ty);
             DrawMap();
         }
@@ -1888,6 +1966,7 @@ public partial class EditorWindow : Window
         {
             if (IsActiveLayerLocked()) { _rectDragging = false; return; }
             var (endTx, endTy) = GetTileAt(pos);
+            if (!_project.Infinite) GameViewportMath.ClampWorldTileToFiniteMapBounds(_project, ref endTx, ref endTy);
             int minTx = Math.Min(_rectStartTx, endTx), maxTx = Math.Max(_rectStartTx, endTx);
             int minTy = Math.Min(_rectStartTy, endTy), maxTy = Math.Max(_rectStartTy, endTy);
             var layerIdx = GetActiveLayerIndex();
@@ -1896,6 +1975,7 @@ public partial class EditorWindow : Window
             for (int tx = minTx; tx <= maxTx; tx++)
                 for (int ty = minTy; ty <= maxTy; ty++)
                 {
+                    if (!_project.Infinite && !GameViewportMath.IsWorldTileInsideFiniteMapBounds(_project, tx, ty)) continue;
                     _tileMap.TryGetTile(layerIdx, tx, ty, out var prev);
                     batch.Add(tx, ty, prev, newTile.Clone());
                 }
@@ -1907,6 +1987,7 @@ public partial class EditorWindow : Window
         if (_zoneDragging && _toolMode == ToolMode.Zona)
         {
             var (endTx, endTy) = GetTileAt(pos);
+            if (!_project.Infinite) GameViewportMath.ClampWorldTileToFiniteMapBounds(_project, ref endTx, ref endTy);
             _zoneMinTx = Math.Min(_zoneStartTx, endTx);
             _zoneMaxTx = Math.Max(_zoneStartTx, endTx);
             _zoneMinTy = Math.Min(_zoneStartTy, endTy);
@@ -1918,6 +1999,7 @@ public partial class EditorWindow : Window
         if (_selection.IsTileSelectionDragging)
         {
             var (endTx, endTy) = GetTileAt(pos);
+            if (!_project.Infinite) GameViewportMath.ClampWorldTileToFiniteMapBounds(_project, ref endTx, ref endTy);
             _selection.CommitTileSelectionDrag(endTx, endTy);
             DrawMap();
             UpdateTileSelectionToolbarVisibility();
@@ -2048,10 +2130,11 @@ public partial class EditorWindow : Window
         var newTile = CreateTileData(_selectedTileType);
         foreach (var (px, py) in LineTiles(x0, y0, tx, ty))
         {
+            if (!_project.Infinite && !GameViewportMath.IsWorldTileInsideFiniteMapBounds(_project, px, py)) continue;
             _tileMap.TryGetTile(layerIdx, px, py, out var prev);
             batch.Add(px, py, prev, newTile.Clone());
         }
-        _history.Push(batch);
+        if (batch.Count > 0) _history.Push(batch);
         _lineStart = null;
         ProjectExplorer.SetModified(GetCurrentSceneMapPath(), true);
         DrawMap();
@@ -2067,6 +2150,7 @@ public partial class EditorWindow : Window
             for (int dy = 0; dy < _brushSize; dy++)
             {
                 int px = tx + dx, py = ty + dy;
+                if (!_project.Infinite && !GameViewportMath.IsWorldTileInsideFiniteMapBounds(_project, px, py)) continue;
                 if (_tileMap.TryGetTile(layerIdx, px, py, out var old) && old != null)
                     batch.Add(px, py, old, emptyTile);
             }
@@ -2124,21 +2208,34 @@ public partial class EditorWindow : Window
             _selection.IsInsideTileSelection,
             maxFill: 2000,
             layerIndex: layerIdx);
+        var applied = 0;
         foreach (var (tx, ty) in cells)
         {
+            if (!_project.Infinite && !GameViewportMath.IsWorldTileInsideFiniteMapBounds(_project, tx, ty)) continue;
             _tileMap.TryGetTile(layerIdx, tx, ty, out var prev);
             _history.Push(new PaintTileCommand(_tileMap, layerIdx, tx, ty, prev, newTile.Clone()));
+            applied++;
         }
-        if (cells.Count > 0)
+        if (applied > 0)
         {
             ProjectExplorer.SetModified(GetCurrentSceneMapPath(), true);
-            UpdateStatusBar(cells.Count >= 2000 ? "Relleno: 2000+ tiles" : $"Relleno: {cells.Count} tiles");
+            UpdateStatusBar(applied >= 2000 ? "Relleno: 2000+ tiles" : $"Relleno: {applied} tiles");
         }
         DrawMap();
     }
 
     private void MapCanvas_OnMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
+        var posR = e.GetPosition(MapCanvas);
+        if (!_project.Infinite)
+        {
+            var (rbx, rby) = GetTileAt(posR);
+            if (!GameViewportMath.IsWorldTileInsideFiniteMapBounds(_project, rbx, rby))
+            {
+                e.Handled = true;
+                return;
+            }
+        }
         if (_toolMode == ToolMode.Seleccionar && _selection.SelectedObject != null)
         {
             var obj = _selection.SelectedObject;
@@ -2151,7 +2248,7 @@ public partial class EditorWindow : Window
             return;
         }
         if (IsActiveLayerLocked()) return;
-        var pos = e.GetPosition(MapCanvas);
+        var pos = posR;
         var (tx, ty) = GetTileAt(pos);
         var layerIdx = GetActiveLayerIndex();
         if (_tileMap.TryGetTile(layerIdx, tx, ty, out var oldTile) && oldTile != null)
@@ -2253,6 +2350,13 @@ public partial class EditorWindow : Window
     private void UpdateStatusBarFromPosition(System.Windows.Point pos)
     {
         var (mx, my) = GetTileAt(pos);
+        if (!_project.Infinite && !GameViewportMath.IsWorldTileInsideFiniteMapBounds(_project, mx, my))
+        {
+            var toolShort = _toolMode switch { ToolMode.Pintar => "Pincel", ToolMode.Rectangulo => "Rect", ToolMode.Linea => "Línea", ToolMode.Relleno => "Relleno", ToolMode.Goma => "Goma", ToolMode.Picker => "Cuentagotas", ToolMode.Stamp => "Stamp", ToolMode.Seleccionar => "Seleccionar", ToolMode.Colocar => "Colocar", ToolMode.Zona => "Zona", ToolMode.Medir => "Medir", ToolMode.PixelEdit => "Pixel", _ => "" };
+            var capaShort = CmbCapaVisible?.SelectedItem as string ?? "Suelo";
+            UpdateStatusBar($"Fuera del área del mapa  |  {toolShort}  |  Capa: {capaShort}");
+            return;
+        }
         var tileSizePx = _project.TileSize;
         var unit = _coordinateUnitDisplay ?? "Tiles";
         string xyPart;
@@ -2353,7 +2457,7 @@ public partial class EditorWindow : Window
         switch (id)
         {
             case EditorShortcutBindings.SaveMap:
-                MenuGuardarMapa_OnClick(sender, ev);
+                MenuGuardarEscena_OnClick(sender, ev);
                 return true;
             case EditorShortcutBindings.SaveAll:
                 MenuGuardarTodo_OnClick(sender, ev);
@@ -2744,6 +2848,10 @@ public partial class EditorWindow : Window
         if (assetPath.EndsWith(".seed", StringComparison.OrdinalIgnoreCase))
         {
             InstantiateSeedFromFile(assetPath);
+            ProjectExplorer.SetModified(GetCurrentSceneObjectsPath(), true);
+            RefreshMapHierarchy();
+            DrawMap();
+            RefreshInspector();
             return;
         }
         var defId = (_objectLayer.Definitions?.Keys?.FirstOrDefault()) ?? "";
@@ -2762,7 +2870,8 @@ public partial class EditorWindow : Window
         RefreshInspector();
     }
 
-    private void InstantiateSeedFromFile(string seedPath)
+    /// <param name="worldBaseX">Si se indica (p. ej. al soltar en el mapa), las posiciones del seed se suman a este origen en casillas.</param>
+    private void InstantiateSeedFromFile(string seedPath, double? worldBaseX = null, double? worldBaseY = null)
     {
         List<SeedDefinition> list;
         try
@@ -2781,6 +2890,8 @@ public partial class EditorWindow : Window
         }
         var defDefault = (_objectLayer.Definitions?.Keys?.FirstOrDefault()) ?? "";
         var relSeed = System.IO.Path.GetRelativePath(_project.ProjectDirectory ?? "", seedPath).Replace('\\', '/');
+        var bx = worldBaseX ?? 0;
+        var by = worldBaseY ?? 0;
         foreach (var seed in list)
         {
             foreach (var entry in seed.Objects ?? new List<SeedObjectEntry>())
@@ -2795,8 +2906,8 @@ public partial class EditorWindow : Window
                         {
                             inst = ObjectsSerialization.FromInstanceDto(tmpl);
                             inst.InstanceId = Guid.NewGuid().ToString("N");
-                            inst.X = entry.OffsetX;
-                            inst.Y = entry.OffsetY;
+                            inst.X = bx + entry.OffsetX;
+                            inst.Y = by + entry.OffsetY;
                             inst.Rotation = entry.Rotation;
                             if (!string.IsNullOrWhiteSpace(entry.Nombre)) inst.Nombre = entry.Nombre.Trim();
                             inst.SourceSeedId = seed.Id;
@@ -2812,8 +2923,8 @@ public partial class EditorWindow : Window
                 inst = new ObjectInstance
                 {
                     DefinitionId = defId,
-                    X = entry.OffsetX,
-                    Y = entry.OffsetY,
+                    X = bx + entry.OffsetX,
+                    Y = by + entry.OffsetY,
                     Rotation = entry.Rotation,
                     Nombre = !string.IsNullOrWhiteSpace(entry.Nombre)
                         ? entry.Nombre!.Trim()
@@ -4030,7 +4141,7 @@ public partial class EditorWindow : Window
             animContent.AnimationSelected += (_, anim) => { _selection.SetInspectorContextAnimation(anim); RefreshInspector(); };
             try
             {
-                var animPath = System.IO.Path.Combine(_project.ProjectDirectory ?? "", "animaciones.json");
+                var animPath = _project.AnimacionesPath;
                 if (System.IO.File.Exists(animPath))
                     animContent.SetAnimations(AnimationSerialization.Load(animPath));
             }
@@ -4074,6 +4185,7 @@ public partial class EditorWindow : Window
         var content = new ExplorerTabContent();
         _explorerPanel = content.GetExplorerPanel();
         _explorerPanel.SetProject(_project.ProjectDirectory, _project.Nombre);
+        _explorerPanel.HideDataFolderInExplorer = EngineSettings.Load().HideDataFolderInExplorer;
         _explorerPanel.SetMetadataService(_explorerMetadataService);
         _explorerPanel.IsCompactMode = false;
         _explorerPanel.ApplyCompactMode();
@@ -4081,10 +4193,7 @@ public partial class EditorWindow : Window
         _explorerPanel.RequestOpenInEditor += ProjectExplorer_OnRequestOpenInEditor;
         _explorerPanel.RequestOpenInCollisionsEditor += ProjectExplorer_OnRequestOpenInCollisionsEditor;
         _explorerPanel.RequestOpenInScriptableTile += ProjectExplorer_OnRequestOpenInScriptableTile;
-        _explorerPanel.RequestCreateTileLayer += Explorer_OnRequestCreateTileLayer;
-        _explorerPanel.RequestCreateObjectLayer += Explorer_OnRequestCreateObjectLayer;
         _explorerPanel.RequestCreateTriggerZone += Explorer_OnRequestCreateTriggerZone;
-        _explorerPanel.RequestCreateObject += Explorer_OnRequestCreateObject;
         _explorerPanel.LuaScriptRegistered += ProjectExplorer_OnLuaScriptRegistered;
         _explorerPanel.ScriptsRegistryChanged += ProjectExplorer_OnScriptsRegistryChanged;
         _explorerPanel.RequestExportObjectAsSeed += ProjectExplorer_OnRequestExportObjectAsSeed;
@@ -4144,21 +4253,6 @@ public partial class EditorWindow : Window
         }
     }
 
-    private void Explorer_OnRequestCreateTileLayer(object? sender, EventArgs e) => MapHierarchy_OnRequestAddLayer(sender, e);
-    private void Explorer_OnRequestCreateObjectLayer(object? sender, EventArgs e)
-    {
-        _project.LayerNames ??= new List<string> { "Suelo" };
-        if (!_project.LayerNames.Any(l => string.Equals(l, "Objects", StringComparison.OrdinalIgnoreCase)))
-        {
-            _project.LayerNames.Add("Objects");
-            var projectPath = GetProjectFilePath();
-            if (projectPath == null)
-                EditorLog.Toast("No se pudo determinar la ruta del proyecto.", LogLevel.Error, "Proyecto");
-            else if (File.Exists(projectPath))
-                ProjectSerialization.Save(_project, projectPath);
-        }
-        RefreshMapHierarchy();
-    }
     private void Explorer_OnRequestCreateTriggerZone(object? sender, EventArgs e)
     {
         var zone = new TriggerZone { Id = Guid.NewGuid().ToString("N"), Nombre = "Nueva zona", Width = 2, Height = 2 };
@@ -4166,8 +4260,6 @@ public partial class EditorWindow : Window
         TriggerZoneSerialization.Save(_triggerZones, _project.TriggerZonesPath);
         RefreshMapHierarchy();
     }
-    private void Explorer_OnRequestCreateObject(object? sender, EventArgs e) => MapHierarchy_OnRequestCreateObject(sender, e);
-
     private ScriptsTabContent CreateScriptsTabContent()
     {
         var content = new ScriptsTabContent();
@@ -4272,7 +4364,7 @@ public partial class EditorWindow : Window
         var scriptsContent = GetTabByKind("Scripts")?.Content as ScriptsTabContent;
         if (scriptsContent?.GetEditorControl()?.SaveFile() == true)
             return;
-        MenuGuardarMapa_OnClick(sender, e);
+        MenuGuardarEscena_OnClick(sender, e);
     }
 
     private void OnLuaScriptSaved(object? sender, string fullPath)
@@ -4339,7 +4431,7 @@ public partial class EditorWindow : Window
             var mainPath = _project.MainSceneObjectsPath;
             if (string.IsNullOrWhiteSpace(mainPath) || !System.IO.File.Exists(mainPath))
             {
-                EditorLog.Toast("Configura la escena Start en Archivo → Configuración del proyecto (ej: objetos.json).", LogLevel.Warning, "Play");
+                EditorLog.Toast("Configura la escena Start en Proyecto → Editor avanzado del proyecto (ej: objetos.json).", LogLevel.Warning, "Play");
                 return;
             }
         }
@@ -4589,6 +4681,16 @@ public partial class EditorWindow : Window
             var assetPath = e.Data.GetData(ProjectExplorerPanel.DataFormatAssetPath) as string;
             if (!string.IsNullOrEmpty(assetPath))
             {
+                if (assetPath.EndsWith(".seed", StringComparison.OrdinalIgnoreCase))
+                {
+                    InstantiateSeedFromFile(assetPath, tx, ty);
+                    ProjectExplorer.SetModified(GetCurrentSceneObjectsPath(), true);
+                    RefreshMapHierarchy();
+                    DrawMap();
+                    RefreshInspector();
+                    e.Handled = true;
+                    return;
+                }
                 var defId = (_objectLayer?.Definitions?.Keys?.FirstOrDefault()) ?? "";
                 if (string.IsNullOrEmpty(defId)) defId = "default";
                 var inst = new ObjectInstance
@@ -5151,6 +5253,9 @@ public partial class EditorWindow : Window
         public void SetObjectsModified() => _w.ProjectExplorer?.SetModified(_w.GetCurrentSceneObjectsPath(), true);
         public int ActiveLayerIndex => _w.GetActiveLayerIndex();
         public bool IsActiveLayerLocked => _w.IsActiveLayerLocked();
+
+        public bool IsFinitePaintableTile(int tx, int ty) =>
+            _w._project.Infinite || GameViewportMath.IsWorldTileInsideFiniteMapBounds(_w._project, tx, ty);
     }
 }
 

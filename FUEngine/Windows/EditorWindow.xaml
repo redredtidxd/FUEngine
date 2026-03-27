@@ -67,47 +67,48 @@
                 <MenuItem Header="Nuevo proyecto..." Click="MenuNuevoProyecto_OnClick"/>
                 <MenuItem Header="Abrir proyecto..." Click="MenuAbrirProyecto_OnClick"/>
                 <Separator/>
-                <MenuItem x:Name="MenuCrearScene" Header="Crear nueva escena" Click="MenuCrearScene_OnClick" ToolTip="Crear una nueva escena en el proyecto"/>
-                <MenuItem x:Name="MenuAbrirScene" Header="Abrir escena..." SubmenuOpened="MenuAbrirScene_SubmenuOpened" ToolTip="Abrir una escena del proyecto en una nueva pestaña"/>
-                <MenuItem x:Name="MenuDuplicarScene" Header="Duplicar escena actual" Click="MenuDuplicarScene_OnClick" ToolTip="Duplicar la escena actual"/>
-                <MenuItem x:Name="MenuEliminarScene" Header="Eliminar escena actual" Click="MenuEliminarScene_OnClick" ToolTip="Eliminar la escena actual y sus archivos"/>
-                <MenuItem x:Name="MenuImportarScene" Header="Importar escena de otro proyecto..." Click="MenuImportarScene_OnClick" ToolTip="Importar una escena desde otro proyecto"/>
-                <Separator/>
-                <MenuItem x:Name="MenuGuardarMapa" Header="Guardar" Click="MenuGuardarMapa_OnClick" InputGestureText="Ctrl+S"/>
+                <MenuItem x:Name="MenuGuardarEscena" Header="Guardar escena" Click="MenuGuardarEscena_OnClick" InputGestureText="Ctrl+S"/>
+                <MenuItem Header="Guardar escena como…" Click="MenuGuardarEscenaComo_OnClick"/>
                 <MenuItem x:Name="MenuGuardarTodo" Header="Guardar todo" Click="MenuGuardarTodo_OnClick" InputGestureText="Ctrl+Shift+S"/>
                 <Separator/>
-                <MenuItem Header="Exportar..." Click="MenuExportarParcial_OnClick"/>
+                <MenuItem Header="Importar asset…" Click="MenuImportarAsset_OnClick" ToolTip="Copia imágenes a Assets/Sprites y audio a Assets/Audio"/>
                 <Separator/>
-                <MenuItem Header="Salir del proyecto" Click="MenuSalirProyecto_OnClick" ToolTip="Cierra el proyecto y vuelve a la pantalla de inicio"/>
+                <MenuItem Header="Exportar…" Click="MenuExportarParcial_OnClick"/>
+                <Separator/>
+                <MenuItem Header="Salir al Hub" Click="MenuSalirProyecto_OnClick" ToolTip="Cierra el proyecto y vuelve a la pantalla de inicio sin cerrar el programa"/>
                 <MenuItem Header="Salir del motor" Click="MenuSalirMotor_OnClick" ToolTip="Cierra completamente la aplicación"/>
             </MenuItem>
             <MenuItem Header="Editar" Foreground="#e6edf3">
                 <MenuItem x:Name="MenuDeshacer" Header="Deshacer" Click="MenuDeshacer_OnClick" InputGestureText="Ctrl+Z" IsEnabled="False"/>
                 <MenuItem x:Name="MenuRehacer" Header="Rehacer" Click="MenuRehacer_OnClick" InputGestureText="Ctrl+Y" IsEnabled="False"/>
                 <Separator/>
-                <MenuItem x:Name="MenuCopiarZona" Header="Copiar zona / selección" Click="MenuCopiarZona_OnClick" InputGestureText="Ctrl+C"/>
-                <MenuItem x:Name="MenuPegarZona" Header="Pegar zona" Click="MenuPegarZona_OnClick" InputGestureText="Ctrl+V"/>
+                <MenuItem Header="Cortar" IsEnabled="False" ToolTip="No disponible en el lienzo del mapa (usa Copiar)"/>
+                <MenuItem x:Name="MenuCopiarZona" Header="Copiar" Click="MenuCopiarZona_OnClick" InputGestureText="Ctrl+C"/>
+                <MenuItem x:Name="MenuPegarZona" Header="Pegar" Click="MenuPegarZona_OnClick" InputGestureText="Ctrl+V"/>
                 <MenuItem x:Name="MenuDuplicarZona" Header="Duplicar zona (copiar y pegar al lado)" Click="MenuDuplicarZona_OnClick"/>
                 <Separator/>
                 <MenuItem x:Name="MenuSnapshot" Header="Crear snapshot del mapa" Click="MenuSnapshot_OnClick" ToolTip="Guardar estado actual para revertir después"/>
                 <MenuItem x:Name="MenuRevertSnapshot" Header="Revertir a snapshot" Click="MenuRevertSnapshot_OnClick" ToolTip="Restaurar último snapshot"/>
                 <Separator/>
                 <MenuItem Header="Borrar" x:Name="MenuBorrarObjeto" Click="MenuBorrarObjeto_OnClick" InputGestureText="Del"/>
+                <Separator/>
+                <MenuItem Header="Preferencias del editor…" Click="MenuPreferenciasEditor_OnClick" ToolTip="Tema, idioma y rutas en %LocalAppData%\FUEngine"/>
+                <MenuItem Header="Atajos de teclado…" Click="MenuAtajos_OnClick"/>
             </MenuItem>
             <MenuItem Header="Proyecto" Foreground="#e6edf3">
-                <MenuItem Header="Guía rápida (motor y juegos)…" Click="MenuDocumentacion_OnClick" ToolTip="Primeros pasos: mapa, escenas, Play y scripts (misma ventana que Ayuda → Documentación rápida)"/>
-                <MenuItem Header="Manual completo del motor…" Click="MenuDocumentacionCompleta_OnClick" ToolTip="Índice de todos los temas (empieza en «Cómo hacer un juego»)"/>
-                <MenuItem Header="Lua — sintaxis y librería…" Click="MenuLuaReference_OnClick" ToolTip="Palabras reservadas y guías (pairs, pcall, string.format…) con enlaces al motor"/>
+                <MenuItem Header="Ajustes del proyecto (.FUE)…" Click="MenuAjustesProyectoManifest_OnClick" ToolTip="Selecciona el manifiesto en el Explorador y muestra resolución, autor y royalty en el Inspector"/>
+                <MenuItem Header="Editor avanzado del proyecto…" Click="MenuEditorProyectoAvanzado_OnClick" ToolTip="Chunks, rutas, escenas y opciones detalladas"/>
+                <MenuItem Header="Configurar chunks (en editor avanzado)…" Click="MenuConfigurarChunks_OnClick"/>
+                <MenuItem Header="Gestionar scripts" Click="MenuGestionarScripts_OnClick" ToolTip="Abre la pestaña Scripts"/>
                 <Separator/>
-                <MenuItem Header="Configuración del proyecto..." Click="MenuConfigProyecto_OnClick"/>
-                <MenuItem Header="Propiedades del mapa..." Click="MenuPropiedadesMapa_OnClick"/>
-                <MenuItem Header="Tamaño de tiles..." Click="MenuTamañoTiles_OnClick"/>
+                <MenuItem Header="Explorar biblioteca global…" Click="MenuAssetsLibrary_OnClick" ToolTip="Copia assets de la biblioteca global al proyecto"/>
                 <Separator/>
                 <MenuItem Header="Verificar integridad" Click="MenuVerificarIntegridad_OnClick"/>
                 <MenuItem Header="Limpiar archivos huérfanos" Click="MenuLimpiarHuerfanos_OnClick" ToolTip="Elimina mapas y objetos que ya no pertenecen a ninguna escena del proyecto"/>
+                <MenuItem Header="Limpiar caché del motor…" Click="MenuLimpiarCacheMotor_OnClick" ToolTip="Borra Vulkan y Cache en AppData si el editor o el runtime fallan"/>
                 <Separator/>
                 <MenuItem Header="Guardar snapshot" Click="MenuGuardarSnapshot_OnClick"/>
-                <MenuItem Header="Cargar snapshot..." Click="MenuCargarSnapshot_OnClick"/>
+                <MenuItem Header="Cargar snapshot…" Click="MenuCargarSnapshot_OnClick"/>
                 <Separator/>
                 <MenuItem Header="Simular (vista previa)" Click="MenuSimular_OnClick"/>
                 <Separator/>
@@ -119,18 +120,39 @@
                 <MenuItem x:Name="MenuPausarJuego" Header="Pausar" Click="MenuPausarJuego_OnClick" IsEnabled="False"/>
                 <MenuItem x:Name="MenuReanudarJuego" Header="Reanudar" Click="MenuReanudarJuego_OnClick" IsEnabled="False"/>
             </MenuItem>
-            <MenuItem Header="Assets" Foreground="#e6edf3">
-                <MenuItem Header="Explorar biblioteca…" Click="MenuAssetsLibrary_OnClick" ToolTip="Copia assets de la biblioteca global al proyecto abierto"/>
+            <MenuItem Header="Mapa" Foreground="#e6edf3">
+                <MenuItem x:Name="MenuCrearScene" Header="Crear nueva escena" Click="MenuCrearScene_OnClick" ToolTip="Crear una nueva escena en el proyecto"/>
+                <MenuItem x:Name="MenuAbrirScene" Header="Abrir escena…" SubmenuOpened="MenuAbrirScene_SubmenuOpened" ToolTip="Abrir una escena del proyecto en una nueva pestaña"/>
+                <MenuItem x:Name="MenuDuplicarScene" Header="Duplicar escena actual" Click="MenuDuplicarScene_OnClick" ToolTip="Duplicar la escena actual"/>
+                <MenuItem x:Name="MenuEliminarScene" Header="Eliminar escena actual" Click="MenuEliminarScene_OnClick" ToolTip="Eliminar la escena actual y sus archivos"/>
+                <MenuItem x:Name="MenuImportarScene" Header="Importar escena de otro proyecto…" Click="MenuImportarScene_OnClick" ToolTip="Importar una escena desde otro proyecto"/>
+                <Separator/>
+                <MenuItem Header="Ajustes de escena (fondo del visor)…" Click="MenuMapaAjustesFondo_OnClick" ToolTip="Color de fondo del lienzo y vista del mapa"/>
+                <MenuItem Header="Propiedades del mapa (tamaño/chunks)…" Click="MenuPropiedadesMapa_OnClick"/>
+                <MenuItem Header="Tamaño de tiles…" Click="MenuTamañoTiles_OnClick"/>
+                <Separator/>
+                <MenuItem Header="Regenerar colisiones (editor)…" Click="MenuMapaRegenerarColisiones_OnClick" ToolTip="Abre el flujo del editor de colisiones para sprites/tiles"/>
             </MenuItem>
-            <MenuItem Header="Ver" Foreground="#e6edf3">
-                <MenuItem x:Name="MenuVerJerarquia" Header="Jerarquía / Explorador" IsCheckable="True" IsChecked="True" Click="MenuVerPanel_OnClick"/>
-                <MenuItem x:Name="MenuVerInspector" Header="Inspector" IsCheckable="True" IsChecked="True" Click="MenuVerPanel_OnClick"/>
-                <MenuItem x:Name="MenuVerConsola" Header="Consola" IsCheckable="True" IsChecked="False" Click="MenuVerPanel_OnClick"/>
-                <MenuItem x:Name="MenuVerJuego" Header="Juego (Play embebido)" IsCheckable="True" IsChecked="False" Click="MenuVerPanel_OnClick"/>
+            <MenuItem Header="Semillas" Foreground="#e6edf3">
+                <MenuItem Header="Crear nueva semilla…" Click="MenuCrearNuevaSemilla_OnClick"/>
+                <MenuItem Header="Explorador de semillas globales…" Click="MenuExploradorSemillasGlobales_OnClick" ToolTip="Carpeta GlobalTemplates en AppData"/>
+            </MenuItem>
+            <MenuItem Header="Ventana" Foreground="#e6edf3">
+                <MenuItem x:Name="MenuVerJerarquia" Header="Panel jerarquía / mapa" IsCheckable="True" IsChecked="True" Click="MenuVerPanel_OnClick"/>
+                <MenuItem x:Name="MenuVerInspector" Header="Panel Inspector" IsCheckable="True" IsChecked="True" Click="MenuVerPanel_OnClick"/>
+                <MenuItem x:Name="MenuVerConsola" Header="Pestaña Consola" IsCheckable="True" IsChecked="False" Click="MenuVerPanel_OnClick"/>
+                <MenuItem x:Name="MenuVerJuego" Header="Pestaña Juego (Play embebido)" IsCheckable="True" IsChecked="False" Click="MenuVerPanel_OnClick"/>
+                <Separator/>
+                <MenuItem Header="Viewport (Mapa)" Tag="Mapa" Click="MenuVentanaTab_OnClick"/>
+                <MenuItem Header="Explorador de archivos (pestaña)" Tag="Explorador" Click="MenuVentanaTab_OnClick"/>
+                <MenuItem Header="Editor de scripts" Tag="Scripts" Click="MenuVentanaTab_OnClick"/>
+                <MenuItem Header="Consola" Tag="Consola" Click="MenuVentanaTab_OnClick"/>
                 <Separator/>
                 <MenuItem Header="Centro del mapa (cámara)" Click="BtnGoToOrigin_OnClick" ToolTip="Marco azul en el centro geométrico del mapa finito; en infinitos cámara en (0,0) mundo."/>
                 <MenuItem Header="Visor: esquina mundo (0,0)" Click="BtnVisorMundoZero_OnClick" ToolTip="Alinea el marco para que el área de juego tenga su esquina superior izquierda en la casilla (0,0)."/>
-                <MenuItem x:Name="MenuAbrirEscena" Header="Abrir escena..." SubmenuOpened="MenuAbrirEscena_SubmenuOpened"/>
+                <MenuItem x:Name="MenuAbrirEscena" Header="Abrir escena…" SubmenuOpened="MenuAbrirEscena_SubmenuOpened"/>
+                <Separator/>
+                <MenuItem Header="Restablecer disposición…" Click="MenuResetLayout_OnClick" ToolTip="Quita pestañas extra y restaura paneles por defecto"/>
             </MenuItem>
             <MenuItem Header="Herramientas" Foreground="#e6edf3">
                 <MenuItem Header="Pincel" Click="MenuHerramienta_OnClick" Tag="Pintar"/>
@@ -147,14 +169,14 @@
                     <MenuItem Header="Pixel (edición píxel a píxel)" Click="MenuHerramienta_OnClick" Tag="PixelEdit"/>
             </MenuItem>
             <MenuItem Header="Ayuda" Foreground="#e6edf3">
-                <MenuItem Header="Documentación rápida" Click="MenuDocumentacion_OnClick" ToolTip="Primeros pasos con el proyecto abierto: mapa, escenas, Play"/>
-                <MenuItem Header="Documentación completa" Click="MenuDocumentacionCompleta_OnClick" ToolTip="Índice de todos los temas; empieza en «Cómo hacer un juego»"/>
-                <MenuItem Header="Lua — sintaxis y librería…" Click="MenuLuaReference_OnClick" ToolTip="Palabras clave Lua y guías de librería estándar usadas con world, self, time…"/>
-                <MenuItem Header="Atajos de teclado" Click="MenuAtajos_OnClick"/>
-                <MenuItem Header="Acerca de FUEngine" Click="MenuAcercaDe_OnClick"/>
-            </MenuItem>
-            <MenuItem Header="Configuración" Foreground="#e6edf3">
-                <MenuItem Header="Configuración del motor..." Click="MenuConfiguracion_OnClick"/>
+                <MenuItem Header="Manual rápido" Click="MenuDocumentacion_OnClick" ToolTip="Primeros pasos con el proyecto abierto: mapa, escenas, Play"/>
+                <MenuItem Header="Manual completo" Click="MenuDocumentacionCompleta_OnClick" ToolTip="Índice de todos los temas; empieza en «Cómo hacer un juego»"/>
+                <MenuItem Header="API Lua — sintaxis y librería…" Click="MenuLuaReference_OnClick" ToolTip="Palabras clave Lua y guías de librería estándar"/>
+                <Separator/>
+                <MenuItem Header="Abrir carpeta de logs…" Click="MenuAbrirCarpetaLogs_OnClick" ToolTip="Sesiones y fallos en %LocalAppData%\FUEngine\logs"/>
+                <MenuItem Header="Reportar un bug (GitHub)…" Click="MenuReportarBug_OnClick"/>
+                <Separator/>
+                <MenuItem Header="Acerca de FUEngine…" Click="MenuAcercaDe_OnClick"/>
             </MenuItem>
         </Menu>
         <!-- Barra de herramientas dinámica según tab activo -->
@@ -524,7 +546,8 @@
         <Grid x:Name="DocumentationOverlay" Visibility="Collapsed" Panel.ZIndex="1001"
               Background="#B3000000" MouseLeftButtonDown="DocumentationBackdrop_OnMouseLeftButtonDown">
             <Border MaxWidth="960" MaxHeight="740" MinHeight="400" VerticalAlignment="Center" HorizontalAlignment="Center"
-                    Background="#0d1117" BorderBrush="#30363d" BorderThickness="1" CornerRadius="8">
+                    Background="#0d1117" BorderBrush="#30363d" BorderThickness="1" CornerRadius="8"
+                    MouseLeftButtonDown="DocumentationInner_OnMouseLeftButtonDown">
                 <local:DocumentationHostControl x:Name="DocumentationEmbedded" RequestClose="DocumentationEmbedded_RequestClose"/>
             </Border>
         </Grid>
