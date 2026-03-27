@@ -25,7 +25,9 @@ Si clonas este repositorio desde GitHub, revisa siempre **LICENSE.md** antes de 
 ## Requisitos (solo si vas a compilar desde el código)
 
 - **Windows** (el editor usa WPF).
-- **[.NET SDK 8](https://dotnet.microsoft.com/download)** (`dotnet --version` debe ser 8.x).
+- **[.NET SDK 8 para Windows](https://dotnet.microsoft.com/download/dotnet/8.0)** — el paquete llamado **SDK**, no solo el *runtime* de escritorio. Tras instalar, en una **nueva** ventana de terminal debe funcionar `dotnet --version` (debería mostrar **8.x**).
+
+Si **`publicar.bat`** muestra *«dotnet no se reconoce…»*, el SDK no está instalado o la terminal se abrió **antes** de instalarlo: instala el SDK, cierra todas las ventanas de CMD/PowerShell y vuelve a ejecutar el script (o reinicia el PC si el PATH no se actualiza).
 
 ---
 

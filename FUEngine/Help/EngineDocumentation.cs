@@ -112,6 +112,7 @@ public static partial class EngineDocumentation
             bullets: new[]
             {
                 "Requisitos: Windows y .NET SDK 8 (detalle en README.md).",
+                "Si publicar.bat dice que no reconoce dotnet: instala el SDK 8 (no solo el runtime), cierra y abre de nuevo la terminal; comprueba con dotnet --version.",
                 "limpiar.bat y release_publish.bat: ver README.md, sección scripts en tools."
             }),
 
