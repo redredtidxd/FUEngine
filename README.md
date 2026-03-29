@@ -75,6 +75,7 @@ Los `.bat` asumen **Windows**; por dentro pasan a la raíz del repo.
 
 - **FUEngine** – Aplicación editor (WPF)
 - **FUEngine.Core** – Motor: mapa, objetos, scripts, animación, proyecto
+- **FUEngine.Service** – Contratos de servicio: interfaces y DTOs (audio, autoguardado, build, scripting…)
 - **FUEngine.Editor** – Serialización y DTO (JSON)
 - **FUEngine.Runtime** – Tiempo de ejecución del juego (GameLoop, Lua, APIs)
 - **FUEngine.Graphics.Vulkan** – Backend gráfico Vulkan
