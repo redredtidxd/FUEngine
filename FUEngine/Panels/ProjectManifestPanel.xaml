@@ -1,0 +1,78 @@
+<UserControl x:Class="FUEngine.ProjectManifestPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
+        <StackPanel Margin="0,0,0,12">
+            <TextBlock Text="INSPECTOR · Proyecto (manifiesto)" FontWeight="Bold" FontSize="12" Foreground="#8b949e" Margin="0,0,0,10"/>
+            <TextBlock x:Name="TxtManifestHint" Text="" Foreground="#6e7681" FontSize="10" TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+            <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="Resolución lógica (marco azul / juego)" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <TextBlock Text="Ancho" Foreground="#8b949e" Width="88" VerticalAlignment="Center"/>
+                        <TextBox x:Name="TxtGameW" MinWidth="72" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <TextBlock Text="Alto" Foreground="#8b949e" Width="88" VerticalAlignment="Center"/>
+                        <TextBox x:Name="TxtGameH" MinWidth="72" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Tile size (px)" Foreground="#8b949e" Width="88" VerticalAlignment="Center"/>
+                        <TextBox x:Name="TxtTileSize" MinWidth="72" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="Autoría y licencia" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <TextBlock Text="Nombre" Foreground="#8b949e" Width="88" VerticalAlignment="Center"/>
+                        <TextBox x:Name="TxtNombre" MinWidth="180" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <TextBlock Text="Versión" Foreground="#8b949e" Width="88" VerticalAlignment="Center"/>
+                        <TextBox x:Name="TxtVersion" MinWidth="120" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <TextBlock Text="Autor" Foreground="#8b949e" Width="88" VerticalAlignment="Center"/>
+                        <TextBox x:Name="TxtAuthor" MinWidth="180" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Copyright" Foreground="#8b949e" Width="88" VerticalAlignment="Center"/>
+                        <TextBox x:Name="TxtCopyright" MinWidth="180" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="Cámara y colores" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                    <CheckBox x:Name="ChkUseNativeCameraFollow" Content="UseNativeCameraFollow (seguir protagonista en Play)" Foreground="#e6edf3" Margin="0,0,0,8"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <TextBlock Text="Fondo escena (hex)" Foreground="#8b949e" Width="120" VerticalAlignment="Center"/>
+                        <TextBox x:Name="TxtDefaultSceneBg" MinWidth="120" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Fondo mapa editor (hex)" Foreground="#8b949e" Width="120" VerticalAlignment="Center"/>
+                        <TextBox x:Name="TxtEditorCanvasBg" MinWidth="120" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Button x:Name="BtnGuardar" Content="Guardar en el manifiesto" Padding="10,6" Margin="0,0,0,8" Background="#238636" Foreground="White" BorderThickness="0" Click="BtnGuardar_OnClick"/>
+
+            <Border Background="#21262d" CornerRadius="4" Padding="10,8">
+                <StackPanel>
+                    <TextBlock Text="Acciones globales" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                    <Button x:Name="BtnExport" Content="Build / Exportar (Windows…)" Padding="8,4" Margin="0,0,0,4" Background="#1f6feb" Foreground="White" BorderThickness="0" Click="BtnExport_OnClick"/>
+                    <Button x:Name="BtnIntegrity" Content="Comprobar integridad del proyecto" Padding="8,4" Margin="0,0,0,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnIntegrity_OnClick"/>
+                    <Button x:Name="BtnOpenFolder" Content="Abrir carpeta del proyecto" Padding="8,4" Margin="0,0,0,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnOpenFolder_OnClick"/>
+                    <Button x:Name="BtnAdvanced" Content="Configuración avanzada…" Padding="8,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnAdvanced_OnClick"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,0 +1,87 @@
+<UserControl x:Class="FUEngine.DefaultInspectorPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="0,0,0,16">
+            <TextBlock Text="INSPECTOR" FontWeight="Bold" FontSize="12" Foreground="#8b949e" Margin="0,0,0,4"/>
+            <TextBlock x:Name="TxtNoSelectionHeader" Text="Sin selección — información del mapa y proyecto" Foreground="#6e7681" FontSize="11" Margin="0,0,0,10" TextWrapping="Wrap"/>
+            <!-- 1. Mapa activo -->
+            <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="Mapa activo" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                    <TextBlock x:Name="TxtMapName" Foreground="#8b949e" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="TxtMapSize" Foreground="#8b949e" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="TxtTileSize" Foreground="#8b949e" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="TxtLayers" Foreground="#8b949e" FontSize="11"/>
+                </StackPanel>
+            </Border>
+            <!-- 2. Proyecto -->
+            <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="Proyecto" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                    <TextBlock x:Name="TxtProjectName" Foreground="#8b949e" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="TxtProjectPath" Foreground="#6e7681" FontSize="10" TextWrapping="Wrap" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="TxtEngineVersion" Foreground="#8b949e" FontSize="11"/>
+                </StackPanel>
+            </Border>
+            <!-- 3. Herramienta actual -->
+            <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="Herramienta" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                    <TextBlock x:Name="TxtToolName" Foreground="#8b949e" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="TxtToolDetail" Foreground="#8b949e" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="TxtLayerRotation" Foreground="#8b949e" FontSize="11" Visibility="Collapsed"/>
+                </StackPanel>
+            </Border>
+            <!-- 4. Estadísticas -->
+            <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="Estadísticas" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                    <TextBlock x:Name="TxtStatsTiles" Foreground="#8b949e" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="TxtStatsObjects" Foreground="#8b949e" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="TxtStatsTriggers" Foreground="#8b949e" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="TxtStatsScripts" Foreground="#8b949e" FontSize="11"/>
+                </StackPanel>
+            </Border>
+            <!-- 5. Preview tile/objeto actual -->
+            <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="Preview" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                    <Border x:Name="PreviewBox" Width="48" Height="48" CornerRadius="2" Margin="0,0,0,6" Background="#0d1117"/>
+                    <TextBlock x:Name="TxtPreviewType" Foreground="#8b949e" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="TxtPreviewProps" Foreground="#6e7681" FontSize="10"/>
+                </StackPanel>
+            </Border>
+            <!-- 6. Acciones rápidas -->
+            <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="Acciones rápidas" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                    <Button x:Name="BtnCreateObject" Content="Crear objeto" Margin="0,0,0,4" Padding="8,4" Click="BtnCreateObject_OnClick"
+                            Background="#238636" Foreground="White" BorderThickness="0"/>
+                    <Button x:Name="BtnAddTrigger" Content="Añadir trigger" Margin="0,0,0,4" Padding="8,4" Click="BtnAddTrigger_OnClick"
+                            Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                    <Button x:Name="BtnConfigMap" Content="Config mapa" Margin="0,0,0,4" Padding="8,4" Click="BtnConfigMap_OnClick"
+                            Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                    <Button x:Name="BtnCenterCamera" Content="Centrar cámara" Padding="8,4" Click="BtnCenterCamera_OnClick"
+                            Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                </StackPanel>
+            </Border>
+            <!-- 7. Favoritos / Eventos globales -->
+            <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="Favoritos y eventos globales" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                    <TextBlock Text="Favoritos: marque objetos, tiles o scripts para acceso rápido (próximamente)." Foreground="#8b949e" FontSize="10" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                    <TextBlock Text="Eventos globales: OnDayStart, OnNightStart, OnPlayerMove… Asigne scripts desde aquí (próximamente)." Foreground="#8b949e" FontSize="10" TextWrapping="Wrap" Margin="0,0,0,0"/>
+                </StackPanel>
+            </Border>
+            <!-- 8. Tip -->
+            <Border Background="#161b22" CornerRadius="4" Padding="10,8" BorderBrush="#30363d" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="Tip" FontWeight="SemiBold" Foreground="#58a6ff" FontSize="11" Margin="0,0,0,4"/>
+                    <TextBlock x:Name="TxtTip" Foreground="#8b949e" FontSize="10" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

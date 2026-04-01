@@ -1,0 +1,53 @@
+<Window x:Class="FUEngine.GlobalLibraryBrowserWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Biblioteca global → proyecto" Height="520" Width="680"
+        WindowStartupLocation="CenterOwner"
+        Background="#0d1117" ResizeMode="CanResize" MinHeight="400" MinWidth="520"
+        Loaded="Window_Loaded">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock x:Name="TxtBrowserHint" Grid.Row="0" Foreground="#8b949e" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+        <Grid Grid.Row="1" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="140"/>
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="TxtFilter" Grid.Column="0" Padding="8,6" Margin="0,0,8,0"
+                     Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                     TextChanged="TxtFilter_OnTextChanged" ToolTip="Filtrar por nombre o tag"/>
+            <ComboBox x:Name="CmbKindFilter" Grid.Column="1" Padding="6,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                      SelectionChanged="CmbKindFilter_OnSelectionChanged"/>
+        </Grid>
+        <CheckBox x:Name="ChkRegisterAudio" Grid.Row="2" Content="Al añadir audio, registrar también en audio.json del proyecto"
+                  Foreground="#e6edf3" Margin="0,0,0,8"/>
+        <DataGrid x:Name="LibraryBrowserList" Grid.Row="3" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"
+                  Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" HeadersVisibility="Column"
+                  RowBackground="#21262d" AlternatingRowBackground="#161b22" GridLinesVisibility="Horizontal"
+                  HorizontalGridLinesBrush="#30363d" SelectionMode="Single">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Nombre" Binding="{Binding DisplayName}" Width="140"/>
+                <DataGridTextColumn Header="Tipo" Binding="{Binding Kind}" Width="72"/>
+                <DataGridTextColumn Header="Sugerido" Binding="{Binding SuggestedKind}" Width="72"/>
+                <DataGridTextColumn Header="Ruta" Binding="{Binding RelativePath}" Width="*"/>
+                <DataGridTemplateColumn Header="" Width="100">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="+ Añadir" Padding="8,4" Click="BtnAddToProject_OnClick"
+                                    Background="#238636" Foreground="White" BorderBrush="#2ea043" Cursor="Hand"
+                                    Tag="{Binding}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+        <TextBlock Grid.Row="4" Text="Los archivos se copian a la carpeta Assets del proyecto (subcarpeta según tipo). Cierra y vuelve a abrir si el explorador de proyecto no refresca."
+                   Foreground="#6e7681" FontSize="11" TextWrapping="Wrap" Margin="0,12,0,0"/>
+    </Grid>
+</Window>

@@ -1,0 +1,151 @@
+<UserControl x:Class="FUEngine.GameTabContent"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:FUEngine"
+             Background="#0d1117" Focusable="True" FocusVisualStyle="{x:Null}"
+             KeyDown="GameTabContent_KeyDown" PreviewKeyDown="GameTabContent_PreviewKeyDown" PreviewKeyUp="GameTabContent_PreviewKeyUp"
+             Loaded="GameTabContent_Loaded">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="200" MinHeight="80"/>
+        </Grid.RowDefinitions>
+        <!-- Toolbar: Play, Stop, Pause, Resume, Reset, Guardar estado -->
+        <Border Grid.Row="0" Background="#161b22" Padding="8,6" BorderBrush="#30363d" BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="BtnStart" Content="▶ Iniciar" Width="90" Height="28" Padding="6,0" Background="#238636" Foreground="White" BorderThickness="0"
+                        ToolTip="Iniciar Play con copia de la escena actual (sandbox)" Click="BtnStart_OnClick"/>
+                <Button x:Name="BtnStop" Content="■ Detener" Width="85" Height="28" Margin="6,0,0,0" Padding="6,0" Background="#da3633" Foreground="White" BorderThickness="0"
+                        ToolTip="Detener (Esc)" Click="BtnStop_OnClick" IsEnabled="False"/>
+                <Button x:Name="BtnPause" Content="⏸ Pausar" Width="75" Height="28" Margin="4,0,0,0" Padding="6,0" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                        ToolTip="Pausar (Space / P)" Click="BtnPause_OnClick" IsEnabled="False"/>
+                <Button x:Name="BtnResume" Content="▶ Reanudar" Width="85" Height="28" Margin="4,0,0,0" Padding="6,0" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                        ToolTip="Reanudar (Space / P)" Click="BtnResume_OnClick" IsEnabled="False" Visibility="Collapsed"/>
+                <Button x:Name="BtnReset" Content="↻ Reset" Width="70" Height="28" Margin="8,0,0,0" Padding="6,0" Background="#388bfd" Foreground="White" BorderThickness="0"
+                        ToolTip="Reset tab (R)" Click="BtnReset_OnClick"/>
+                <Button x:Name="BtnSaveState" Content="Guardar estado en escena" Width="160" Height="28" Margin="8,0,0,0" Padding="6,0" Background="#2ea043" Foreground="White" BorderThickness="0"
+                        ToolTip="Aplica posición/rotación del sandbox a la escena del editor" Click="BtnSaveState_OnClick" IsEnabled="False"/>
+                <TextBlock x:Name="TxtSceneInfo" Text="Escena actual del editor" VerticalAlignment="Center" Margin="16,0,0,0" Foreground="#8b949e" FontSize="11"/>
+            </StackPanel>
+        </Border>
+        <!-- Mini HUD: FPS, frame, deltaTime, objetos; toggle info avanzada -->
+        <Border x:Name="PanelHud" Grid.Row="1" Background="#21262d" Padding="6,4" BorderBrush="#30363d" BorderThickness="0,0,0,1" Visibility="Collapsed">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel x:Name="HudMain" Orientation="Horizontal" Grid.Column="0">
+                    <TextBlock x:Name="TxtFps" Text="FPS: --" Foreground="#58a6ff" FontSize="11" Margin="0,0,12,0"/>
+                    <TextBlock x:Name="TxtFrame" Text="Frame: 0" Foreground="#8b949e" FontSize="11" Margin="0,0,12,0"/>
+                    <TextBlock x:Name="TxtDelta" Text="dt: -- ms" Foreground="#8b949e" FontSize="11" Margin="0,0,12,0"/>
+                    <TextBlock x:Name="TxtTime" Text="Tiempo: 0 s" Foreground="#8b949e" FontSize="11" Margin="0,0,12,0"/>
+                    <TextBlock x:Name="TxtObjectCount" Text="Objetos: 0" Foreground="#8b949e" FontSize="11" Margin="0,0,12,0"/>
+                    <StackPanel x:Name="HudAdvanced" Orientation="Horizontal" Visibility="Collapsed">
+                        <TextBlock x:Name="TxtAdvanced" Text="· Hot reload solo en este tab" Foreground="#6e7681" FontSize="10" Margin="0,0,8,0"/>
+                    </StackPanel>
+                </StackPanel>
+                <CheckBox x:Name="ChkHudAdvanced" Grid.Column="1" Content="Info avanzada" Foreground="#8b949e" FontSize="10" VerticalAlignment="Center" Checked="ChkHudAdvanced_Changed" Unchecked="ChkHudAdvanced_Changed"/>
+            </Grid>
+        </Border>
+        <!-- Contenido: Jerarquía (izq) | Viewport (centro) -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="180" MinWidth="100"/>
+                <ColumnDefinition Width="4"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Background="#161b22" BorderBrush="#30363d" BorderThickness="0,0,1,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0" Background="#21262d" Padding="8,6" BorderBrush="#30363d" BorderThickness="0,0,0,1">
+                        <TextBlock Text="Jerarquía (runtime)" FontWeight="SemiBold" FontSize="12" Foreground="#a371f7"/>
+                    </Border>
+                    <ListBox Grid.Row="1" x:Name="HierarchyList" Background="Transparent" Foreground="#e6edf3" BorderThickness="0"
+                             FontSize="11" Margin="4"                              ContextMenuOpening="HierarchyList_ContextMenuOpening" MouseRightButtonDown="HierarchyList_MouseRightButtonDown">
+                        <ListBox.ContextMenu>
+                            <ContextMenu x:Name="HierarchyContextMenu">
+                                <MenuItem x:Name="MenuHierarchyPrint" Header="Print propiedades" Click="MenuHierarchyPrint_OnClick"/>
+                                <MenuItem x:Name="MenuHierarchyDestroy" Header="Detener este objeto" Click="MenuHierarchyDestroy_OnClick"/>
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
+                    </ListBox>
+                </Grid>
+            </Border>
+            <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" Background="#30363d"/>
+            <!-- Viewport de juego: render de mundo + overlay UI -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Border Grid.Row="0" Background="#21262d" Padding="6,4" BorderBrush="#30363d" BorderThickness="0,0,0,1">
+                    <TextBlock Text="Viewport (mundo + UI)" FontWeight="SemiBold" FontSize="11" Foreground="#3fb950"/>
+                </Border>
+                <Canvas Grid.Row="1" x:Name="GameViewportCanvas" Background="#FFFFFF" ClipToBounds="True"
+                        MouseLeftButtonDown="ViewportCanvas_MouseLeftButtonDown"
+                        MouseLeftButtonUp="ViewportCanvas_MouseLeftButtonUp"
+                        MouseMove="ViewportCanvas_MouseMove"/>
+            </Grid>
+        </Grid>
+        <!-- Mini consola: logs del runtime de este tab -->
+        <Border Grid.Row="3" Background="#161b22" BorderBrush="#30363d" BorderThickness="0,1,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Border Grid.Row="0" Background="#21262d" Padding="6,4" BorderBrush="#30363d" BorderThickness="0,0,0,1">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Consola (Lua / Play de este tab)" Foreground="#e6edf3" FontWeight="SemiBold" FontSize="11"/>
+                        <TextBlock Text="  Filtro:" Foreground="#6e7681" FontSize="10" VerticalAlignment="Center" Margin="12,0,4,0"/>
+                        <CheckBox x:Name="ChkFilterInfo" Content="Info" Foreground="#e6edf3" IsChecked="True" VerticalAlignment="Center" Margin="2,0" Checked="LogFilter_Changed" Unchecked="LogFilter_Changed"/>
+                        <CheckBox x:Name="ChkFilterWarning" Content="Aviso" Foreground="#e6edf3" IsChecked="True" VerticalAlignment="Center" Margin="2,0" Checked="LogFilter_Changed" Unchecked="LogFilter_Changed"/>
+                        <CheckBox x:Name="ChkFilterError" Content="Error" Foreground="#e6edf3" IsChecked="True" VerticalAlignment="Center" Margin="2,0" Checked="LogFilter_Changed" Unchecked="LogFilter_Changed"/>
+                        <CheckBox x:Name="ChkFilterLua" Content="Lua Print" Foreground="#e6edf3" IsChecked="True" VerticalAlignment="Center" Margin="2,0" Checked="LogFilter_Changed" Unchecked="LogFilter_Changed"/>
+                        <Button x:Name="BtnClearLog" Content="Limpiar" Margin="12,0,0,0" Padding="6,2" Click="BtnClearLog_OnClick"
+                                Background="#30363d" Foreground="#e6edf3" BorderBrush="#484f58" ToolTip="Limpiar logs solo de este tab"/>
+                    </StackPanel>
+                </Border>
+                <ListBox Grid.Row="1" x:Name="LogList" Background="Transparent" Foreground="#e6edf3" BorderThickness="0"
+                         FontSize="11" Margin="4" MouseDoubleClick="LogList_OnMouseDoubleClick"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type local:LogEntry}">
+                            <StackPanel Orientation="Horizontal" Margin="2,1">
+                                <TextBlock Text="{Binding Time, StringFormat={}{0:HH:mm:ss}}" Foreground="#6e7681" Margin="0,0,8,0" FontSize="10"/>
+                                <TextBlock x:Name="LevelText" Width="48" FontSize="10" Text="[Info]" Foreground="#58a6ff"/>
+                                <TextBlock x:Name="SourceText" Text="{Binding Source, StringFormat='[{0}] ', TargetNullValue='', FallbackValue=''}" FontSize="10" Foreground="#8b949e" Margin="0,0,4,0"/>
+                                <TextBlock Text="{Binding Message}" TextWrapping="Wrap" FontSize="11"/>
+                            </StackPanel>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding Level}" Value="Warning">
+                                    <Setter TargetName="LevelText" Property="Text" Value="[Aviso]"/>
+                                    <Setter TargetName="LevelText" Property="Foreground" Value="#d29922"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Level}" Value="Error">
+                                    <Setter TargetName="LevelText" Property="Text" Value="[Error]"/>
+                                    <Setter TargetName="LevelText" Property="Foreground" Value="#f85149"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Level}" Value="Critical">
+                                    <Setter TargetName="LevelText" Property="Text" Value="[Crít.]"/>
+                                    <Setter TargetName="LevelText" Property="Foreground" Value="#ff7b72"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Level}" Value="Lua">
+                                    <Setter TargetName="LevelText" Property="Text" Value="[Lua]"/>
+                                    <Setter TargetName="LevelText" Property="Foreground" Value="#a5d6ff"/>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

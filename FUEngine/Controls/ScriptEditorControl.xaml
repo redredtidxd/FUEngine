@@ -1,0 +1,32 @@
+<UserControl x:Class="FUEngine.ScriptEditorControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:avalon="http://icsharpcode.net/sharpdevelop/avalonedit"
+             Background="#0d1117">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Border Grid.Row="0" Background="#161b22" Padding="8,6" BorderBrush="#30363d" BorderThickness="0,0,0,1">
+            <TextBlock x:Name="TxtFilePath" Text="" Foreground="#8b949e" FontSize="12" FontFamily="Consolas"/>
+        </Border>
+        <avalon:TextEditor x:Name="AvalonEditor" Grid.Row="1"
+                           ShowLineNumbers="True"
+                           FontFamily="Consolas" FontSize="13"
+                           Background="#0d1117"
+                           Padding="8,8,8,8"
+                           BorderThickness="0"
+                           TextChanged="AvalonEditor_OnTextChanged"
+                           KeyDown="AvalonEditor_OnKeyDown"/>
+        <Border Grid.Row="2" Background="#161b22" Padding="8,4" BorderBrush="#30363d" BorderThickness="0,1,0,0">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock x:Name="TxtStatus" Text="Listo" Foreground="#8b949e" FontSize="11" VerticalAlignment="Center"/>
+                <TextBlock x:Name="TxtModified" Text=" ● Sin guardar" Foreground="#f85149" FontSize="11" Margin="12,0,0,0" Visibility="Collapsed"/>
+                <Button x:Name="BtnSave" Content="Guardar" Width="80" Height="26" Margin="16,0,0,0" Padding="6,0" Click="BtnSave_OnClick"
+                        Background="#238636" Foreground="White" BorderThickness="0"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

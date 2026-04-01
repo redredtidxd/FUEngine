@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ApplicationDefinition Include="App\App.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </ApplicationDefinition>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FUEngine.Core\FUEngine.Core.csproj" />
+    <ProjectReference Include="..\FUEngine.Editor\FUEngine.Editor.csproj" />
+    <ProjectReference Include="..\FUEngine.Runtime\FUEngine.Runtime.csproj" />
+    <ProjectReference Include="..\FUEngine.Service\FUEngine.Service.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AvalonEdit" Version="6.3.1.120" />
+    <PackageReference Include="DiscordRichPresence" Version="1.6.1.70" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\Lua.xshd">
+      <LogicalName>FUEngine.Resources.Lua.xshd</LogicalName>
+    </EmbeddedResource>
+    <None Include="Resources\Lua.xshd" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Link="Resources\Lua.xshd" />
+    <!-- Cosecha amplia: casi cualquier archivo no-fuente del proyecto entra en output/publish.
+         Excluimos código, metadatos de build y el recurso Lua.xshd que ya tiene tratamiento especial. -->
+    <Content Include="**\*"
+             Exclude="
+               Resources\Lua.xshd;
+               **\bin\**;
+               **\obj\**;
+               **\*.cs;
+               **\*.xaml;
+               **\*.csproj;
+               **\*.targets;
+               **\*.props;
+               **\*.sln;
+               **\*.user;
+               **\*.suo;
+               **\*.editorconfig;
+               **\*.md;
+               **\*.pdb;
+               **\*.config;
+               **\*.manifest">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

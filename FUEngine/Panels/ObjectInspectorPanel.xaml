@@ -1,0 +1,259 @@
+<UserControl x:Class="FUEngine.ObjectInspectorPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent"
+             AllowDrop="True"
+             PreviewDragOver="ObjectInspector_OnPreviewDragOver"
+             Drop="ObjectInspector_OnDrop">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="0,0,0,16">
+            <TextBlock Text="INSPECTOR · Objeto" FontWeight="Bold" FontSize="12" Foreground="#8b949e" Margin="0,0,0,10"/>
+            <TextBlock x:Name="TxtNoSelection" Text="Seleccione un objeto en el mapa o en la jerarquía." Foreground="#8b949e" Margin="0,4,0,8" TextWrapping="Wrap"/>
+            <StackPanel x:Name="PanelObject" Visibility="Collapsed">
+                <!-- Cabecera: icono, nombre, id corto, activo -->
+                <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border x:Name="PreviewBorder" Grid.Column="0" Width="48" Height="48" Background="#0d1117" CornerRadius="4" Margin="0,0,10,0">
+                            <Image x:Name="ImgPreview" MaxWidth="48" MaxHeight="48" Stretch="Uniform"/>
+                        </Border>
+                        <StackPanel Grid.Column="1">
+                            <TextBox x:Name="TxtNombre" FontWeight="SemiBold" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="TxtNombre_OnTextChanged" ToolTip="Nombre en la jerarquía"/>
+                            <TextBlock x:Name="TxtHeaderId" Text="ID: —" Foreground="#8b949e" FontSize="10" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"/>
+                            <CheckBox x:Name="ChkEnabled" Content="Activo (scripts en Play)" Foreground="#e6edf3" Margin="0,6,0,0" Checked="ChkEnabled_OnChanged" Unchecked="ChkEnabled_OnChanged" ToolTip="Si está desmarcado, el objeto no ejecuta onUpdate en Play (RuntimeActive)."/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+                <!-- Identidad -->
+                <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="Identidad" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                        <TextBlock Text="ID (GUID, inmutable)" Foreground="#8b949e" FontSize="11" Margin="0,2,0,2"/>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="TxtInstanceId" Grid.Column="0" IsReadOnly="True" Margin="0,0,8,0" Padding="8,6" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" ToolTip="Identificador único para referencias y serialización."/>
+                            <Button x:Name="BtnGenerateInstanceId" Grid.Column="1" Content="Regenerar" Padding="8,4" Click="BtnGenerateInstanceId_OnClick" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" ToolTip="Genera un nuevo GUID (rompe referencias que usen el id anterior)."/>
+                        </Grid>
+                        <TextBlock Text="Definition ID (tipo)" Foreground="#8b949e" FontSize="11" Margin="0,2,0,2"/>
+                        <TextBox x:Name="TxtDefinitionId" Margin="0,0,0,8" Padding="8,6" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="TxtDefinitionId_OnTextChanged" ToolTip="ID de la definición/tipo del objeto"/>
+                        <TextBlock x:Name="TxtDefinitionName" Text="Tipo: —" Foreground="#8b949e" FontSize="11" Margin="0,0,0,4"/>
+                        <TextBlock Text="Etiquetas (coma)" Foreground="#8b949e" FontSize="11" Margin="0,2,0,2"/>
+                        <TextBox x:Name="TxtTags" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,6" TextChanged="TxtTags_OnTextChanged"/>
+                        <TextBlock Text="Capa (orden Z / render)" Foreground="#8b949e" FontSize="11" Margin="0,2,0,2"/>
+                        <ComboBox x:Name="CmbLayerOrder" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,6" SelectionChanged="CmbLayerOrder_OnSelectionChanged" ToolTip="Mayor = delante en el dibujado."/>
+                        <CheckBox x:Name="ChkVisible" Content="Visible en mapa" Foreground="#e6edf3" Margin="0,2,0,4" Checked="ChkVisible_OnChanged" Unchecked="ChkVisible_OnChanged" ToolTip="Si está desmarcado, no se dibuja el sprite en el editor (marcador)."/>
+                        <TextBlock x:Name="TxtSize" Text="Tamaño: —" Foreground="#8b949e" FontSize="11"/>
+                    </StackPanel>
+                </Border>
+                <!-- Transform -->
+                <Expander x:Name="ExpanderTransform" Header="Transform" IsExpanded="True" Foreground="#e6edf3" Margin="0,0,0,8">
+                    <Border Background="#21262d" CornerRadius="4" Padding="10,8">
+                        <StackPanel>
+                            <TextBlock Text="Coords (grid)" Foreground="#8b949e" FontSize="11" Margin="0,0,0,2"/>
+                            <TextBlock x:Name="TxtGridCoords" Text="tx: 0  ty: 0" Foreground="#e6edf3" FontSize="11" Margin="0,0,0,8"/>
+                            <TextBlock Text="Posición (píxeles mundo)" Foreground="#8b949e" FontSize="11" Margin="0,2,0,2"/>
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                    <TextBlock Text="X" Foreground="#8b949e" FontSize="11"/>
+                                    <TextBox x:Name="TxtPosX" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,2,0,4" TextChanged="TxtPosition_OnTextChanged"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                                    <TextBlock Text="Y" Foreground="#8b949e" FontSize="11"/>
+                                    <TextBox x:Name="TxtPosY" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,2,0,4" TextChanged="TxtPosition_OnTextChanged"/>
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock Text="Rotación" Foreground="#8b949e" FontSize="11" Margin="0,6,0,2"/>
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ComboBox x:Name="CmbRotation" Grid.Column="0" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,4,4" SelectionChanged="CmbRotation_OnSelectionChanged"/>
+                                <TextBox x:Name="TxtRotationCustom" Grid.Column="1" Width="44" Padding="4,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,4" TextChanged="TxtRotation_OnTextChanged" ToolTip="Grados (0-360)"/>
+                            </Grid>
+                            <TextBlock Text="Escala" Foreground="#8b949e" FontSize="11" Margin="0,2,0,2"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="TxtScaleX" Grid.Column="0" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,2,4,4" TextChanged="TxtScale_OnTextChanged"/>
+                                <TextBox x:Name="TxtScaleY" Grid.Column="1" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="4,2,0,4" TextChanged="TxtScale_OnTextChanged"/>
+                            </Grid>
+                            <TextBlock Text="Pivot" Foreground="#8b949e" FontSize="11" Margin="0,4,0,2"/>
+                            <ComboBox x:Name="CmbPivot" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" SelectionChanged="CmbPivot_OnSelectionChanged" ToolTip="Reservado para alineación de sprite en render."/>
+                        </StackPanel>
+                    </Border>
+                </Expander>
+                <!-- Luz puntual (si está activa o para editar) -->
+                <Expander x:Name="ExpanderPointLight" Header="Luz puntual" IsExpanded="True" Foreground="#e6edf3" Margin="0,0,0,8">
+                    <Border Background="#21262d" CornerRadius="4" Padding="10,8">
+                        <StackPanel>
+                            <CheckBox x:Name="ChkPointLight" Content="Habilitar PointLight" Foreground="#e6edf3" Margin="0,0,0,6" Checked="ChkPointLight_OnChanged" Unchecked="ChkPointLight_OnChanged"/>
+                            <TextBlock Text="Radio" Foreground="#8b949e" FontSize="11"/>
+                            <TextBox x:Name="TxtPointLightRadius" Padding="6,4" Margin="0,2,0,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="TxtPointLight_OnTextChanged"/>
+                            <TextBlock Text="Intensidad" Foreground="#8b949e" FontSize="11"/>
+                            <TextBox x:Name="TxtPointLightIntensity" Padding="6,4" Margin="0,2,0,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="TxtPointLight_OnTextChanged"/>
+                            <TextBlock Text="Color (#RRGGBB)" Foreground="#8b949e" FontSize="11"/>
+                            <TextBox x:Name="TxtPointLightColor" Padding="6,4" Margin="0,2,0,0" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="TxtPointLight_OnTextChanged"/>
+                        </StackPanel>
+                    </Border>
+                </Expander>
+                <Expander x:Name="ExpanderEngineComponents" Header="Sprite, física y gameplay (Play)" IsExpanded="False" Foreground="#e6edf3" Margin="0,0,0,8">
+                    <Border Background="#21262d" CornerRadius="4" Padding="10,8">
+                        <StackPanel>
+                            <TextBlock Text="SpriteRenderer" FontWeight="SemiBold" Foreground="#e6edf3" Margin="0,0,0,4"/>
+                            <TextBlock Text="Tinte (#RRGGBB)" Foreground="#8b949e" FontSize="11"/>
+                            <TextBox x:Name="TxtSpriteTint" Padding="6,4" Margin="0,2,0,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                            <CheckBox x:Name="ChkSpriteFlipX" Content="Flip X" Foreground="#e6edf3" Margin="0,2,0,2" Checked="EngineComponents_Any" Unchecked="EngineComponents_Any"/>
+                            <CheckBox x:Name="ChkSpriteFlipY" Content="Flip Y" Foreground="#e6edf3" Margin="0,2,0,4" Checked="EngineComponents_Any" Unchecked="EngineComponents_Any"/>
+                            <TextBlock Text="Sort offset (mismo RenderOrder)" Foreground="#8b949e" FontSize="11"/>
+                            <TextBox x:Name="TxtSpriteSortOffset" Padding="6,4" Margin="0,2,0,8" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                            <TextBlock Text="AnimationPlayer (animaciones.json)" FontWeight="SemiBold" Foreground="#e6edf3" Margin="0,4,0,4"/>
+                            <TextBlock Text="Clip por defecto (id o nombre)" Foreground="#8b949e" FontSize="11"/>
+                            <TextBox x:Name="TxtDefaultAnimClip" Padding="6,4" Margin="0,2,0,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                            <CheckBox x:Name="ChkAnimAutoPlay" Content="AutoPlay al iniciar" Foreground="#e6edf3" Margin="0,2,0,4" Checked="EngineComponents_Any" Unchecked="EngineComponents_Any"/>
+                            <TextBlock Text="Velocidad animación (×)" Foreground="#8b949e" FontSize="11"/>
+                            <TextBox x:Name="TxtAnimSpeedMult" Padding="6,4" Margin="0,2,0,8" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                            <TextBlock Text="Collider (Box / Circle)" FontWeight="SemiBold" Foreground="#e6edf3" Margin="0,4,0,4"/>
+                            <ComboBox x:Name="CmbColliderShape" Padding="6,4" Margin="0,0,0,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" SelectionChanged="EngineComponents_Any"/>
+                            <TextBlock Text="Caja: ancho × alto (casillas, 0 = tipo)" Foreground="#8b949e" FontSize="11"/>
+                            <Grid Margin="0,2,0,4">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <TextBox x:Name="TxtColliderBoxW" Grid.Column="0" Padding="6,4" Margin="0,0,4,0" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                                <TextBox x:Name="TxtColliderBoxH" Grid.Column="1" Padding="6,4" Margin="4,0,0,0" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                            </Grid>
+                            <TextBlock Text="Círculo: radio (casillas)" Foreground="#8b949e" FontSize="11"/>
+                            <TextBox x:Name="TxtColliderRadius" Padding="6,4" Margin="0,2,0,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                            <TextBlock Text="Offset colisión X / Y" Foreground="#8b949e" FontSize="11"/>
+                            <Grid Margin="0,2,0,8">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <TextBox x:Name="TxtColliderOffX" Grid.Column="0" Padding="6,4" Margin="0,0,4,0" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                                <TextBox x:Name="TxtColliderOffY" Grid.Column="1" Padding="6,4" Margin="4,0,0,0" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                            </Grid>
+                            <CheckBox x:Name="ChkRigidbody" Content="Rigidbody (gravedad del proyecto)" Foreground="#e6edf3" Margin="0,2,0,4" Checked="EngineComponents_Any" Unchecked="EngineComponents_Any"/>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                    <TextBlock Text="Masa" Foreground="#8b949e" FontSize="10"/>
+                                    <TextBox x:Name="TxtRbMass" Padding="4,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="4,0,4,0">
+                                    <TextBlock Text="Gravedad ×" Foreground="#8b949e" FontSize="10"/>
+                                    <TextBox x:Name="TxtRbGravScale" Padding="4,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Margin="4,0,0,0">
+                                    <TextBlock Text="Drag" Foreground="#8b949e" FontSize="10"/>
+                                    <TextBox x:Name="TxtRbDrag" Padding="4,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                                </StackPanel>
+                            </Grid>
+                            <CheckBox x:Name="ChkCameraTarget" Content="CameraTarget (cámara sigue este objeto)" Foreground="#e6edf3" Margin="0,2,0,8" Checked="EngineComponents_Any" Unchecked="EngineComponents_Any"/>
+                            <TextBlock Text="ProximitySensor" FontWeight="SemiBold" Foreground="#e6edf3" Margin="0,4,0,4"/>
+                            <CheckBox x:Name="ChkProximity" Content="Habilitar (distancia → onTriggerEnter)" Foreground="#e6edf3" Margin="0,2,0,4" Checked="EngineComponents_Any" Unchecked="EngineComponents_Any"/>
+                            <TextBlock Text="Rango (casillas) / etiqueta objetivo" Foreground="#8b949e" FontSize="11"/>
+                            <Grid Margin="0,2,0,8">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <TextBox x:Name="TxtProxRange" Grid.Column="0" Padding="6,4" Margin="0,0,4,0" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                                <TextBox x:Name="TxtProxTag" Grid.Column="1" Padding="6,4" Margin="4,0,0,0" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                            </Grid>
+                            <TextBlock Text="Health" FontWeight="SemiBold" Foreground="#e6edf3" Margin="0,4,0,4"/>
+                            <CheckBox x:Name="ChkHealth" Content="Habilitar HealthComponent" Foreground="#e6edf3" Margin="0,2,0,4" Checked="EngineComponents_Any" Unchecked="EngineComponents_Any"/>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                    <TextBlock Text="Máx" Foreground="#8b949e" FontSize="10"/>
+                                    <TextBox x:Name="TxtHealthMax" Padding="4,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                                    <TextBlock Text="Actual" Foreground="#8b949e" FontSize="10"/>
+                                    <TextBox x:Name="TxtHealthCurrent" Padding="4,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock Text="AudioSource (metadatos; reproducir con audio.play)" FontWeight="SemiBold" Foreground="#e6edf3" Margin="0,4,0,4"/>
+                            <CheckBox x:Name="ChkAudioSource" Content="Habilitar" Foreground="#e6edf3" Margin="0,2,0,4" Checked="EngineComponents_Any" Unchecked="EngineComponents_Any"/>
+                            <TextBox x:Name="TxtAudioClipId" Padding="6,4" Margin="0,0,0,8" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                            <TextBlock Text="Partículas (datos; visor próximo)" FontWeight="SemiBold" Foreground="#e6edf3" Margin="0,4,0,4"/>
+                            <CheckBox x:Name="ChkParticleEmitter" Content="Habilitar ParticleEmitter" Foreground="#e6edf3" Margin="0,2,0,4" Checked="EngineComponents_Any" Unchecked="EngineComponents_Any"/>
+                            <TextBox x:Name="TxtParticleTexture" Padding="6,4" Margin="0,0,0,0" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                        </StackPanel>
+                    </Border>
+                </Expander>
+                <!-- Interacción -->
+                <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="Interacción / física" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                        <CheckBox x:Name="ChkColision" Content="Colisión" Foreground="#e6edf3" Margin="0,4,0,0" Checked="Chk_OnChanged" Unchecked="Chk_OnChanged"/>
+                        <TextBlock Text="Tipo colisión" Foreground="#8b949e" FontSize="11" Margin="0,6,0,2"/>
+                        <ComboBox x:Name="CmbCollisionType" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,6" SelectionChanged="CmbCollisionType_OnSelectionChanged"/>
+                        <CheckBox x:Name="ChkInteractivo" Content="Interactivo" Foreground="#e6edf3" Margin="0,4,0,0" Checked="Chk_OnChanged" Unchecked="Chk_OnChanged"/>
+                        <CheckBox x:Name="ChkDestructible" Content="Destructible" Foreground="#e6edf3" Margin="0,4,0,0" Checked="Chk_OnChanged" Unchecked="Chk_OnChanged"/>
+                    </StackPanel>
+                </Border>
+                <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="Juego" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                        <CheckBox x:Name="ChkEnableInGameDrawing" Content="Habilitar dibujo en juego" Foreground="#e6edf3" Margin="0,4,0,0" ToolTip="Genera CanvasController.lua para que el jugador pueda pintar sobre este objeto en PlayMode (respeta límites de textura)." Checked="ChkEnableInGameDrawing_OnChanged" Unchecked="ChkEnableInGameDrawing_OnChanged"/>
+                    </StackPanel>
+                </Border>
+                <Expander x:Name="ExpanderScripts" Header="Scripts (Lua)" IsExpanded="True" Foreground="#e6edf3" Margin="0,0,0,4">
+                    <Expander.HeaderTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12"/>
+                        </DataTemplate>
+                    </Expander.HeaderTemplate>
+                    <Border Background="#21262d" CornerRadius="4" Padding="10,8">
+                        <StackPanel>
+                            <TextBlock x:Name="TxtScriptValidation" Foreground="#f85149" FontSize="10" Margin="0,0,0,4" Visibility="Collapsed" TextWrapping="Wrap"/>
+                            <ListBox x:Name="LstScripts" Height="60" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,4" SelectionChanged="LstScripts_OnSelectionChanged"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ComboBox x:Name="CmbScriptAdd" Grid.Column="0" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,4,0"/>
+                                <Button x:Name="BtnAddScript" Grid.Column="1" Content="Agregar" Padding="6,4" Background="#238636" Foreground="White" BorderThickness="0" Click="BtnAddScript_OnClick"/>
+                            </Grid>
+                            <Button x:Name="BtnRemoveScript" Content="Quitar script seleccionado" Padding="6,4" Margin="0,4,0,0" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnRemoveScript_OnClick"/>
+                        </StackPanel>
+                    </Border>
+                </Expander>
+                <Expander x:Name="ExpanderScriptProps" Header="Variables de script (@prop / globales)" IsExpanded="True" Foreground="#e6edf3" Margin="0,0,0,4">
+                    <Expander.HeaderTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12"/>
+                        </DataTemplate>
+                    </Expander.HeaderTemplate>
+                    <Border Background="#21262d" CornerRadius="4" Padding="10,8">
+                        <StackPanel>
+                            <TextBlock x:Name="TxtScriptPropsHint" Foreground="#8b949e" FontSize="10" Margin="0,0,0,6" TextWrapping="Wrap"/>
+                            <ItemsControl x:Name="ItemsScriptProps"/>
+                            <Button x:Name="BtnAddScriptProp" Content="Añadir propiedad" Padding="6,4" Margin="0,6,0,0" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnAddScriptProp_OnClick"/>
+                        </StackPanel>
+                    </Border>
+                </Expander>
+                <Button x:Name="BtnAddComponent" Content="Añadir componente…" Padding="10,10" Margin="0,0,0,8" HorizontalAlignment="Stretch"
+                        Background="#238636" Foreground="White" BorderThickness="0" Click="BtnAddComponent_OnClick" ToolTip="Catálogo: render, colisión, luz, script…"/>
+                <Border x:Name="AccionesRapidasPanel" Visibility="Collapsed" Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="Acciones rápidas" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                        <Button x:Name="BtnDuplicate" Content="Duplicar" Padding="8,4" Margin="0,0,0,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnDuplicate_OnClick"/>
+                        <Button x:Name="BtnRename" Content="Renombrar" Padding="8,4" Margin="0,0,0,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnRename_OnClick"/>
+                        <Button x:Name="BtnConvertToSeed" Content="Convertir a seed…" Padding="8,4" Margin="0,0,0,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnConvertToSeed_OnClick"/>
+                        <Button x:Name="BtnApplyToSeed" Content="Aplicar cambios al seed" Padding="8,4" Margin="0,0,0,4" Background="#21262d" Foreground="#58a6ff" BorderBrush="#30363d" Click="BtnApplyToSeed_OnClick" Visibility="Collapsed" ToolTip="Sincroniza este objeto con el archivo .seed registrado (SourceSeedId)."/>
+                        <Button x:Name="BtnDelete" Content="Eliminar" Padding="8,4" Margin="0,0,0,0" Background="#da3633" Foreground="White" BorderThickness="0" Click="BtnDelete_OnClick"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,0 +1,11 @@
+<UserControl x:Class="FUEngine.PlaceholderTabContent"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#161b22">
+    <Grid>
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="40">
+            <TextBlock x:Name="TxtTitle" Text="Título" FontSize="18" FontWeight="SemiBold" Foreground="#e6edf3" HorizontalAlignment="Center" Margin="0,0,0,12"/>
+            <TextBlock x:Name="TxtDescription" Text="Descripción del panel. Próximamente." Foreground="#8b949e" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="400"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

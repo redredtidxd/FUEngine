@@ -1,0 +1,19 @@
+<UserControl x:Class="FUEngine.TileInspectorPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="0,0,0,16">
+            <TextBlock Text="Propiedades del tile" FontWeight="SemiBold" FontSize="13" Foreground="#e6edf3" Margin="0,0,0,10"/>
+            <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="ID / Índice" Foreground="#8b949e" FontSize="10" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="TxtTileId" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,8"/>
+                    <TextBlock Text="Colisión" Foreground="#8b949e" FontSize="10" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="TxtCollision" Foreground="#e6edf3" FontSize="11" Margin="0,0,0,8"/>
+                    <TextBlock Text="Animación y otras propiedades (editar en editor de Tileset)." Foreground="#6e7681" FontSize="10" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

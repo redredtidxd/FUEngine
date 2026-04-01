@@ -1,0 +1,36 @@
+<Window x:Class="FUEngine.ExportPartialWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Exportar parcial" Height="320" Width="400"
+        WindowStartupLocation="CenterOwner"
+        Background="#161b22" Foreground="#e6edf3">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Text="Exportar solo una parte del proyecto a una carpeta o a otro proyecto." 
+                   TextWrapping="Wrap" Foreground="#8b949e" Margin="0,0,0,12"/>
+        <StackPanel Grid.Row="1">
+            <CheckBox x:Name="ChkMapa" Content="Mapa (mapa.json)" IsChecked="True" Foreground="#e6edf3" Margin="0,0,0,6"/>
+            <CheckBox x:Name="ChkObjetos" Content="Objetos (objetos.json)" IsChecked="True" Foreground="#e6edf3" Margin="0,0,0,6"/>
+            <CheckBox x:Name="ChkScripts" Content="Scripts (scripts.json)" IsChecked="True" Foreground="#e6edf3" Margin="0,0,0,6"/>
+            <CheckBox x:Name="ChkAnimaciones" Content="Animaciones (animaciones.json)" IsChecked="True" Foreground="#e6edf3" Margin="0,0,0,6"/>
+            <CheckBox x:Name="ChkProyecto" Content="Configuración (proyecto.json)" IsChecked="False" Foreground="#e6edf3" Margin="0,0,0,12"/>
+            <TextBlock Text="Carpeta de destino:" Foreground="#e6edf3" Margin="0,8,0,4"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="TxtDestPath" IsReadOnly="True" Background="#21262d" Foreground="#e6edf3" Padding="6" Margin="0,0,8,0"/>
+                <Button Grid.Column="1" Content="..." Padding="8,4" Click="BtnBrowse_OnClick"/>
+            </Grid>
+        </StackPanel>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Exportar" Padding="12,6" Margin="0,0,8,0" Click="BtnExport_OnClick" IsDefault="True"/>
+            <Button Content="Cancelar" Padding="12,6" IsCancel="True" Click="BtnCancel_OnClick"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,73 @@
+<Window x:Class="FUEngine.TilesetEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Editor de Tileset" Height="480" Width="640"
+        Background="#161b22" Foreground="#e6edf3"
+        WindowStartupLocation="CenterOwner">
+    <Grid Margin="12">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="280"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0" Margin="0,0,12,0">
+            <TextBlock Text="Tiles (clic para editar)" FontWeight="SemiBold" Foreground="#e6edf3" Margin="0,0,0,8"/>
+            <Border Background="#21262d" Padding="8" CornerRadius="4" BorderBrush="#30363d" BorderThickness="1">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl x:Name="TilesGrid">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Width="48" Height="48" Margin="2" Background="#0d1117" BorderBrush="#30363d" BorderThickness="1"
+                                        MouseLeftButtonDown="TileSlot_OnClick">
+                                    <TextBlock Text="{Binding Id}" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#8b949e" FontSize="14"/>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Border>
+            <TextBlock x:Name="TxtTilesetInfo" Foreground="#8b949e" Margin="0,8,0,0" FontSize="12"/>
+            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                <TextBlock Text="Celda px:" VerticalAlignment="Center" Foreground="#8b949e" Margin="0,0,8,0"/>
+                <TextBox x:Name="TxtCellW" Width="44" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                <TextBlock Text="×" VerticalAlignment="Center" Foreground="#8b949e" Margin="6,0"/>
+                <TextBox x:Name="TxtCellH" Width="44" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="6,0,0,0"/>
+                <Button x:Name="BtnApplyCellSize" Content="Aplicar" Margin="10,0,0,0" Padding="10,4" Click="BtnApplyCellSize_OnClick"
+                        Background="#30363d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                <Button x:Name="BtnOpenJson" Content="Abrir…" Padding="10,6" Margin="0,0,8,0"
+                        Background="#30363d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnOpenJson_OnClick"/>
+                <Button x:Name="BtnSaveJson" Content="Guardar JSON" Padding="10,6"
+                        Background="#238636" Foreground="White" BorderThickness="0" Click="BtnSaveJson_OnClick"/>
+            </StackPanel>
+        </StackPanel>
+        <Border Grid.Column="1" Background="#21262d" Padding="12" CornerRadius="4" BorderBrush="#30363d" BorderThickness="1">
+            <StackPanel>
+                <TextBlock Text="Propiedades del tile" FontWeight="SemiBold" Foreground="#e6edf3" Margin="0,0,0,12"/>
+                <TextBlock Text="Tile ID:" Foreground="#8b949e" Margin="0,0,0,4"/>
+                <TextBlock x:Name="TxtSelectedId" Foreground="#e6edf3" Margin="0,0,0,12"/>
+                <CheckBox x:Name="ChkCollision" Content="Colisión (sólido)" Foreground="#e6edf3" Margin="0,0,0,8"/>
+                <CheckBox x:Name="ChkLightBlock" Content="Bloquea luz" Foreground="#e6edf3" Margin="0,0,0,8"/>
+                <TextBlock Text="Fricción (0-1):" Foreground="#8b949e" Margin="0,8,0,4"/>
+                <TextBox x:Name="TxtFriction" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Padding="6,4" Margin="0,0,0,8"/>
+                <TextBlock Text="Material:" Foreground="#8b949e" Margin="0,0,0,4"/>
+                <ComboBox x:Name="CmbMaterial" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,8"/>
+                <TextBlock Text="Etiquetas (separadas por coma):" Foreground="#8b949e" Margin="0,0,0,4"/>
+                <TextBox x:Name="TxtTags" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Padding="6,4" Margin="0,0,0,8"/>
+                <TextBlock Text="Id animación:" Foreground="#8b949e" Margin="0,0,0,4"/>
+                <TextBox x:Name="TxtAnimationId" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Padding="6,4" Margin="0,0,0,8"/>
+                <TextBlock Text="Velocidad animación (FPS):" Foreground="#8b949e" Margin="0,0,0,4"/>
+                <TextBox x:Name="TxtAnimationSpeed" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Padding="6,4" Margin="0,0,0,16"/>
+                <Button x:Name="BtnApply" Content="Aplicar al tile" Padding="12,6" Margin="0,0,0,8"
+                        Background="#238636" Foreground="White" BorderThickness="0" Click="BtnApply_OnClick"/>
+                <Button x:Name="BtnClose" Content="Cerrar" Padding="12,6"
+                        Background="#30363d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnClose_OnClick"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

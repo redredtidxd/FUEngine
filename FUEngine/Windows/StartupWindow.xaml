@@ -1,0 +1,608 @@
+<Window x:Class="FUEngine.StartupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:FUEngine"
+        xmlns:spotlight="clr-namespace:FUEngine.Spotlight"
+        xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+        Title="FUEngine" Height="720" Width="1180"
+        WindowStartupLocation="CenterScreen"
+        MinWidth="1000" MinHeight="600"
+        Background="#0d1117"
+        Loaded="Window_Loaded"
+        Closing="Window_Closing"
+        KeyDown="StartupWindow_KeyDown">
+    <Window.Resources>
+        <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+        <local:BoolToPinLabelConverter x:Key="BoolToPinLabelConverter"/>
+        <x:Array x:Key="LibraryKindValues" Type="sys:String">
+            <sys:String>tileset</sys:String>
+            <sys:String>sprite</sys:String>
+            <sys:String>ui</sys:String>
+            <sys:String>audio</sys:String>
+            <sys:String>image</sys:String>
+            <sys:String>other</sys:String>
+        </x:Array>
+    </Window.Resources>
+    <Grid x:Name="RootGrid">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TabControl x:Name="MainTabControl" Grid.Row="0" Background="#0d1117" BorderThickness="0" Padding="0" SelectionChanged="MainTabControl_SelectionChanged">
+            <!-- ========== TAB HUB: Proyectos recientes + Abrir, crear, plantillas (por defecto) ========== -->
+            <TabItem Header="Hub">
+                <TabItem.Style>
+                    <Style TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
+                        <Setter Property="Padding" Value="20,10"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                    </Style>
+                </TabItem.Style>
+                <Grid Background="#0d1117">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="220"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <!-- Izquierda Hub: Fijados (arriba) + Proyectos recientes -->
+                    <Border Grid.Column="0" Background="#161b22" BorderBrush="#30363d" BorderThickness="0,0,1,0" Padding="12,16">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="Fijados" FontWeight="SemiBold" FontSize="13" Foreground="#58a6ff" Margin="0,0,0,6"/>
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" MaxHeight="140" CanContentScroll="False">
+                                <ListBox x:Name="HubPinnedList" BorderThickness="0" Background="Transparent" Padding="0">
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                            <Setter Property="Padding" Value="0"/>
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ListBoxItem">
+                                                        <ContentPresenter/>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#21262d" CornerRadius="6" Padding="8" Margin="0,0,0,6" Cursor="Hand"
+                                                    MouseLeftButtonDown="HubRecent_Open" BorderBrush="#58a6ff" BorderThickness="1">
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    <Grid Grid.Row="0" Margin="0,0,0,4">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="32"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Border Width="32" Height="32" CornerRadius="4" Background="#0d1117" Grid.Column="0">
+                                                            <Image Source="{Binding Preview}" Stretch="UniformToFill" Margin="1"/>
+                                                        </Border>
+                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="6,0,0,0">
+                                                            <TextBlock Text="{Binding Name}" Foreground="#e6edf3" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Text="{Binding ShortPath}" Foreground="#8b949e" FontSize="9" TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Text="{Binding SceneObjectsSummaryDisplay}" Foreground="#6e7681" FontSize="8" TextTrimming="CharacterEllipsis"
+                                                                       Visibility="{Binding SceneObjectsSummaryDisplay, Converter={StaticResource NullToVisibilityConverter}}"/>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,4">
+                                                        <Button Content="Abrir" Padding="4,2" FontSize="9" Margin="0,0,4,0" Style="{StaticResource SidebarButtonStyle}" Click="HubRecent_OpenBtn" ToolTip="Abrir proyecto"/>
+                                                        <Button Content="Carpeta" Padding="4,2" FontSize="9" Margin="0,0,4,0" Style="{StaticResource SidebarButtonStyle}" Click="HubRecent_OpenFolder" ToolTip="Abrir carpeta"/>
+                                                        <Button Content="{Binding IsPinned, Converter={StaticResource BoolToPinLabelConverter}}" Padding="4,2" FontSize="9" Margin="0,0,4,0" Style="{StaticResource SidebarButtonStyle}" Click="HubRecent_Pin" ToolTip="Desfijar proyecto"/>
+                                                        <Button Content="Quitar" Padding="4,2" FontSize="9" Style="{StaticResource SidebarButtonStyle}" Click="HubRecent_Remove" ToolTip="Quitar de recientes"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </ScrollViewer>
+                            <TextBlock Grid.Row="2" Text="Proyectos recientes" FontWeight="SemiBold" FontSize="13" Foreground="#e6edf3" Margin="0,12,0,6"/>
+                            <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" CanContentScroll="False">
+                                <ListBox x:Name="HubRecentList" BorderThickness="0" Background="Transparent" Padding="0">
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                            <Setter Property="Padding" Value="0"/>
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ListBoxItem">
+                                                        <ContentPresenter/>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#21262d" CornerRadius="6" Padding="8" Margin="0,0,0,6" Cursor="Hand"
+                                                    MouseLeftButtonDown="HubRecent_Open" BorderBrush="#30363d" BorderThickness="1">
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    <Grid Grid.Row="0" Margin="0,0,0,4">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="32"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Border Width="32" Height="32" CornerRadius="4" Background="#0d1117" Grid.Column="0">
+                                                            <Image Source="{Binding Preview}" Stretch="UniformToFill" Margin="1"/>
+                                                        </Border>
+                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="6,0,0,0">
+                                                            <TextBlock Text="{Binding Name}" Foreground="#e6edf3" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Text="{Binding ShortPath}" Foreground="#8b949e" FontSize="9" TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Text="{Binding SceneObjectsSummaryDisplay}" Foreground="#6e7681" FontSize="8" TextTrimming="CharacterEllipsis"
+                                                                       Visibility="{Binding SceneObjectsSummaryDisplay, Converter={StaticResource NullToVisibilityConverter}}"/>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                    <TextBlock Grid.Row="1" Text="{Binding LastOpenedDisplay}" Foreground="#6e7681" FontSize="9" Margin="0,0,0,4"/>
+                                                    <StackPanel Grid.Row="2" Orientation="Horizontal">
+                                                        <Button Content="Abrir" Padding="4,2" FontSize="9" Margin="0,0,4,0" Style="{StaticResource SidebarButtonStyle}" Click="HubRecent_OpenBtn" ToolTip="Abrir proyecto"/>
+                                                        <Button Content="Carpeta" Padding="4,2" FontSize="9" Margin="0,0,4,0" Style="{StaticResource SidebarButtonStyle}" Click="HubRecent_OpenFolder" ToolTip="Abrir carpeta"/>
+                                                        <Button Content="{Binding IsPinned, Converter={StaticResource BoolToPinLabelConverter}}" Padding="4,2" FontSize="9" Margin="0,0,4,0" Style="{StaticResource SidebarButtonStyle}" Click="HubRecent_Pin" ToolTip="Fijar o desfijar"/>
+                                                        <Button Content="Quitar" Padding="4,2" FontSize="9" Style="{StaticResource SidebarButtonStyle}" Click="HubRecent_Remove" ToolTip="Quitar de recientes"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+                    <!-- Centro: logo, demo, botones, plantillas rápidas -->
+                    <Grid Grid.Column="1">
+                        <Grid.Background>
+                            <LinearGradientBrush x:Name="CenterBgGradient" StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop x:Name="GradStop1" Color="#0d1117" Offset="0"/>
+                                <GradientStop x:Name="GradStop2" Color="#161b22" Offset="0.5"/>
+                                <GradientStop x:Name="GradStop3" Color="#0d1117" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Grid.Background>
+                        <Canvas x:Name="TilePatternCanvas" IsHitTestVisible="False" Opacity="0.12"/>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <Border x:Name="LogoBorder" Grid.Row="0" Margin="0,24,0,8" Cursor="Hand"
+                                    MouseEnter="Logo_MouseEnter" MouseLeave="Logo_MouseLeave">
+                                <Border.Effect>
+                                    <DropShadowEffect x:Name="LogoGlow" Color="#58a6ff" BlurRadius="0" ShadowDepth="0" Opacity="0"/>
+                                </Border.Effect>
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock x:Name="LogoText" Text="FUEngine" FontSize="42" FontWeight="Bold" Foreground="#e6edf3" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0">
+                                <Button x:Name="BtnCreateProject" Content="Crear proyecto" Width="180" Height="44" Margin="0,0,10,0"
+                                        Click="BtnCreateProject_OnClick" FontSize="14" ToolTip="Asistente completo: nombre, ruta, icono, mapa, jerarquía estándar, etc. (mismo diálogo que en el editor)."/>
+                                <Button x:Name="BtnOpenProject" Content="Abrir proyecto" Width="180" Height="44" Margin="0,0,10,0"
+                                        Click="BtnOpenProject_OnClick" FontSize="14" ToolTip="Abrir un proyecto existente (.FUE o legacy)"/>
+                                <Button x:Name="BtnTemplates" Content="Plantillas" Width="140" Height="44"
+                                        Click="BtnTemplates_OnClick" FontSize="14" Background="#21262d" BorderBrush="#30363d" ToolTip="Crear proyecto desde plantilla"/>
+                            </StackPanel>
+                            <Button x:Name="BtnHubSpotlight" Grid.Row="2" Content="Buscar en el motor…" Padding="14,8" FontSize="13" Margin="0,14,0,0"
+                                    HorizontalAlignment="Center" MinWidth="280" Click="BtnHubSpotlight_OnClick"
+                                    Background="#21262d" BorderBrush="#388bfd" Foreground="#e6edf3"
+                                    ToolTip="Documentación, API Lua, proyectos recientes y más (mismo que Ctrl+P)"/>
+                            <!-- Acciones rápidas (sin abrir proyecto) -->
+                            <StackPanel Grid.Row="3" Orientation="Vertical" HorizontalAlignment="Center" Margin="0,12,0,0">
+                                <TextBlock Text="Acciones rápidas" Foreground="#8b949e" FontSize="11" HorizontalAlignment="Center" Margin="0,0,0,6"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Button x:Name="BtnQuickLuaIde" Content="Scripts globales" Padding="10,6" FontSize="11" Margin="0,0,8,0"
+                                            Click="BtnQuickLuaIde_OnClick" Background="#21262d" BorderBrush="#30363d" Foreground="#e6edf3"
+                                            ToolTip="Pestaña Scripts globales: lista, resaltado Lua y autocompletado (mismo editor que en proyecto)"/>
+                                    <Button x:Name="BtnQuickGlobalLibrary" Content="Biblioteca" Padding="10,6" FontSize="11" Margin="0,0,8,0"
+                                            Click="BtnQuickGlobalLibrary_OnClick" Background="#21262d" BorderBrush="#30363d" Foreground="#e6edf3"
+                                            ToolTip="Ir a la pestaña Assets (biblioteca global / library.json)"/>
+                                    <Button x:Name="BtnQuickUnusedAssets" Content="No usados…" Padding="10,6" FontSize="11"
+                                            Click="BtnQuickUnusedAssets_OnClick" Background="#21262d" BorderBrush="#30363d" Foreground="#e6edf3"
+                                            ToolTip="Clic: último proyecto reciente. Menú: elegir carpeta.">
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="Elegir carpeta del proyecto…" Click="BtnQuickUnusedPickFolder_OnClick"/>
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </StackPanel>
+                            </StackPanel>
+                            <!-- Estado del motor + tips -->
+                            <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto" MaxHeight="220" Margin="24,16,24,8" HorizontalAlignment="Stretch">
+                                <StackPanel>
+                                    <Border Background="#161b22" CornerRadius="8" Padding="12" BorderBrush="#30363d" BorderThickness="1" Margin="0,0,0,10">
+                                        <StackPanel>
+                                            <TextBlock Text="Estado del motor" FontWeight="SemiBold" FontSize="12" Foreground="#58a6ff" Margin="0,0,0,8"/>
+                                            <TextBlock x:Name="TxtLastBackup" Foreground="#e6edf3" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                                            <TextBlock x:Name="TxtLibraryStats" Foreground="#e6edf3" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Foreground="#8b949e" FontSize="11" VerticalAlignment="Center">
+                                                    <Run Text="Versión "/><Run x:Name="RunEngineVersion" Text="0.0.1"/><Run Text=" · "/>
+                                                </TextBlock>
+                                                <TextBlock FontSize="11">
+                                                    <Hyperlink x:Name="LinkChangelog" Click="LinkChangelog_OnClick" Foreground="#58a6ff">AI-ONBOARDING</Hyperlink>
+                                                    <Run Text=" · " Foreground="#8b949e"/>
+                                                    <Hyperlink x:Name="LinkDocs" Click="LinkDocs_OnClick" Foreground="#58a6ff">Documentación</Hyperlink>
+                                                    <Run Text=" · " Foreground="#8b949e"/>
+                                                    <Hyperlink x:Name="LinkLuaKeywords" Click="LinkLuaKeywords_OnClick" Foreground="#58a6ff">Lua (sintaxis)</Hyperlink>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Background="#161b22" CornerRadius="8" Padding="12" BorderBrush="#30363d" BorderThickness="1">
+                                        <StackPanel>
+                                            <TextBlock Text="Tips y atajos" FontWeight="SemiBold" FontSize="12" Foreground="#58a6ff" Margin="0,0,0,6"/>
+                                            <TextBlock x:Name="TxtTipRotate" Foreground="#e6edf3" FontSize="11" TextWrapping="Wrap"/>
+                                            <TextBlock x:Name="TxtShortcutReminder" Foreground="#8b949e" FontSize="10" TextWrapping="Wrap" Margin="0,8,0,0"
+                                                       Text="Spotlight: botón «Buscar en el motor…» arriba, o Ctrl+P / Ctrl+Espacio — documentación, API Lua, proyectos recientes…"/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- ========== TAB SCRIPTS GLOBALES: SharedAssets/Scripts (mismo editor que en proyecto) ========== -->
+            <TabItem Header="Scripts globales">
+                <TabItem.Style>
+                    <Style TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
+                        <Setter Property="Padding" Value="20,10"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                    </Style>
+                </TabItem.Style>
+                <local:GlobalScriptsHubPanel x:Name="GlobalScriptsHubPanel"/>
+            </TabItem>
+
+            <!-- ========== TAB ASSETS: Biblioteca global (índice en SharedAssets/Library) ========== -->
+            <TabItem Header="Assets">
+                <TabItem.Style>
+                    <Style TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
+                        <Setter Property="Padding" Value="20,10"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                    </Style>
+                </TabItem.Style>
+                <Border Background="#161b22" Padding="16">
+                    <!-- TabControl anidado quitado: el template por defecto dejaba una franja clara bajo los botones. -->
+                    <Grid Margin="0,4,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="Biblioteca" FontWeight="SemiBold" FontSize="14" Foreground="#e6edf3" Margin="0,0,0,6"/>
+                        <TextBlock x:Name="TxtLibraryPathHint" Grid.Row="1" Foreground="#8b949e" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="Tamaño tile base (importación)" Foreground="#e6edf3" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <ComboBox x:Name="CmbLibraryTileSize" Width="72" VerticalAlignment="Center" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d">
+                                <ComboBoxItem Content="16" Tag="16" IsSelected="True"/>
+                                <ComboBoxItem Content="32" Tag="32"/>
+                            </ComboBox>
+                            <Button x:Name="BtnLibraryAdd" Content="Añadir assets…" Margin="16,0,8,0" Padding="12,6" Click="BtnLibraryAdd_OnClick"
+                                    Background="#238636" Foreground="White" BorderBrush="#2ea043"/>
+                            <Button x:Name="BtnLibrarySaveManifest" Content="Guardar índice" Margin="0,0,8,0" Padding="12,6" Click="BtnLibrarySaveManifest_OnClick"
+                                    Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" ToolTip="Persiste nombre, tipo, tags y grid en library.json"/>
+                            <Button x:Name="BtnLibraryRemove" Content="Eliminar selección" Padding="12,6" Click="BtnLibraryRemove_OnClick"
+                                    Background="#21262d" Foreground="#f85149" BorderBrush="#30363d"/>
+                        </StackPanel>
+                        <DataGrid x:Name="LibraryDataGrid" Grid.Row="3" AutoGenerateColumns="False" CanUserAddRows="False"
+                                  Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" HeadersVisibility="Column"
+                                  RowBackground="#21262d" AlternatingRowBackground="#161b22" GridLinesVisibility="Horizontal"
+                                  HorizontalGridLinesBrush="#30363d" SelectionMode="Single">
+                            <DataGrid.Resources>
+                                <Style TargetType="DataGridColumnHeader">
+                                    <Setter Property="Background" Value="#30363d"/>
+                                    <Setter Property="Foreground" Value="#e6edf3"/>
+                                    <Setter Property="BorderBrush" Value="#21262d"/>
+                                    <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                                    <Setter Property="Padding" Value="8,6"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                </Style>
+                                <Style TargetType="DataGridCell">
+                                    <Setter Property="BorderBrush" Value="#30363d"/>
+                                    <Setter Property="Foreground" Value="#e6edf3"/>
+                                    <Setter Property="Padding" Value="6,4"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter Property="Background" Value="#388bfd"/>
+                                            <Setter Property="Foreground" Value="#ffffff"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.Resources>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Nombre" Binding="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" Width="140"/>
+                                <DataGridTextColumn Header="Archivo" Binding="{Binding RelativePath}" Width="*" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Sugerido" Binding="{Binding SuggestedKind}" Width="72" IsReadOnly="True"/>
+                                <DataGridComboBoxColumn Header="Tipo" SelectedItemBinding="{Binding Kind, UpdateSourceTrigger=PropertyChanged}"
+                                                        ItemsSource="{StaticResource LibraryKindValues}" Width="90"/>
+                                <DataGridTextColumn Header="Tags (coma)" Binding="{Binding TagsDisplay, UpdateSourceTrigger=PropertyChanged}" Width="120"/>
+                                <DataGridTextColumn Header="TW" Binding="{Binding TileWidth, UpdateSourceTrigger=PropertyChanged}" Width="44"/>
+                                <DataGridTextColumn Header="TH" Binding="{Binding TileHeight, UpdateSourceTrigger=PropertyChanged}" Width="44"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+            </TabItem>
+
+            <!-- ========== TAB PROYECTOS: Todos los proyectos, filtros, pins, estado, estadísticas ========== -->
+            <TabItem Header="Proyectos">
+                <TabItem.Style>
+                    <Style TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
+                        <Setter Property="Padding" Value="20,10"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                    </Style>
+                </TabItem.Style>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <!-- Lista de proyectos con filtros, drag-drop -->
+                    <Border x:Name="LeftPanelDropZone" Grid.Column="0" Background="#161b22" BorderBrush="#30363d" BorderThickness="0,0,1,0" Padding="16,20"
+                    AllowDrop="True" DragEnter="LeftPanel_DragEnter" DragLeave="LeftPanel_DragLeave" Drop="LeftPanel_Drop">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="Proyectos" FontWeight="SemiBold" FontSize="14" Foreground="#e6edf3" Margin="0,0,0,8"/>
+                    <!-- Buscador y ordenar -->
+                    <Grid Grid.Row="1" Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="TxtSearchProjects" Grid.Column="0" Padding="8,6" FontSize="12" Margin="0,0,8,0"
+                                 Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" CaretBrush="#e6edf3"
+                                 TextChanged="TxtSearchProjects_TextChanged" VerticalContentAlignment="Center"/>
+                        <ComboBox x:Name="CmbSortProjects" Grid.Column="1" Width="160" Padding="6,4" FontSize="11"
+                                  Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                  SelectionChanged="CmbSortProjects_SelectionChanged"/>
+                    </Grid>
+                    <!-- 1. Filtros rápidos por tipo + Fijados -->
+                    <WrapPanel Grid.Row="2" x:Name="FilterButtonsPanel" Margin="0,0,0,10">
+                        <Button x:Name="BtnFilterAll" Content="Todos" Tag="Todos" Click="FilterByType_OnClick" Padding="8,4" FontSize="11" Margin="0,0,6,6" Background="#58a6ff"/>
+                        <Button x:Name="BtnFilterPinned" Content="Fijados" Tag="Fijados" Click="FilterByType_OnClick" Padding="8,4" FontSize="11" Margin="0,0,6,6" Style="{StaticResource SidebarButtonStyle}"/>
+                        <Button Content="Pixel Art" Tag="Pixel Art" Click="FilterByType_OnClick" Padding="8,4" FontSize="11" Margin="0,0,6,6" Style="{StaticResource SidebarButtonStyle}"/>
+                        <Button Content="RPG" Tag="RPG" Click="FilterByType_OnClick" Padding="8,4" FontSize="11" Margin="0,0,6,6" Style="{StaticResource SidebarButtonStyle}"/>
+                        <Button Content="Plataforma" Tag="Plataforma" Click="FilterByType_OnClick" Padding="8,4" FontSize="11" Margin="0,0,6,6" Style="{StaticResource SidebarButtonStyle}"/>
+                        <Button Content="FPS" Tag="FPS" Click="FilterByType_OnClick" Padding="8,4" FontSize="11" Margin="0,0,6,6" Style="{StaticResource SidebarButtonStyle}"/>
+                        <Button Content="Shooter" Tag="Shooter" Click="FilterByType_OnClick" Padding="8,4" FontSize="11" Margin="0,0,6,6" Style="{StaticResource SidebarButtonStyle}"/>
+                        <Button Content="Puzzle" Tag="Puzzle" Click="FilterByType_OnClick" Padding="8,4" FontSize="11" Margin="0,0,6,6" Style="{StaticResource SidebarButtonStyle}"/>
+                        <Button Content="Otro" Tag="Otro" Click="FilterByType_OnClick" Padding="8,4" FontSize="11" Margin="0,0,6,6" Style="{StaticResource SidebarButtonStyle}"/>
+                    </WrapPanel>
+                    <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,6">
+                        <TextBlock Text="Etiqueta:" Foreground="#8b949e" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <ComboBox x:Name="CmbFilterTag" Width="110" FontSize="10" SelectionChanged="FilterByTag_SelectionChanged"/>
+                    </StackPanel>
+                    <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                  CanContentScroll="False" MinHeight="280" PanningMode="VerticalFirst">
+                        <ListBox x:Name="RecentProjectsList" BorderThickness="0" Background="Transparent" Padding="0"
+                                 SelectionChanged="RecentProjectsList_SelectionChanged" MouseLeftButtonDown="RecentProjectsList_MouseDown">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                    <Setter Property="Padding" Value="0"/>
+                                    <Setter Property="Margin" Value="0"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListBoxItem">
+                                                <ContentPresenter/>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border x:Name="ProjectCardBorder" Background="#21262d" CornerRadius="8" Padding="10" Margin="0,0,0,8"
+                                            BorderBrush="#30363d" BorderThickness="1" Cursor="Hand"
+                                            MouseLeftButtonDown="RecentProject_Open" MouseEnter="ProjectCard_MouseEnter" MouseLeave="ProjectCard_MouseLeave">
+                                        <Border.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="Abrir" Click="RecentProject_OpenBtn"/>
+                                                <MenuItem Header="Abrir carpeta" Click="RecentProject_OpenFolder"/>
+                                                <MenuItem Header="Configuración del proyecto" Click="RecentProject_Config"/>
+                                                <MenuItem Header="Fijar / Desfijar proyecto" Click="CtxPin_OnClick"/>
+                                                <MenuItem Header="Eliminar de la lista" Click="RecentProject_Remove"/>
+                                                <MenuItem Header="Eliminar proyecto definitivamente" Click="RecentProject_DeletePermanently"/>
+                                                <MenuItem Header="Propiedades" Click="RecentProject_Properties"/>
+                                                <MenuItem Header="Tipo de proyecto">
+                                                    <MenuItem Header="Pixel Art" Click="CtxProjectType_OnClick" Tag="Pixel Art"/>
+                                                    <MenuItem Header="RPG" Click="CtxProjectType_OnClick" Tag="RPG"/>
+                                                    <MenuItem Header="Plataforma" Click="CtxProjectType_OnClick" Tag="Plataforma"/>
+                                                    <MenuItem Header="FPS" Click="CtxProjectType_OnClick" Tag="FPS"/>
+                                                    <MenuItem Header="Shooter" Click="CtxProjectType_OnClick" Tag="Shooter"/>
+                                                    <MenuItem Header="Puzzle" Click="CtxProjectType_OnClick" Tag="Puzzle"/>
+                                                    <MenuItem Header="Otro" Click="CtxProjectType_OnClick" Tag="Otro"/>
+                                                </MenuItem>
+                                                <MenuItem Header="Añadir etiqueta">
+                                                    <MenuItem Header="Prototipo" Click="CtxAddTag_OnClick" Tag="Prototipo"/>
+                                                    <MenuItem Header="Trabajo" Click="CtxAddTag_OnClick" Tag="Trabajo"/>
+                                                    <MenuItem Header="Experimento" Click="CtxAddTag_OnClick" Tag="Experimento"/>
+                                                    <MenuItem Header="Demo" Click="CtxAddTag_OnClick" Tag="Demo"/>
+                                                    <MenuItem Header="Personal" Click="CtxAddTag_OnClick" Tag="Personal"/>
+                                                    <MenuItem Header="Jam" Click="CtxAddTag_OnClick" Tag="Jam"/>
+                                                </MenuItem>
+                                            </ContextMenu>
+                                        </Border.ContextMenu>
+                                        <Border.RenderTransform>
+                                            <ScaleTransform x:Name="CardScale" ScaleX="1" ScaleY="1"/>
+                                        </Border.RenderTransform>
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <Grid Grid.Row="0" Height="48" Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="40"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Border Width="40" Height="40" CornerRadius="4" Background="#0d1117" Grid.Column="0">
+                                                    <Image Source="{Binding Preview}" Stretch="UniformToFill" Margin="2"/>
+                                                </Border>
+                                                <TextBlock Grid.Column="1" Text="{Binding Name}" Foreground="#e6edf3" FontWeight="SemiBold" FontSize="12"
+                                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                            </Grid>
+                                            <!-- Estado: modificación, tamaño, escenas, assets -->
+                                            <TextBlock Grid.Row="1" Foreground="#8b949e" FontSize="10" Margin="0,0,0,2">
+                                                <Run Text="Modificado: "/><Run Text="{Binding LastModifiedDisplay, Mode=OneWay}"/>
+                                                <Run Text="  ·  "/><Run Text="{Binding ProjectSizeDisplay, Mode=OneWay}"/>
+                                                <Run Text="  ·  Escenas: "/><Run Text="{Binding SceneCount, Mode=OneWay}"/>
+                                                <Run Text="  ·  Objetos: "/><Run Text="{Binding ObjectCount, Mode=OneWay}"/>
+                                                <Run Text="  ·  Assets: "/><Run Text="{Binding AssetsSizeDisplay, Mode=OneWay}"/>
+                                            </TextBlock>
+                                            <!-- Badges: resolución y FPS -->
+                                            <Border Grid.Row="2" Background="#30363d" CornerRadius="4" Padding="4,2" Margin="0,0,0,4" Visibility="{Binding ResolutionFpsDisplay, Converter={StaticResource NullToVisibilityConverter}}">
+                                                <TextBlock Text="{Binding ResolutionFpsDisplay}" Foreground="#8b949e" FontSize="9"/>
+                                            </Border>
+                                            <TextBlock Grid.Row="3" Text="{Binding Description}" Foreground="#8b949e" FontSize="11"
+                                                       TextTrimming="CharacterEllipsis" MaxHeight="28" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                                            <!-- Etiquetas -->
+                                            <ItemsControl Grid.Row="4" ItemsSource="{Binding Tags}" Margin="0,0,0,4">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="#388bfd" CornerRadius="2" Padding="4,1" Margin="0,0,4,2">
+                                                            <TextBlock Text="{Binding}" Foreground="White" FontSize="9"/>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <TextBlock Grid.Row="5" Text="{Binding ShortPath}" Foreground="#6e7681" FontSize="10" Margin="0,0,0,2" TextTrimming="CharacterEllipsis"/>
+                                            <StackPanel Grid.Row="6" Orientation="Horizontal" Margin="0,4,0,0">
+                                                <TextBlock Text="{Binding LastOpenedDisplay}" Foreground="#6e7681" FontSize="10" VerticalAlignment="Center"/>
+                                                <Button Content="Abrir" Padding="6,2" FontSize="10" Margin="8,0,4,0" Style="{StaticResource SidebarButtonStyle}" Click="RecentProject_OpenBtn" ToolTip="Abrir proyecto"/>
+                                                <Button Content="Carpeta" Padding="6,2" FontSize="10" Margin="0,0,4,0" Style="{StaticResource SidebarButtonStyle}" Click="RecentProject_OpenFolder" ToolTip="Abrir carpeta"/>
+                                                <Button Content="Config" Padding="6,2" FontSize="10" Margin="0,0,4,0" Style="{StaticResource SidebarButtonStyle}" Click="RecentProject_Config" ToolTip="Configuración del proyecto"/>
+                                                <Button Content="{Binding IsPinned, Converter={StaticResource BoolToPinLabelConverter}}" Padding="6,2" FontSize="10" Margin="0,0,4,0" Style="{StaticResource SidebarButtonStyle}" Click="BtnPin_OnClick" ToolTip="Fijar o desfijar"/>
+                                                <Button Content="Eliminar de lista" Padding="6,2" FontSize="10" Margin="0,0,4,0" Style="{StaticResource SidebarButtonStyle}" Click="RecentProject_Remove" ToolTip="Quitar de recientes"/>
+                                                <Button Content="Eliminar definitivamente" Padding="6,2" FontSize="10" Margin="0,0,4,0" Style="{StaticResource SidebarButtonStyle}" Click="RecentProject_DeletePermanently" ToolTip="Borrar proyecto y todos sus archivos"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- ========== TAB CONFIGURACIÓN DEL MOTOR ========== -->
+            <TabItem Header="Configuración del motor">
+                <Border Background="#161b22" Padding="0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
+                            <Frame x:Name="FrameEngineSettings" Margin="16" NavigationUIVisibility="Hidden"/>
+                        </ScrollViewer>
+                        <Border Grid.Row="1" Background="#21262d" Padding="16,12" BorderBrush="#30363d" BorderThickness="0,1,0,0">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button x:Name="BtnSaveEngineConfig" Content="Guardar configuración" Click="BtnSaveEngineConfig_OnClick"
+                                        Padding="20,10" FontSize="13" MinWidth="160"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Border>
+            </TabItem>
+        </TabControl>
+
+        <!-- ========== BARRA INFERIOR: Tema y configuración ========== -->
+        <Border Grid.Row="1" Background="#161b22" Padding="16,10" BorderBrush="#30363d" BorderThickness="0,1,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <TextBlock Text="Tema:" Foreground="#8b949e" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <RadioButton x:Name="ThemeDark" Content="Oscuro" GroupName="Theme" IsChecked="True" Foreground="#e6edf3" Checked="Theme_Changed"/>
+                    <RadioButton x:Name="ThemeLight" Content="Claro" GroupName="Theme" Foreground="#e6edf3" Margin="12,0,0,0" Checked="Theme_Changed"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0">
+                    <TextBlock x:Name="TxtSessionLogHint" Foreground="#8b949e" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"
+                               ToolTip="Líneas [Error] / [Critical] en el log de sesión de hoy (LocalApplicationData/FUEngine/logs)"/>
+                    <Button x:Name="BtnOpenLogsFolder" Content="Carpeta" Padding="8,4" Margin="0,0,4,0" FontSize="10" Click="BtnOpenLogsFolder_OnClick"
+                            Background="#21262d" BorderBrush="#30363d" Foreground="#58a6ff" Cursor="Hand"
+                            ToolTip="Abrir la carpeta de logs en el explorador de archivos"/>
+                    <Button x:Name="BtnClearSessionLog" Content="Limpiar" Padding="8,4" Margin="0,0,12,0" FontSize="10" Click="BtnClearSessionLog_OnClick"
+                            Background="#21262d" BorderBrush="#30363d" Foreground="#e6edf3" Cursor="Hand"
+                            ToolTip="Vaciar el archivo de log de hoy en disco"/>
+                    <TextBlock x:Name="TxtRamUsage" Foreground="#8b949e" FontSize="11" VerticalAlignment="Center" ToolTip="Memoria de trabajo del proceso del motor"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Ayuda / Guía del motor" Padding="12,6" Margin="0,0,8,0" Click="BtnAyudaMotor_OnClick" Background="#21262d" BorderBrush="#30363d" Foreground="#58a6ff"
+                            ToolTip="Cómo funciona FUEngine y cómo crear juegos (sin abrir proyecto)"/>
+                    <Button Content="Configuración" Padding="12,6" Click="BtnSettings_OnClick" Background="#21262d" BorderBrush="#30363d"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+        <!-- Overlay: asistente Crear proyecto (NewProjectWizardPanel), misma ventana -->
+        <Border x:Name="OverlayPanel" Grid.Row="0" Grid.RowSpan="2" Background="#CC0d1117" Visibility="Collapsed"
+                Panel.ZIndex="50" MouseLeftButtonDown="OverlayPanel_MouseLeftButtonDown">
+            <Border x:Name="OverlayContentHost" Background="#161b22" BorderBrush="#30363d" BorderThickness="1" CornerRadius="8"
+                    MaxWidth="580" MaxHeight="640" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Padding="0" MouseLeftButtonDown="OverlayContentHost_MouseLeftButtonDown"/>
+        </Border>
+
+        <!-- Toast (esquina inferior derecha) -->
+        <Border x:Name="ToastPanel" Grid.Row="0" Grid.RowSpan="2" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,24,80"
+                Background="#21262d" BorderBrush="#30363d" BorderThickness="1" CornerRadius="6" Padding="16,12"
+                Visibility="Collapsed" IsHitTestVisible="True" Panel.ZIndex="60">
+            <TextBlock x:Name="ToastText" Foreground="#e6edf3" FontSize="12" TextWrapping="Wrap" MaxWidth="320"/>
+        </Border>
+
+        <Grid x:Name="SpotlightOverlay" Grid.Row="0" Grid.RowSpan="2" Visibility="Collapsed" Panel.ZIndex="150"
+              Background="#B3000000" MouseLeftButtonDown="SpotlightBackdrop_OnMouseLeftButtonDown">
+            <Border MaxWidth="760" MaxHeight="500" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Background="#0d1117" BorderBrush="#30363d" BorderThickness="1" CornerRadius="8">
+                <spotlight:SpotlightControl x:Name="SpotlightEmbedded" RequestClose="SpotlightEmbedded_RequestClose"/>
+            </Border>
+        </Grid>
+
+        <Grid x:Name="DocumentationOverlay" Grid.Row="0" Grid.RowSpan="2" Visibility="Collapsed" Panel.ZIndex="160"
+              Background="#B3000000" MouseLeftButtonDown="DocumentationBackdrop_OnMouseLeftButtonDown">
+            <Border MaxWidth="960" MaxHeight="740" MinHeight="400" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Background="#0d1117" BorderBrush="#30363d" BorderThickness="1" CornerRadius="8"
+                    MouseLeftButtonDown="DocumentationInner_OnMouseLeftButtonDown">
+                <local:DocumentationHostControl x:Name="DocumentationEmbedded" RequestClose="DocumentationEmbedded_RequestClose"/>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

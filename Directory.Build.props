@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <!-- Versión del producto (ensamblados y registro de desinstalación; el instalador lee la versión de FUEngine.exe). -->
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+</Project>

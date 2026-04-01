@@ -1,0 +1,27 @@
+<Window x:Class="FUEngine.Dialogs.AddComponentPickerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Añadir componente" Height="420" Width="420"
+        WindowStartupLocation="CenterOwner"
+        Background="#0d1117">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Text="Buscar" Foreground="#8b949e" Margin="0,0,0,4"/>
+        <TextBox x:Name="TxtSearch" Grid.Row="1" Padding="8,6" Margin="0,0,0,8"
+                 Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                 TextChanged="TxtSearch_OnTextChanged"/>
+        <ListBox x:Name="LstItems" Grid.Row="2" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                 MouseDoubleClick="LstItems_OnMouseDoubleClick"/>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Cancelar" Padding="12,6" Margin="0,0,8,0" Click="BtnCancel_OnClick"
+                    Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+            <Button Content="Añadir" Padding="12,6" IsDefault="True" Click="BtnAdd_OnClick"
+                    Background="#238636" Foreground="White" BorderThickness="0"/>
+        </StackPanel>
+    </Grid>
+</Window>

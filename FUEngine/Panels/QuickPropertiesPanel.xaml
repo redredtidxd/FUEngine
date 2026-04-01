@@ -1,0 +1,46 @@
+<UserControl x:Class="FUEngine.QuickPropertiesPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
+        <StackPanel Margin="0,0,0,12">
+            <TextBlock Text="INSPECTOR · Asset" FontWeight="Bold" FontSize="12" Foreground="#8b949e" Margin="0,0,0,10"/>
+            <!-- Propiedades básicas -->
+            <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="Propiedades básicas" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                    <TextBlock x:Name="TxtTitle" Text="—" FontWeight="SemiBold" Foreground="#e6edf3" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="TxtType" Text="" Foreground="#8b949e" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="TxtPath" Text="" Foreground="#6e7681" FontSize="10" TextWrapping="Wrap" Margin="0,0,0,0"/>
+                </StackPanel>
+            </Border>
+            <!-- Vista previa -->
+            <Border x:Name="PreviewSection" Visibility="Collapsed" Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="Vista previa" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                    <Image x:Name="ImgPreview" MaxWidth="96" MaxHeight="96" Stretch="Uniform" Margin="0,0,0,0"/>
+                </StackPanel>
+            </Border>
+            <!-- Configuración / resumen -->
+            <Border x:Name="SummaryPanel" Visibility="Collapsed" Background="#21262d" Padding="10,8" CornerRadius="4" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="Detalles" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                    <StackPanel x:Name="SummaryStack"/>
+                </StackPanel>
+            </Border>
+            <TextBlock x:Name="TxtHint" Text="" Foreground="#58a6ff" FontSize="10" Margin="0,0,0,6" Visibility="Collapsed"/>
+            <!-- Acciones rápidas -->
+            <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="Acciones rápidas" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                    <Button x:Name="BtnOpen" Content="Abrir" Padding="8,4" Margin="0,0,0,4" Background="#238636" Foreground="White" BorderThickness="0" Click="BtnOpen_OnClick"/>
+                    <Button x:Name="BtnOpenScript" Content="Abrir script asociado" Padding="8,4" Margin="0,0,0,4" Background="#1f6feb" Foreground="White" BorderThickness="0" Visibility="Collapsed" Click="BtnOpenScript_OnClick"/>
+                    <Button x:Name="BtnDuplicate" Content="Duplicar" Padding="8,4" Margin="0,0,0,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnDuplicate_OnClick"/>
+                    <Button x:Name="BtnRename" Content="Renombrar" Padding="8,4" Margin="0,0,0,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnRename_OnClick"/>
+                    <Button x:Name="BtnShowInFolder" Content="Mostrar en carpeta" Padding="8,4" Margin="0,0,0,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnShowInFolder_OnClick"/>
+                    <Button x:Name="BtnDelete" Content="Eliminar" Padding="8,4" Margin="0,0,0,0" Background="#da3633" Foreground="White" BorderThickness="0" Click="BtnDelete_OnClick"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

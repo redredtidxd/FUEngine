@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <RootNamespace>FUEngine.Installer</RootNamespace>
+    <AssemblyName>InstalarFUEngine</AssemblyName>
+    <Description>Instalador de FUEngine</Description>
+    <BundleMotor Condition="'$(Configuration)'=='Debug'">false</BundleMotor>
+    <BundleMotor Condition="'$(BundleMotor)'==''">true</BundleMotor>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <!-- Un solo .exe en la raíz del repo; el motor sigue embebido en el ensamblado que se empaqueta dentro. -->
+    <PublishSingleFile Condition="'$(PublishSingleFile)'==''">true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract Condition="'$(IncludeNativeLibrariesForSelfExtract)'==''">true</IncludeNativeLibrariesForSelfExtract>
+    <SelfContained Condition="'$(SelfContained)'==''">true</SelfContained>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)'==''">win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <!-- Antes de AssignTargetPaths (primer paso del pipeline de EmbeddedResource). BeforeTargets=PrepareResourceNames corre DESPUÉS de AssignTargetPaths y el ZIP nunca llega al compilador. -->
+  <Target Name="BundleMotor" BeforeTargets="AssignTargetPaths" Condition="'$(BundleMotor)'=='true'">
+    <PropertyGroup>
+      <_RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\'))</_RepoRoot>
+      <_EngineStage>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\obj\engine_publish_stage'))</_EngineStage>
+      <_MotorPackFile>$([System.IO.Path]::GetFullPath('$(IntermediateOutputPath)fue_motor.pack'))</_MotorPackFile>
+      <_ZipScript>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\installer\zip_payload.ps1'))</_ZipScript>
+      <_EngineProj>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\FUEngine\FUEngine.csproj'))</_EngineProj>
+    </PropertyGroup>
+    <Exec Command="if exist &quot;$(_EngineStage)&quot; rd /s /q &quot;$(_EngineStage)&quot;" IgnoreExitCode="true" />
+    <MakeDir Directories="$(_EngineStage)" />
+    <Exec Command="dotnet publish &quot;$(_EngineProj)&quot; -c Release -r win-x64 --self-contained -o &quot;$(_EngineStage)&quot;" WorkingDirectory="$(_RepoRoot)" />
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(_ZipScript)&quot; -Source &quot;$(_EngineStage)&quot; -DestZip &quot;$(_MotorPackFile)&quot;" />
+    <ItemGroup>
+      <EmbeddedResource Include="$(_MotorPackFile)">
+        <LogicalName>MotorPack</LogicalName>
+      </EmbeddedResource>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="DeleteIntermediateMotorPackFile" AfterTargets="CoreCompile" Condition="'$(BundleMotor)'=='true'">
+    <PropertyGroup>
+      <_MotorPackFile>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(IntermediateOutputPath)fue_motor.pack'))</_MotorPackFile>
+      <_LegacyZip>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(IntermediateOutputPath)EnginePayload.zip'))</_LegacyZip>
+    </PropertyGroup>
+    <Delete Files="$(_MotorPackFile)" Condition="Exists('$(_MotorPackFile)')" />
+    <Delete Files="$(_LegacyZip)" Condition="Exists('$(_LegacyZip)')" />
+  </Target>
+
+</Project>

@@ -1,0 +1,181 @@
+<UserControl x:Class="FUEngine.NewProjectWizardPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" Padding="0,0,4,0">
+            <StackPanel>
+                <!-- 1. Datos básicos -->
+                <Expander Header="Datos básicos" Foreground="#e6edf3" IsExpanded="True" Margin="0,0,0,8"
+                          Background="#161b22" BorderBrush="#30363d" BorderThickness="1">
+                    <StackPanel Margin="12,8">
+                        <TextBlock Text="Nombre del juego" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
+                        <TextBox x:Name="TxtName" Margin="0,0,0,10" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Nombre que identificará tu juego o proyecto. La carpeta del proyecto se sugiere automáticamente."
+                                 TextChanged="TxtName_OnTextChanged"/>
+                        <TextBlock Text="Descripción" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
+                        <TextBox x:Name="TxtDescription" Height="44" TextWrapping="Wrap" AcceptsReturn="True" Padding="8,6" Margin="0,0,0,10"
+                                 Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" VerticalContentAlignment="Top"
+                                 ToolTip="Breve descripción del proyecto. Opcional."/>
+                        <TextBlock Text="Carpeta del proyecto (ruta final editable)" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="TxtPath" Grid.Column="0" Margin="0,0,8,0" Padding="8,6"
+                                     Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                     ToolTip="Ruta final donde se creará el proyecto. Editable; puede escribir otra ruta o usar el botón."
+                                     TextChanged="TxtPath_OnTextChanged"/>
+                            <Button x:Name="BtnBrowse" Grid.Column="1" Content="..." Width="36" Height="28" Padding="0" Click="BtnBrowse_OnClick"
+                                    ToolTip="Seleccionar carpeta donde se creará el proyecto."/>
+                        </Grid>
+                        <CheckBox x:Name="ChkCreateProjectFolder" Content="Crear la carpeta del proyecto si no existe" IsChecked="True"
+                                  Foreground="#e6edf3" Margin="0,0,0,8"
+                                  ToolTip="Si la ruta no existe, el motor creará la carpeta al crear el proyecto."
+                                  Checked="ChkCreateProjectFolder_Changed" Unchecked="ChkCreateProjectFolder_Changed"/>
+                        <Expander Header="Vista previa: estructura que se creará" Foreground="#8b949e" IsExpanded="False" Margin="0,0,0,8"
+                                  Background="#161b22" BorderBrush="#30363d" BorderThickness="1">
+                            <StackPanel Margin="8,4">
+                                <TextBlock x:Name="TxtStructurePreview" Foreground="#e6edf3" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                                <TextBlock Text="proyecto.config, logo en Assets/Logos/logo.png" Foreground="#8b949e" FontSize="10"/>
+                            </StackPanel>
+                        </Expander>
+                        <CheckBox x:Name="ChkGenerateStandardHierarchy" Content="Generar jerarquía estándar (carpetas en raíz según el motor)" IsChecked="True" Foreground="#e6edf3" Margin="0,0,0,8"
+                                  Checked="ChkGenerateStandardHierarchy_Changed" Unchecked="ChkGenerateStandardHierarchy_Changed"
+                                  ToolTip="Si está activo, se crean en la raíz las carpetas del orden configurado en Configuración del motor (por defecto: Sprites, Maps, Scripts, Audio, Seeds)."/>
+                        <TextBlock Text="Icono / logo del proyecto (opcional)" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Border x:Name="LogoDropZone" Grid.Column="0" Background="#21262d" BorderBrush="#30363d" BorderThickness="1" CornerRadius="4" Padding="4" Margin="0,0,8,0"
+                                    AllowDrop="True" DragOver="LogoDropZone_DragOver" Drop="LogoDropZone_Drop"
+                                    ToolTip="Arrastra aquí una imagen (PNG, JPG) o haz clic en ... para seleccionar.">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="TxtIconPath" Grid.Column="0" Margin="0,0,8,0" Padding="8,6" Background="Transparent" Foreground="#e6edf3" BorderThickness="0"
+                                             ToolTip="Ruta a una imagen PNG/JPG. Arrastra un archivo aquí o usa el botón."
+                                             TextChanged="TxtIconPath_TextChanged"/>
+                                    <Button x:Name="BtnBrowseIcon" Grid.Column="1" Content="..." Width="36" Height="28" Padding="0" Click="BtnBrowseIcon_OnClick"/>
+                                </Grid>
+                            </Border>
+                            <Border Grid.Column="1" Width="64" Height="64" Background="#161b22" BorderBrush="#30363d" BorderThickness="1" CornerRadius="4">
+                                <Image x:Name="ImgLogoPreview" Stretch="Uniform" Margin="2"/>
+                            </Border>
+                        </Grid>
+                        <TextBlock Text="Vista previa del logo" Foreground="#8b949e" FontSize="10" Margin="0,-6,0,0"/>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Text="Autor" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtAuthor" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                         ToolTip="Autor del proyecto (opcional)."/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Copyright" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
+                                <TextBox x:Name="TxtCopyright" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                         ToolTip="Texto legal o copyright (opcional)."/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="Versión inicial" Foreground="#8b949e" FontSize="12" Margin="0,8,0,4"/>
+                        <TextBox x:Name="TxtVersion" Width="100" HorizontalAlignment="Left" Padding="8,6" Margin="0,0,0,0"
+                                 Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Text="0.0.1"
+                                 ToolTip="Versión del proyecto (ej: 0.0.1). Se guarda en proyecto.json."/>
+                    </StackPanel>
+                </Expander>
+
+                <!-- 2. Mapa y Tiles -->
+                <Expander Header="Mapa y Tiles" Foreground="#e6edf3" IsExpanded="True" Margin="0,0,0,8"
+                          Background="#161b22" BorderBrush="#30363d" BorderThickness="1">
+                    <StackPanel Margin="12,8">
+                        <TextBlock TextWrapping="Wrap" Foreground="#8b949e" FontSize="11" Margin="0,0,0,10"
+                                   Text="Mapa finito por defecto (sin modo infinito en el asistente). El tamaño inicial en casillas viene del motor (chunks × tamaño de chunk)."/>
+                        <TextBlock Text="Tamaño de tile (px)" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
+                        <TextBox x:Name="TxtTileSize" Width="80" Margin="0,0,0,8" Text="16" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Ej: 16, 32. Píxeles por lado de cada celda del mapa."
+                                 TextChanged="MapTileSettings_OnChanged"/>
+                        <TextBlock Text="Tamaño de chunk (casillas por lado del fragmento en disco)" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
+                        <ComboBox x:Name="CmbChunkSize" Width="100" HorizontalAlignment="Left" Margin="0,0,0,8" Padding="8,4"
+                                  Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                  ToolTip="16, 32 o 64. Junto con los chunks por lado del motor define el mapa inicial."
+                                  SelectionChanged="CmbChunkSize_OnSelectionChanged"/>
+                        <CheckBox x:Name="ChkAutoTiling" Content="Activar auto-tiling" Foreground="#e6edf3" Margin="0,0,0,8"
+                                  ToolTip="Reglas de bordes al pintar terreno (proyecto nuevo)."/>
+                        <TextBlock Text="Vista previa (rejilla aproximada)" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
+                        <Border Width="160" Height="100" Background="#21262d" BorderBrush="#30363d" BorderThickness="1" CornerRadius="4" Margin="0,0,0,0">
+                            <Canvas x:Name="PreviewMinimap"/>
+                        </Border>
+                    </StackPanel>
+                </Expander>
+
+                <!-- 3. Objetos y Scripts iniciales -->
+                <Expander Header="Objetos y Scripts iniciales" Foreground="#e6edf3" Margin="0,0,0,8"
+                          Background="#161b22" BorderBrush="#30363d" BorderThickness="1">
+                    <StackPanel Margin="12,8">
+                        <CheckBox x:Name="ChkLoadTemplateScripts" Content="Cargar scripts de plantilla" IsChecked="True" Foreground="#e6edf3" Margin="0,0,0,6"
+                                  ToolTip="Incluir scripts base según el tipo de plantilla."/>
+                        <TextBlock Text="Módulos comunes" Foreground="#8b949e" FontSize="12" Margin="0,4,0,4"/>
+                        <TextBox x:Name="TxtCommonModules" Height="40" TextWrapping="Wrap" AcceptsReturn="True" Padding="8,6" Margin="0,0,0,8"
+                                 Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Scripts base: onCollision, onInteract, etc. (separados por coma)."/>
+                        <CheckBox x:Name="ChkPlaceholderAnimations" Content="Placeholder de animaciones (idle/run)" Foreground="#e6edf3" Margin="0,0,0,6"
+                                  ToolTip="Generar animaciones temporales para prototipar."/>
+                        <TextBlock Text="Número de objetos iniciales (test)" Foreground="#8b949e" FontSize="12" Margin="0,4,0,4"/>
+                        <TextBox x:Name="TxtInitialObjectCount" Width="60" Margin="0,0,0,0" Text="0" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Ej: 5 para añadir 5 objetos de prueba al crear el proyecto."/>
+                    </StackPanel>
+                </Expander>
+
+                <!-- 4. Render y UI inicial -->
+                <Expander Header="Render y UI inicial" Foreground="#e6edf3" Margin="0,0,0,8"
+                          Background="#161b22" BorderBrush="#30363d" BorderThickness="1">
+                    <StackPanel Margin="12,8">
+                        <TextBlock Text="Color de fondo del juego (primera escena / letterbox)" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
+                        <TextBox x:Name="TxtDefaultGameBg" Width="120" HorizontalAlignment="Left" Margin="0,0,0,8" Text="#FFFFFF" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Hex #RRGGBB (relleno detrás del área lógica y letterbox). Por defecto: blanco o el valor del motor."
+                                 TextChanged="TxtDefaultGameBg_OnTextChanged"/>
+                        <TextBlock Text="FPS del juego" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
+                        <TextBox x:Name="TxtFps" Width="80" Margin="0,0,0,8" Text="60" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Frames por segundo por defecto (ej: 60)."/>
+                        <CheckBox x:Name="ChkPixelPerfect" Content="Render Pixel-perfect" IsChecked="True" Foreground="#e6edf3" Margin="0,0,0,8"
+                                  ToolTip="Escalado pixel-perfect para estilo retro."/>
+                        <TextBlock Text="Cámara inicial / zoom" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4"/>
+                        <TextBox x:Name="TxtInitialZoom" Width="80" Margin="0,0,0,8" Text="1" Padding="8,6" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                 ToolTip="Valor de zoom inicial (ej: 1.0)."/>
+                        <CheckBox x:Name="ChkLightShadow" Content="Light / Shadow por defecto" Foreground="#e6edf3" Margin="0,0,0,0"
+                                  ToolTip="Activar iluminación y sombras por defecto (para test visual)."/>
+                    </StackPanel>
+                </Expander>
+
+                <!-- 5. Opciones avanzadas -->
+                <Expander Header="Opciones avanzadas" Foreground="#e6edf3" Margin="0,0,0,0"
+                          Background="#161b22" BorderBrush="#30363d" BorderThickness="1">
+                    <StackPanel Margin="12,8">
+                        <CheckBox x:Name="ChkDebugMode" Content="Modo de depuración (logs y herramientas en el proyecto)" IsChecked="True" Foreground="#e6edf3" Margin="0,0,0,6"
+                                  ToolTip="Por defecto según Configuración del motor → Explorador. Activa logs útiles al crear el proyecto."/>
+                        <CheckBox x:Name="ChkScriptNodes" Content="Activar nodos de scripts (lógica visual)" Foreground="#e6edf3" Margin="0,0,0,6"
+                                  ToolTip="Para proyectos que usen editor visual de nodos desde el inicio."/>
+                        <CheckBox x:Name="ChkSaveInitialBackup" Content="Guardar backup inicial" Foreground="#e6edf3" Margin="0,0,0,0"
+                                  ToolTip="Crear una copia del proyecto recién creado en la carpeta de backups."/>
+                    </StackPanel>
+                </Expander>
+            </StackPanel>
+        </ScrollViewer>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button x:Name="BtnCancel" Content="Cancelar" Width="90" Margin="0,0,10,0" IsCancel="True" Padding="12,8" Click="BtnCancel_OnClick"/>
+            <Button x:Name="BtnCreate" Content="Crear proyecto" MinWidth="120" Padding="12,8" Click="BtnCreate_OnClick" IsDefault="True" IsEnabled="False"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

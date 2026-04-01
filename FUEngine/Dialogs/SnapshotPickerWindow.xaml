@@ -1,0 +1,23 @@
+<Window x:Class="FUEngine.SnapshotPickerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Cargar snapshot" Height="320" Width="340"
+        WindowStartupLocation="CenterOwner"
+        Background="#0d1117" ResizeMode="NoResize">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Text="Selecciona un snapshot:" Foreground="#e6edf3" Margin="0,0,0,8"/>
+        <ListBox x:Name="SnapshotList" Grid.Row="1" Background="#21262d" Foreground="#e6edf3"
+                 BorderBrush="#30363d" SelectionMode="Single" MouseDoubleClick="SnapshotList_OnDoubleClick"/>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button x:Name="BtnAceptar" Content="Cargar" Width="80" Margin="0,0,8,0" Click="BtnAceptar_OnClick"
+                    Background="#238636" Foreground="White" BorderThickness="0"/>
+            <Button Content="Cancelar" Width="80" IsCancel="True" Click="BtnCancelar_OnClick"
+                    Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+        </StackPanel>
+    </Grid>
+</Window>

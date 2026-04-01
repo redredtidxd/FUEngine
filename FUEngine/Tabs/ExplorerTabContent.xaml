@@ -1,0 +1,42 @@
+<UserControl x:Class="FUEngine.ExplorerTabContent"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:FUEngine"
+             Background="#161b22"
+             AllowDrop="True"
+             DragOver="ExplorerTabContent_OnDragOver"
+             Drop="ExplorerTabContent_OnDrop">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Border Grid.Row="0" Background="#21262d" Padding="12,8" BorderBrush="#30363d" BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Explorador de proyecto · Arrastra archivos del sistema (cualquier tipo) o entre carpetas" 
+                           Foreground="#8b949e" FontSize="12"/>
+            </StackPanel>
+        </Border>
+        <Border Grid.Row="1" Background="#161b22" Padding="8,4" BorderBrush="#30363d" BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Vista:" VerticalAlignment="Center" Foreground="#8b949e" Margin="0,0,8,0"/>
+                <Button x:Name="BtnViewTree" Content="Árbol" Padding="8,4" Margin="0,0,4,0" Click="BtnView_OnClick" Tag="Tree" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                <Button x:Name="BtnViewList" Content="Lista" Padding="8,4" Margin="0,0,4,0" Click="BtnView_OnClick" Tag="List" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                <Button x:Name="BtnViewGrid" Content="Grid" Padding="8,4" Margin="0,0,16,0" Click="BtnView_OnClick" Tag="Grid" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                <Button x:Name="BtnBulkRename" Content="Renombrar múltiple..." Padding="8,4" Margin="0,0,4,0" Click="BtnBulkRename_OnClick" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                <Button x:Name="BtnUnusedScanner" Content="Buscar no usados" Padding="8,4" Click="BtnUnusedScanner_OnClick" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+            </StackPanel>
+        </Border>
+        <Border Grid.Row="2" Background="#161b22" Padding="6,2" BorderBrush="#30363d" BorderThickness="0,0,0,1">
+            <StackPanel x:Name="ShortcutActionsPanel" Orientation="Horizontal">
+                <Button x:Name="BtnActionOpen" Content="Abrir" Padding="6,2" Margin="0,0,4,0" Click="BtnActionOpen_OnClick" Visibility="Collapsed" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                <Button x:Name="BtnActionReveal" Content="Mostrar en carpeta" Padding="6,2" Margin="0,0,4,0" Click="BtnActionReveal_OnClick" Visibility="Collapsed" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                <Button x:Name="BtnActionFavorite" Content="Favorito" Padding="6,2" Margin="0,0,4,0" Click="BtnActionFavorite_OnClick" Visibility="Collapsed" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                <Button x:Name="BtnActionDuplicate" Content="Duplicar" Padding="6,2" Margin="0,0,4,0" Click="BtnActionDuplicate_OnClick" Visibility="Collapsed" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+            </StackPanel>
+        </Border>
+        <local:ProjectExplorerPanel x:Name="ProjectExplorer" Grid.Row="3"/>
+    </Grid>
+</UserControl>
