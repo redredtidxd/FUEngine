@@ -19,7 +19,6 @@ dist/
 /FUEngine_Setup*.exe
 /FUEngine-Setup*.exe
 # Nunca copiar instaladores dentro del proyecto del editor (solo FUEngine.exe ahí)
-FUEngine/InstalarFUEngine.exe
 FUEngine/FUEngine_Setup*.exe
 # Salida completa de dotnet publish del instalador
 FUEngine.Installer/publish/
