@@ -80,3 +80,4 @@ Get-ChildItem -LiteralPath $publishDir -Force | ForEach-Object {
 }
 
 Write-Host "Listo: $rootExe"
+Write-Host "InstalarFUEngine.exe en la raiz del repo va con Git LFS. Para subir el binario actualizado: git add InstalarFUEngine.exe; git commit; git push" -ForegroundColor DarkGray

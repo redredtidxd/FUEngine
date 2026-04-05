@@ -9,8 +9,7 @@ tools/
 
 # Artefactos de release locales (carpetas de prueba, instaladores viejos, etc.)
 dist/
-# Instalador single-file en la raíz (motor embebido en el ensamblado del instalador)
-/InstalarFUEngine.exe
+# InstalarFUEngine.exe en la raíz se versiona con Git LFS (.gitattributes), no ignorar
 # Layout antiguo (carpeta con DLL del runtime); el script la borra al regenerar
 /InstalarFUEngine/
 # Artefactos viejos del instalador (no deben quedar en disco; por si acaso)

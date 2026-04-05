@@ -53,7 +53,7 @@ La versión del producto vive en **[Directory.Build.props](Directory.Build.props
 
 **Nota:** Para el `.exe` que **distribuyes**, usa **`installer\build-installer.ps1`** (incluye FUEngine dentro del instalador). Un build Debug del proyecto Installer desde el IDE no sirve como paquete final. Si añades carpetas o assets nuevos del motor, normalmente **no** tocas el instalador: el `publish` ya cosecha casi cualquier archivo no-fuente del proyecto `FUEngine`.
 
-Quien **construye** el paquete solo necesita **SDK 8**. El código del instalador está en el repo (`FUEngine.Installer\` + `installer\zip_payload.ps1`). **`InstalarFUEngine.exe`** en la raíz y **`FUEngine.Installer\publish\`** están en `.gitignore`. Para **Releases**, distribuye **`InstalarFUEngine.exe`**.
+Quien **construye** el paquete solo necesita **SDK 8**. El código del instalador está en el repo (`FUEngine.Installer\` + `installer\zip_payload.ps1`). **`InstalarFUEngine.exe`** en la **raíz** se versiona con **Git LFS** (supera el límite de 100 MB de GitHub en archivos normales); **`FUEngine.Installer\publish\`** sigue en `.gitignore`. Tras regenerar el instalador, haz **`git add InstalarFUEngine.exe`** y commit para subir el binario actualizado. Para clonar con el `.exe` real, necesitas **[Git LFS](https://git-lfs.com)** instalado (`git lfs pull` si faltara el puntero).
 
 **Datos del usuario:** el instalador reemplaza el programa, no tus proyectos. Preferencias, logs y cachés viven en **`%LocalAppData%\FUEngine`**. La carpeta por defecto de proyectos depende de la configuración del editor; si no se ha personalizado, el motor usa una raíz dentro del perfil del usuario (no `Program Files`).
 
