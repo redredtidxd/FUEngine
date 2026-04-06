@@ -80,4 +80,4 @@ Get-ChildItem -LiteralPath $publishDir -Force | ForEach-Object {
 }
 
 Write-Host "Listo: $rootExe"
-Write-Host "El instalador no se versiona en Git (tamaño). Para distribuirlo: GitHub Releases u otro canal." -ForegroundColor DarkGray
+Write-Host "Para versionar el instalador con LFS (sin subir .gitignore/.gitattributes): installer\setup-git-local.ps1 si no lo hiciste; luego git add InstalarFUEngine.exe; git commit; git push" -ForegroundColor DarkGray

@@ -126,7 +126,8 @@ public static partial class EngineDocumentation
                 "Requisitos para compilar: Windows y .NET SDK 8 (detalle en README.md).",
                 "Si dotnet no se reconoce: instala el SDK 8 (no solo el runtime), cierra y abre de nuevo la terminal; comprueba con dotnet --version.",
                 "installer\\build-installer.ps1 hace un smoke test del payload del motor antes de aceptar el setup final (ejecutable, Resources\\Lua.xshd y carpeta Templates).",
-                "Scripts personales en carpeta tools (local, ignorada por git): ver README.md.",
+                "InstalarFUEngine.exe en la raíz se distribuye con Git LFS; tras clonar usa Git LFS y el script installer\\setup-git-local.ps1 (README): los dotfiles .gitignore/.gitattributes no se suben al remoto.",
+                "Scripts personales en carpeta tools (local, lista en archivo gitignore de la raíz): ver README.md.",
                 "Tras instalar con InstalarFUEngine.exe, se abre el Explorador en la carpeta del motor; si reinstalas, solo se sustituye esa carpeta de programa (tus proyectos en otras rutas no se borran). Preferencias, logs y cachés del editor viven en %LocalAppData%\\FUEngine; la raíz de proyectos se configura aparte y no debe apuntar a Program Files. Puedes marcar dependencias opcionales (Visual C++ x64, DirectX web, comprobar .NET 8 Desktop); el .exe del motor incluye .NET. Menú Inicio: Red Redtid → FUEngine; doble clic en Project.FUE (o .fueproj) abre el proyecto si la asociación está registrada."
             }),
 
