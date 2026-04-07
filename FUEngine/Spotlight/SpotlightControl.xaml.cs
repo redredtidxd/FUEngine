@@ -161,8 +161,6 @@ public partial class SpotlightControl : System.Windows.Controls.UserControl
         foreach (var x in SpotlightIndex.FilterLua(query))
             _items.Add(x);
 
-        var ai = SpotlightIndex.MatchAiOnboarding(query);
-        if (ai != null) _items.Insert(0, ai);
         var ch = SpotlightIndex.MatchChangelogFile(query);
         if (ch != null) _items.Insert(0, ch);
 
@@ -207,7 +205,7 @@ public partial class SpotlightControl : System.Windows.Controls.UserControl
             return;
         }
         TxtDetailTitle.Text = item.Title;
-        TxtDetailBody.Text = item.LuaDetail ?? item.Subtitle;
+        TxtDetailBody.Text = string.IsNullOrWhiteSpace(item.LuaDetail) ? item.Subtitle : item.LuaDetail!;
         if (!string.IsNullOrEmpty(item.LuaExample))
         {
             TxtDetailExample.Text = item.LuaExample;

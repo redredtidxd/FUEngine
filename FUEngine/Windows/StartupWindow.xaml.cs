@@ -235,7 +235,7 @@ public partial class StartupWindow : Window
 
     private void LinkChangelog_OnClick(object sender, RoutedEventArgs e)
     {
-        var path = FindRepoFile("docs/AI-ONBOARDING.md");
+        var path = FindRepoFile("docs/CHANGELOG.md");
         if (!string.IsNullOrEmpty(path) && File.Exists(path))
         {
             Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });

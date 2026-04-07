@@ -310,6 +310,12 @@ public partial class EditorWindow : Window
             ConfigureAutoSave();
             UpdateCurrentTool();
             SyncDiscordRichPresence();
+            if (_project.FormatMigrationDeclinedAtOpen)
+            {
+                EditorLog.Warning(
+                    "Abriste el proyecto sin migrar el formato del manifiesto (.FUE): sigue en versión antigua en disco. Este ejecutable no entra en modo solo lectura; si guardas sin criterio, mapas/manifiesto pueden desalinearse con lo que el motor espera. Migra al reabrir (Sí en el diálogo) o trabaja sobre una copia.",
+                    "Proyecto");
+            }
         };
         DrawMap();
         RefreshInspector();

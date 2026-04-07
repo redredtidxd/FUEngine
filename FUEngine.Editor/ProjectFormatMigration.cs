@@ -3,7 +3,11 @@ using FUEngine.Core;
 
 namespace FUEngine.Editor;
 
-/// <summary>Migraciones solo aditivas del JSON de proyecto; no elimina datos.</summary>
+/// <summary>
+/// Puente de migración por <see cref="FUEngine.Core.ProjectInfo.ProjectFormatVersion"/> (<c>projectFormatVersion</c> en el .FUE).
+/// Pasos en <see cref="MigrateToVersion"/> pueden ampliarse con transformaciones (p. ej. cambiar tipo de un campo) además de metadatos aditivos.
+/// Los modelos viven en Core; la orquestación y los pasos concretos están aquí para no acoplar el dominio a la app WPF.
+/// </summary>
 public static class ProjectFormatMigration
 {
     public static bool NeedsUpgrade(ProjectInfo project) =>

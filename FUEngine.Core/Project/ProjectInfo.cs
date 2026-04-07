@@ -164,6 +164,10 @@ public class ProjectInfo
 
     /// <summary>Versión de esquema del archivo de proyecto (<see cref="ProjectSchema.CurrentFormatVersion"/>). 0 = JSON sin campo (proyectos anteriores).</summary>
     public int ProjectFormatVersion { get; set; }
+
+    /// <summary>Solo en memoria (no se serializa): el usuario abrió el proyecto eligiendo «No» en la migración de formato; el .FUE en disco sigue desactualizado.</summary>
+    public bool FormatMigrationDeclinedAtOpen { get; set; }
+
     /// <summary>Ruta del mapa principal: con Scenes usa el primero; si no, MapPathRelative.</summary>
     public string MapPath => GetSceneMapPath(0);
     /// <summary>Ruta de objetos principal: con Scenes usa el primero; si no, objetos.json.</summary>

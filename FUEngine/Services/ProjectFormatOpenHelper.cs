@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Windows;
 using WpfMessageBox = System.Windows.MessageBox;
 using FUEngine.Core;
@@ -25,11 +26,14 @@ public static class ProjectFormatOpenHelper
         }
 
         if (!ProjectFormatMigration.NeedsUpgrade(project))
+        {
+            project.FormatMigrationDeclinedAtOpen = false;
             return true;
+        }
 
         var msg =
             $"Este proyecto usa el formato interno v{project.ProjectFormatVersion}; el motor actual usa v{ProjectSchema.CurrentFormatVersion}.\n\n" +
-            "¿Actualizar el archivo del proyecto de forma segura? No se borran datos ni recursos; solo se añaden campos y metadatos necesarios.\n\n" +
+            "¿Actualizar el archivo del proyecto de forma segura? No se borran mapas ni assets; se aplican los pasos de migración del manifiesto para esta versión del motor.\n\n" +
             "• Sí — guardar ahora y continuar\n" +
             "• No — abrir sin modificar el archivo (se volverá a preguntar al abrir)\n" +
             "• Cancelar — no abrir el proyecto";
@@ -43,6 +47,24 @@ public static class ProjectFormatOpenHelper
 
         if (r == MessageBoxResult.Yes)
         {
+            project.FormatMigrationDeclinedAtOpen = false;
+            if (File.Exists(projectFilePath))
+            {
+                try
+                {
+                    File.Copy(projectFilePath, projectFilePath + ".bak", overwrite: true);
+                }
+                catch (Exception ex)
+                {
+                    WpfMessageBox.Show(owner,
+                        "No se pudo crear la copia de seguridad (.bak) antes de migrar:\n" + ex.Message +
+                        "\n\nHaz una copia manual del .FUE si lo necesitas; al continuar se guardará la migración sin .bak automático.",
+                        "Formato del proyecto",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
+            }
+
             var warnings = new List<string>();
             ProjectFormatMigration.ApplySafeUpgrade(project, warnings);
             try
@@ -68,8 +90,11 @@ public static class ProjectFormatOpenHelper
             return true;
         }
 
+        project.FormatMigrationDeclinedAtOpen = true;
         WpfMessageBox.Show(owner,
-            "El proyecto se abrirá sin modificar el archivo. Puedes seguir trabajando; al guardar, el JSON conservará el formato anterior hasta que elijas actualizar al abrir.",
+            "El proyecto se abrirá sin modificar el archivo .FUE en disco.\n\n" +
+            "Riesgo: este motor puede asumir formato nuevo en otras partes. Si guardas mezclando criterios, podrías obtener datos desalineados. Conviene migrar pronto o trabajar con una copia.\n\n" +
+            "Al guardar el manifiesto, el campo de versión de formato seguirá siendo el antiguo hasta que aceptes migrar al abrir.",
             "Formato del proyecto",
             MessageBoxButton.OK,
             MessageBoxImage.Warning);

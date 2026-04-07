@@ -545,7 +545,9 @@
         </Grid>
         <Grid x:Name="DocumentationOverlay" Visibility="Collapsed" Panel.ZIndex="1001"
               Background="#B3000000" MouseLeftButtonDown="DocumentationBackdrop_OnMouseLeftButtonDown">
-            <Border MaxWidth="960" MaxHeight="740" MinHeight="400" VerticalAlignment="Center" HorizontalAlignment="Center"
+            <Border Margin="24,20,24,20" MinHeight="400" MinWidth="640"
+                    VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                    MaxWidth="2000" MaxHeight="2000"
                     Background="#0d1117" BorderBrush="#30363d" BorderThickness="1" CornerRadius="8"
                     MouseLeftButtonDown="DocumentationInner_OnMouseLeftButtonDown">
                 <local:DocumentationHostControl x:Name="DocumentationEmbedded" RequestClose="DocumentationEmbedded_RequestClose"/>

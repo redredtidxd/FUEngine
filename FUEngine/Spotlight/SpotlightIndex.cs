@@ -25,6 +25,8 @@ internal static class SpotlightIndex
     private static List<SpotlightItem>? _scriptExampleItems;
     private static List<SpotlightItem>? _luaItems;
     private static readonly object Gate = new();
+    private static readonly object ProjectFileGate = new();
+    private static readonly Dictionary<string, List<string>> ProjectFileCache = new(StringComparer.OrdinalIgnoreCase);
 
     public static void EnsureBuilt()
     {
@@ -83,13 +85,27 @@ internal static class SpotlightIndex
                 sb.Append(t.ExampleSearchTags).Append(' ');
             if (!string.IsNullOrEmpty(t.ExampleDifficulty))
                 sb.Append(t.ExampleDifficulty).Append(' ');
+
+            var cat = string.IsNullOrWhiteSpace(t.ExampleCategory) ? "Ejemplos" : t.ExampleCategory.Trim();
+            var dif = string.IsNullOrWhiteSpace(t.ExampleDifficulty) ? "" : (" · " + t.ExampleDifficulty.Trim());
+            var subtitle = cat + dif;
+
+            var detail = new StringBuilder();
+            if (!string.IsNullOrWhiteSpace(t.ParaQue)) detail.Append(t.ParaQue).Append('\n');
+            if (!string.IsNullOrWhiteSpace(t.PorQueImporta)) detail.Append(t.PorQueImporta);
+
+            var preview = t.LuaExampleCode;
+            if (!string.IsNullOrEmpty(preview) && preview.Length > 900)
+                preview = preview.Substring(0, 900) + "\n-- ...";
             list.Add(new SpotlightItem
             {
                 Category = SpotlightCategory.ScriptExamples,
                 Title = t.Title,
-                Subtitle = "Ejemplos de scripts",
+                Subtitle = subtitle,
                 SearchText = sb.ToString(),
-                DocumentationTopicId = t.Id
+                DocumentationTopicId = t.Id,
+                LuaDetail = detail.ToString().Trim(),
+                LuaExample = preview
             });
         }
 
@@ -290,32 +306,100 @@ internal static class SpotlightIndex
 
     public static bool Matches(string query, string haystack)
     {
-        if (string.IsNullOrWhiteSpace(query)) return true;
-        return haystack.Contains(query.Trim(), StringComparison.OrdinalIgnoreCase);
+        return ScoreMatch(query, haystack) > 0;
+    }
+
+    private static IEnumerable<string> Tokenize(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) yield break;
+        var t = s.Trim();
+        var sb = new StringBuilder();
+        for (var i = 0; i < t.Length; i++)
+        {
+            var c = t[i];
+            if (char.IsLetterOrDigit(c) || c == '_' || c == '-' || c == '.')
+            {
+                sb.Append(char.ToLowerInvariant(c));
+                continue;
+            }
+            if (sb.Length > 0)
+            {
+                yield return sb.ToString();
+                sb.Clear();
+            }
+        }
+        if (sb.Length > 0) yield return sb.ToString();
+    }
+
+    private static int ScoreMatch(string query, string haystack)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return 1;
+        if (string.IsNullOrEmpty(haystack)) return 0;
+        var q = query.Trim();
+        if (q.Length == 0) return 1;
+
+        // Match rápido exacto (case-insensitive).
+        if (haystack.Contains(q, StringComparison.OrdinalIgnoreCase))
+            return 120;
+
+        // Scoring por tokens: todas las palabras deben aparecer (parcial) en algún token del texto.
+        var qTokens = Tokenize(q).ToArray();
+        if (qTokens.Length == 0) return 0;
+
+        var hLower = haystack.ToLowerInvariant();
+        var score = 0;
+        foreach (var qt in qTokens)
+        {
+            if (qt.Length == 0) continue;
+            var idx = hLower.IndexOf(qt, StringComparison.Ordinal);
+            if (idx < 0) return 0;
+
+            // Mejor si coincide al inicio de palabra (espacio/guion/punto) o al principio.
+            var boundary = idx == 0 ||
+                           !char.IsLetterOrDigit(hLower[idx - 1]) ||
+                           hLower[idx - 1] == '_' || hLower[idx - 1] == '-' || hLower[idx - 1] == '.';
+            score += boundary ? 40 : 18;
+            score += Math.Clamp(20 - idx / 24, 0, 20); // más arriba = mejor
+        }
+        return score;
+    }
+
+    private static IEnumerable<SpotlightItem> RankAndTake(IEnumerable<SpotlightItem> items, string q, int take)
+    {
+        if (string.IsNullOrWhiteSpace(q))
+            return items.Take(take);
+
+        var list = items
+            .Select(x =>
+            {
+                var hay = (x.Title ?? "") + " " + (x.Subtitle ?? "") + " " + (x.LuaDetail ?? "") + " " + (x.SearchText ?? "");
+                var s = ScoreMatch(q, hay);
+                return (Item: x, Score: s);
+            })
+            .Where(p => p.Score > 0)
+            .OrderByDescending(p => p.Score)
+            .ThenBy(p => p.Item.Title, StringComparer.OrdinalIgnoreCase)
+            .Take(take)
+            .Select(p => p.Item);
+        return list;
     }
 
     public static IEnumerable<SpotlightItem> FilterDocs(string q)
     {
         EnsureBuilt();
-        if (string.IsNullOrWhiteSpace(q))
-            return DocumentationItems.Take(10);
-        return DocumentationItems.Where(x => Matches(q, x.Title + " " + x.SearchText)).Take(40);
+        return RankAndTake(DocumentationItems, q, string.IsNullOrWhiteSpace(q) ? 14 : 55);
     }
 
     public static IEnumerable<SpotlightItem> FilterLua(string q)
     {
         EnsureBuilt();
-        if (string.IsNullOrWhiteSpace(q))
-            return LuaItems.Take(30);
-        return LuaItems.Where(x => Matches(q, x.Title + " " + x.Subtitle + " " + (x.LuaDetail ?? "") + " " + x.SearchText)).Take(60);
+        return RankAndTake(LuaItems, q, string.IsNullOrWhiteSpace(q) ? 28 : 80);
     }
 
     public static IEnumerable<SpotlightItem> FilterScriptExamples(string q)
     {
         EnsureBuilt();
-        if (string.IsNullOrWhiteSpace(q))
-            return ScriptExampleItems.Take(12);
-        return ScriptExampleItems.Where(x => Matches(q, x.Title + " " + x.SearchText)).Take(25);
+        return RankAndTake(ScriptExampleItems, q, string.IsNullOrWhiteSpace(q) ? 18 : 55);
     }
 
     public static IEnumerable<SpotlightItem> SearchProjectFiles(string projectDir, string q, int max = 40)
@@ -327,23 +411,37 @@ internal static class SpotlightIndex
         var results = new List<SpotlightItem>();
         try
         {
-            foreach (var ext in new[] { "*.lua", "*.map", "*.seed" })
+            List<string> files;
+            lock (ProjectFileGate)
             {
-                foreach (var path in Directory.EnumerateFiles(projectDir, ext, SearchOption.AllDirectories))
+                if (!ProjectFileCache.TryGetValue(projectDir, out files!))
                 {
-                    if (path.Contains("snapshots", StringComparison.OrdinalIgnoreCase)) continue;
-                    var name = Path.GetFileName(path);
-                    if (!name.ToLowerInvariant().Contains(ql) && !path.ToLowerInvariant().Contains(ql)) continue;
-                    results.Add(new SpotlightItem
+                    files = new List<string>(2048);
+                    foreach (var ext in new[] { "*.lua", "*.map", "*.seed" })
                     {
-                        Category = SpotlightCategory.ProjectFile,
-                        Title = name,
-                        Subtitle = Path.GetRelativePath(projectDir, path),
-                        SearchText = path,
-                        FilePath = path
-                    });
-                    if (results.Count >= max) return results;
+                        foreach (var path in Directory.EnumerateFiles(projectDir, ext, SearchOption.AllDirectories))
+                        {
+                            if (path.Contains("snapshots", StringComparison.OrdinalIgnoreCase)) continue;
+                            files.Add(path);
+                        }
+                    }
+                    ProjectFileCache[projectDir] = files;
                 }
+            }
+
+            foreach (var path in files)
+            {
+                var name = Path.GetFileName(path);
+                if (!name.ToLowerInvariant().Contains(ql) && !path.ToLowerInvariant().Contains(ql)) continue;
+                results.Add(new SpotlightItem
+                {
+                    Category = SpotlightCategory.ProjectFile,
+                    Title = name,
+                    Subtitle = Path.GetRelativePath(projectDir, path),
+                    SearchText = path,
+                    FilePath = path
+                });
+                if (results.Count >= max) return results;
             }
         }
         catch
@@ -395,35 +493,14 @@ internal static class SpotlightIndex
         return list;
     }
 
-    public static SpotlightItem? MatchAiOnboarding(string q)
-    {
-        if (string.IsNullOrWhiteSpace(q)) return null;
-        var t = q.Trim();
-        if (!t.Contains("novedad", StringComparison.OrdinalIgnoreCase) &&
-            !t.Contains("changelog", StringComparison.OrdinalIgnoreCase) &&
-            !t.Contains("onboarding", StringComparison.OrdinalIgnoreCase) &&
-            !t.Contains("ia ", StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(t, "ai", StringComparison.OrdinalIgnoreCase))
-            return null;
-        var path = FindRepoMarkdown("docs/AI-ONBOARDING.md");
-        if (path == null) return null;
-        return new SpotlightItem
-        {
-            Category = SpotlightCategory.ExternalDoc,
-            Title = "Guía técnica para IAs (AI-ONBOARDING)",
-            Subtitle = path,
-            SearchText = "novedades documentación ia onboarding",
-            ExternalMarkdownPath = path
-        };
-    }
-
     public static SpotlightItem? MatchChangelogFile(string q)
     {
         if (string.IsNullOrWhiteSpace(q)) return null;
         var t = q.Trim();
         if (!t.Contains("changelog", StringComparison.OrdinalIgnoreCase) &&
             !t.Contains("historial", StringComparison.OrdinalIgnoreCase) &&
-            !t.Contains("versión", StringComparison.OrdinalIgnoreCase))
+            !t.Contains("versión", StringComparison.OrdinalIgnoreCase) &&
+            !t.Contains("novedad", StringComparison.OrdinalIgnoreCase))
             return null;
         var path = FindRepoMarkdown("docs/CHANGELOG.md");
         if (path == null) return null;

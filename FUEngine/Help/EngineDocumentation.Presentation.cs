@@ -9,10 +9,78 @@ public static partial class EngineDocumentation
     private const string FallbackEnMotor =
         "FUEngine no es un IDE Lua genérico ni Unity/Godot: el proyecto vive en una carpeta con JSON (escena, mapa, objetos, scripts registrados) y Play ejecuta NLua con las tablas documentadas (world, self, input, time, …). Si algo no coincide con tutoriales externos, prioriza este manual y las rutas de tu proyecto.";
 
+    private static string GetManualCategory(string topicId)
+    {
+        if (string.IsNullOrWhiteSpace(topicId)) return "General";
+
+        return topicId switch
+        {
+            QuickStartTopicId or "crear-juego" => "Inicio",
+            "arquitectura" or "version-motor-compatibilidad" => "Motor / repo",
+
+            "pestanas-editor-catalogo" => "Pestañas",
+            "componentes-catalogo" => "Componentes",
+            "manual-varios-temas" => "General",
+
+            "layout-editor" or "pestañas" or "menus-principales" or "menus-contextuales" or "atajos-teclado"
+                or "idioma-tema-editor" or "configuracion-motor-editor" or "deshacer-rehacer-editor"
+                or "autoguardado-editor" or "copiar-pegar-mapa" or "multiseleccion-objetos"
+                or "pantalla-inicio-hub" or "asistente-nuevo-proyecto-jerarquia" => "Editor",
+
+            "mapa-herramientas" or "tilemap-catalogo" or "tipos-de-capa" or "chunks-streaming"
+                or "streaming-cache-play" or "streaming-cache-play" or "tiledata-collision-flags"
+                or "fisica-raycast-dos-mundos" or "fisica-raycast-dos-mundos" or "mapa-herramientas"
+                or "tilemap-catalogo" or "chunks-streaming" => "Mapa",
+
+            "jerarquia-explorador" or "inspector" or "objetos-componentes" or "componentes-json-play" or "componentes-catalogo"
+                or "jerarquia-gameobject-lua" or "etiquetas-tags" or "scripts-conectar-motor"
+                or "propiedades-script-at-prop" or "objeto-script-inspector-gameplay" => "Objetos / Inspector",
+
+            "triggers" or "triggers-mapa-vs-objeto" => "Triggers",
+            "seeds" or "seeds-prefabs-runtime" => "Seeds",
+
+            "editor-mini-ide-lua" or "avalonedit-scripts-ide" or "lua-completion-catalogo" or "hot-reload-scripts"
+                => "Scripts (editor)",
+
+            "scripting-lua" or "eventos-hooks-lua" or "input-raton-teclado" or "tiempo-y-delta"
+                or "componentproxy-invoke" or "conocimiento-worldapi" or "bootstrap-script" or "game-api-rng"
+                or "scripts-capa-layer" or "ads-simulado" or "native-protagonist-camera" or "lua-patrones-snippets"
+                => "Lua (runtime)",
+
+            "play-runtime" or "fisica" or "vulkan-ventana-juego" or "render-pixel-art-filtros" => "Play / runtime",
+
+            "ui-canvas-runtime" or "lua-gui-canvas-play" => "UI",
+            "iluminacion-audio-ui" or "naudio-audio-proyecto" => "Audio / render",
+
+            "archivos-json" or "proyecto-json-avanzado" or "biblioteca-global-assets" or "integridad-proyecto"
+                => "Proyecto / datos",
+
+            "exportacion-build" or "exportacion-build" or "exportacion-build" or "animaciones-export" or "exportacion-build"
+                => "Exportación",
+
+            "depuracion-y-consola" or "consola-log-niveles" or "discord-rich-presence" or "troubleshooting-comun"
+                => "Depuración",
+
+            "creative-suite" => "Creative Suite",
+
+            _ => "General"
+        };
+    }
+
+    private static string EnsureCategorizedSubtitle(string topicId, string subtitle)
+    {
+        if (string.IsNullOrWhiteSpace(subtitle)) return subtitle;
+        if (subtitle.Contains("·", StringComparison.Ordinal)) return subtitle;
+        var cat = GetManualCategory(topicId);
+        return string.IsNullOrWhiteSpace(cat) ? subtitle : $"{cat} · {subtitle}";
+    }
+
     private static DocumentationTopic ApplyManualPresentation(DocumentationTopic t)
     {
         if (!ManualPresentation.TryGetValue(t.Id, out var meta))
             meta = (FallbackSubtitle, FallbackEnMotor);
+
+        var subtitle = EnsureCategorizedSubtitle(t.Id, meta.Subtitle);
         return new DocumentationTopic(
             t.Id,
             t.Title,
@@ -20,7 +88,7 @@ public static partial class EngineDocumentation
             t.PorQueImporta,
             t.Paragraphs,
             t.Bullets,
-            meta.Subtitle,
+            subtitle,
             meta.EnMotor,
             t.LuaExampleCode,
             t.ExampleCategory,
@@ -34,22 +102,28 @@ public static partial class EngineDocumentation
     {
         [QuickStartTopicId] = (
             "Primeros pasos: Hub, proyecto y Play",
-            "Desde la pantalla de inicio abres o creas un proyecto; no hay un «solución» aparte: todo es la carpeta del proyecto + FUEngine.exe. Play embebido usa el mismo runtime que exportación; los scripts deben estar en scripts.json y enlazados en el inspector."),
+            "Desde la pantalla de inicio abres o creas un proyecto; no hay un «solución» aparte: todo es la carpeta del proyecto + FUEngine.exe. Play embebido usa el mismo runtime que exportación; `scripts.json` es el registro que lee Play y el editor lo sincroniza al crear scripts por Explorador; luego enlazas en el Inspector."),
         ["crear-juego"] = (
-            "Datos, mapa y Lua en este repo",
-            "Aquí un juego es escenas + mapa por chunks + objetos JSON + Lua en runtime; el editor WPF no ejecuta tu lógica hasta Play. world.setTile, self y física son APIs de este motor, no de otro entorno."),
+            "Guía ordenada: datos, escenas, scripts, Play",
+            "Menú Ayuda → este tema: número 1–9 de uso y una sección de «cosas que no existen»; al final, detalle técnico opcional. APIs (`world`, `self`, `input`): referencia «Scripting Lua — referencia completa de APIs»."),
         ["arquitectura"] = (
             "Ensamblados Core, Editor, Runtime, Vulkan",
             "Al depurar recuerda: serialización JSON en Editor, tilemap y entidades en Core, Lua y bucle en Runtime, Vulkan solo en la ventana de juego. No mezcles responsabilidades de otros motores."),
-        ["compilar-desde-fuente"] = (
-            "Build con publish y .NET 8",
-            "El instalador o dotnet publish generan un FUEngine.exe autocontenido; no confundas con solo abrir un .exe ya construido. Quien compila el motor necesita SDK 8; quien instala el setup no."),
         ["layout-editor"] = (
             "Mapa, Inspector, consola y juego embebido",
             "Los paneles son fijos en este editor; Ver → muestra u oculta. No hay dock como VS Code: el flujo es mapa + selección + inspector documentado aquí."),
         ["pestañas"] = (
             "Mapa, Juego, Scripts y pestañas +",
             "Dónde: barra de pestañas central (debajo de la barra de menús, sobre el lienzo) y botón «+». Cómo: clic en el nombre de la pestaña; Ver → para mostrar/ocultar; «+» añade Scripts/Tiles/Creative Suite según contexto. Ejemplos de uso: Juego = probar Lua/input; Consola = errores; Scripts = editar .lua. El modelo de escena sigue siendo JSON; Play suele iniciarse desde Proyecto o la pestaña Juego."),
+        ["pestanas-editor-catalogo"] = (
+            "Lista de vistas y menú +",
+            "Índice plano de kinds de pestaña (Mapa, Scripts, Creative Suite…) alineado con el código del editor; el detalle de uso sigue en «Pestañas del editor»."),
+        ["componentes-catalogo"] = (
+            "Tipos y nombres en instancia",
+            "Lista de componentes Core que mapean desde ObjectInstance; no es la lista de clases C# completas del ensamblado, sino lo que el inspector serializa para Play."),
+        ["manual-varios-temas"] = (
+            "Enlaces y listados sin desarrollo",
+            "Temas que remiten a otros apartados o solo enumeran capacidades; útil como mapa mental antes de buscar en Spotlight."),
         ["lua-gui-canvas-play"] = (
             "Canvas, botones y ui.bind en simulación",
             "Dónde: Jerarquía → escena → UICanvas e hijos (Ids en Inspector); árbol guardado en datos de escena. Cómo: script del objeto en onStart con ui.bind / ui.setFocus; onUpdate para lógica; probar en pestaña Juego. Ejemplos: ayuda → Ejemplos de scripts («botón», «Canvas», escena+UI). No es diseño WPF remoto: Lua solo reacciona a Ids y eventos."),
@@ -212,9 +286,6 @@ public static partial class EngineDocumentation
         ["avalonedit-scripts-ide"] = (
             "AvalonEdit y Lua.xshd",
             "El resaltado usa el .xshd embebido; no es el mismo que VS Code con extensiones."),
-        ["plugins-y-extensiones"] = (
-            "Extensión del editor",
-            "El modelo de plugins es el documentado; no hay Asset Store."),
         ["jerarquia-gameobject-lua"] = (
             "GameObject, transform y Lua",
             "Los proxies en Lua reflejan componentes del Core; nombres y límites son de este motor."),
@@ -262,7 +333,7 @@ public static partial class EngineDocumentation
             "Los ajustes globales viven fuera del proyecto; rutas por defecto y opciones de editor."),
         ["scripts-conectar-motor"] = (
             "Registrar scripts y asignar a objetos",
-            "scripts.json + inspector es el flujo obligatorio; no hay «arrastrar .lua» a cualquier carpeta sin registro."),
+            "Play lee `scripts.json`; crear `.lua` por Explorador (o ejemplos en Ayuda) actualiza el registro solo; Inspector para asignar al objeto."),
         ["objeto-script-inspector-gameplay"] = (
             "Collider, partículas y @prop en instancia",
             "Los datos de instancia en objetos.json son los que Play lee; Lua no muta todos los componentes por igual."),

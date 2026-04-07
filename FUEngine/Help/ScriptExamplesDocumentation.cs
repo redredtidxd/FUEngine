@@ -45,40 +45,52 @@ public static class ScriptExamplesDocumentation
                     "Asigna el script al objeto en la **jerarquía** (cualquier instancia). Registra el .lua en **scripts.json** y el id en **Inspector → Scripts (Lua)**. En **Sprite, física y gameplay**, desactiva **UseNativeInput** / protagonista nativo en **este** objeto si el motor ya mueve otro personaje con el mismo input; si no, dos sistemas pueden pugnar por la posición. Prueba en la pestaña **Juego** o ventana Play (WASD en la pestaña **Mapa** solo mueve la cámara del editor). Teclas: tabla **Key** + `input.isKeyDown` en `onUpdate`.",
                 paragraphs: new[]
                 {
-                    "**Cómo funciona:** `axisH` y `axisV` devuelven −1, 0 o +1 según teclas; se multiplica por `velocidad * time.delta` y se suma a `self.x` / `self.y`.",
-                    "Si solo necesitas izquierda/derecha, elimina `axisV` y la parte que usa `hy`.",
+                    "**Qué es @prop y por qué está arriba:** la línea `-- @prop velocidad: float = 220` hace que el Inspector genere un campo editable por instancia en «Variables de script». Así, el mismo script sirve para muchos objetos con distinta velocidad sin tocar el .lua.",
+                    "**Qué hace `onUpdate(dt)`:** FUEngine llama a `onUpdate` cada frame en Play. `dt` suele ser el delta del frame; si por versión/host no se pasa, el script usa `time.delta` (cuando existe) como fallback.",
+                    "**Paso 1 (entrada → ejes):** calculamos `hx` y `hy` como −1, 0 o +1. Cada eje se obtiene como: (derecha/abajo) − (izquierda/arriba). Si pulsas ambas teclas a la vez, se anulan y el eje queda en 0.",
+                    "**Paso 2 (movimiento solo si hay input):** si `hx` y `hy` son 0, no calculamos velocidad ni tocamos posición. Esto ahorra trabajo y evita mover el objeto cuando no hay teclas.",
+                    "**Paso 3 (delta y velocidad):** `sp = velocidad * delta` convierte «unidades por segundo» a «unidades por frame». Es lo que hace el movimiento independiente de FPS.",
+                    "**Paso 4 (aplicar):** sumamos `hx * sp` y `hy * sp` a `self.x`/`self.y`. Si te mueves en diagonal sin normalizar, la diagonal será más rápida; puedes normalizar si lo necesitas (ver comentario en el código).",
                 },
                 bullets: new[]
                 {
                     "Si el objeto no se mueve: comprueba **scripts.json**, asignación al objeto, **Play** activo y consola Lua sin errores.",
                     "Protagonista con **UseNativeInput** activo: el motor puede mover al jugador antes que Lua; para control 100% script, desactiva esa opción en este objeto.",
+                    "Si sale error de `nil`: estás ejecutando fuera de Play o falta alguna tabla global. Este ejemplo hace `if not input then return end` y protege `time.delta`.",
+                    "Si quieres que la diagonal no sea más rápida: normaliza `(hx, hy)` cuando ambos no son 0 (o limita a 4 direcciones).",
                 },
                 subtitle: "Entrada y gameplay",
-                luaExampleCode: @"-- Movimiento básico: WASD + flechas. Ajusta @prop velocidad en el Inspector.
--- @prop velocidad: float = 220
-
-local function axisH()
-    local m = 0
-    if input.isKeyDown(Key.A) or input.isKeyDown(Key.Left) then m = m - 1 end
-    if input.isKeyDown(Key.D) or input.isKeyDown(Key.Right) then m = m + 1 end
-    return m
-end
-
-local function axisV()
-    local m = 0
-    if input.isKeyDown(Key.W) or input.isKeyDown(Key.Up) then m = m - 1 end
-    if input.isKeyDown(Key.S) or input.isKeyDown(Key.Down) then m = m + 1 end
-    return m
-end
+                luaExampleCode: @"-- @prop velocidad: float = 220
 
 function onUpdate(dt)
-    if not input or not time then return end
-    local t = time.delta or dt or 0
-    if t <= 0 then return end
-    local sp = (velocidad or 220) * t
-    local hx, hy = axisH(), axisV()
-    self.x = (self.x or 0) + hx * sp
-    self.y = (self.y or 0) + hy * sp
+    if not input then return end
+    
+    -- 1. Calculamos ejes directamente (Cero si no hay teclas o se anulan)
+    local hx =
+        (((input.isKeyDown(Key.D) or input.isKeyDown(Key.Right)) and 1 or 0) -
+         ((input.isKeyDown(Key.A) or input.isKeyDown(Key.Left)) and 1 or 0))
+               
+    local hy =
+        (((input.isKeyDown(Key.S) or input.isKeyDown(Key.Down)) and 1 or 0) -
+         ((input.isKeyDown(Key.W) or input.isKeyDown(Key.Up)) and 1 or 0))
+
+    -- 2. Aplicamos movimiento solo si hay entrada (ahorra cálculos)
+    if hx ~= 0 or hy ~= 0 then
+        local delta = dt or (time and time.delta) or 0
+        local sp = (velocidad or 220) * delta
+        
+        -- Normalización simple opcional: evita que corra más en diagonal
+        -- Si no te importa que sea más rápido en diagonal, deja hx y hy tal cual.
+        --
+        -- if hx ~= 0 and hy ~= 0 then
+        --     local inv = 1 / math.sqrt(2)
+        --     hx = hx * inv
+        --     hy = hy * inv
+        -- end
+        
+        self.x = (self.x or 0) + hx * sp
+        self.y = (self.y or 0) + hy * sp
+    end
 end
 ",
                 exampleCategory: "Gameplay",
@@ -644,32 +656,6 @@ end
                 suggestedExportFileName: "ejemplo_arquitectura_codigo_lua_externo_adaptar.lua",
                 exampleSearchTags: "librería externa copiar sandbox io luarocks script-ex-arquitectura-codigo-lua-externo-adaptar",
                 exampleDifficulty: "Intermedio"),
-
-            new(
-                id: "script-ex-motor-plugins-csharp-lua-visible-nota",
-                title: "Motor: plugins C#, DLL y [LuaVisible] (nota para usuarios Lua)",
-                paraQue: "Entender qué puede ampliar un desarrollador C# frente a un usuario que solo escribe Lua.",
-                porQueImporta: "Las APIs Lua del motor (`world`, `Debug`, …) salen de clases en FUEngine.Runtime marcadas con [LuaVisible]; no basta con copiar una DLL arbitraria a la carpeta Plugins.",
-                enMotor:
-                    "ProjectInfo.ProjectEnabledPlugins y PluginLoader en Core están pensados para extensiones del editor; LoadFromDirectory es un stub hasta que se defina el modelo. Ampliar Lua con ensamblados de terceros no está soportado como producto documentado: para nuevas APIs hace falta compilar contra el motor y exponer tipos de forma controlada.",
-                paragraphs: new[]
-                {
-                    "Si contribuyes al repositorio del motor, añade métodos en las APIs existentes o nuevas clases [LuaVisible] en Runtime y el autocompletado las recogerá.",
-                },
-                bullets: new[]
-                {
-                    "Lee el tema del manual «Plugins del proyecto (estado)» para el alcance actual.",
-                },
-                subtitle: "Motor / extensión",
-                luaExampleCode: @"-- No hay snippet único: Lua llama a APIs ya expuestas desde C#.
--- Ejemplo de uso desde Lua (según tu build):
--- local h = other:getComponent(""Health"")
--- if h and h.invoke then h:invoke(""takeDamage"", 5) end
-",
-                exampleCategory: "Motor",
-                suggestedExportFileName: "ejemplo_motor_plugins_csharp_lua_visible_nota.lua",
-                exampleSearchTags: "C# plugin DLL LuaVisible extensión script-ex-motor-plugins-csharp-lua-visible-nota",
-                exampleDifficulty: "Avanzado"),
 
             new(
                 id: "script-ex-gameplay-dia-noche-debug-draw",

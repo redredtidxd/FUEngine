@@ -84,12 +84,17 @@ public partial class DocumentationHostControl : System.Windows.Controls.UserCont
         if (idx < 0) return;
         if (idx == _lastDocTabIndex) return;
         _lastDocTabIndex = idx;
-        if (idx == 1)
-            EnsureLuaOpened(EngineDocumentation.LuaReferenceIntroTopicId);
-        else if (idx == 2)
-            EnsureExamplesOpened(EngineDocumentation.ScriptExamplesIntroTopicId);
-        else
-            EnsureManualOpened(EngineDocumentation.QuickStartTopicId);
+        // La pestaña recién visible necesita un ciclo de layout antes de enlazar lista + selección (evita índice vacío).
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (DocTabs.SelectedIndex != idx) return;
+            if (idx == 1)
+                EnsureLuaOpened(EngineDocumentation.LuaReferenceIntroTopicId);
+            else if (idx == 2)
+                EnsureExamplesOpened(EngineDocumentation.ScriptExamplesIntroTopicId);
+            else
+                EnsureManualOpened(EngineDocumentation.QuickStartTopicId);
+        }), DispatcherPriority.Loaded);
     }
 
     private void EnsureManualOpened(string? topicId)

@@ -1,5 +1,5 @@
 #Requires -Version 5.1
-# Single-file a FUEngine.Installer/publish/, copia InstalarFUEngine.exe a la raiz del repo.
+# Publica en una carpeta temporal (no persistente) y deja SOLO InstalarFUEngine.exe en la raíz del repo.
 # Requisitos: .NET SDK 8.
 
 $ErrorActionPreference = "Stop"
@@ -16,20 +16,26 @@ if ($propsText -notmatch '<Version>([^<]+)</Version>') {
 }
 $version = $Matches[1].Trim()
 
-$publishDir = Join-Path $root "FUEngine.Installer\publish"
 $engineStage = Join-Path $root "obj\engine_publish_stage"
-if (Test-Path $publishDir) {
-    Remove-Item $publishDir -Recurse -Force
-}
+$publishDir = Join-Path $root "obj\installer_publish_stage"
+if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
+
+# Limpieza de publish antiguo (no debe persistir dentro del repo).
+$legacyInstallerPublish = Join-Path $root "FUEngine.Installer\publish"
+if (Test-Path $legacyInstallerPublish) { Remove-Item $legacyInstallerPublish -Recurse -Force -ErrorAction SilentlyContinue }
 
 Write-Host "dotnet publish -> $publishDir (v $version)..."
-dotnet publish "FUEngine.Installer\FUEngine.Installer.csproj" `
-    -c Release `
-    -r win-x64 `
-    --self-contained `
-    -o $publishDir `
-    -p:DebugType=none `
-    -p:DebugSymbols=false
+$dotnetPublishArgs = @(
+    "publish"
+    "FUEngine.Installer\FUEngine.Installer.csproj"
+    "-c", "Release"
+    "-r", "win-x64"
+    "--self-contained"
+    "-o", $publishDir
+    "-p:DebugType=none"
+    "-p:DebugSymbols=false"
+)
+& dotnet @dotnetPublishArgs
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
@@ -73,10 +79,14 @@ if (Test-Path $legacyFolder) {
     Remove-Item $legacyFolder -Recurse -Force
 }
 
-Get-ChildItem -LiteralPath $publishDir -Force | ForEach-Object {
-    if ($_.Name -ine "InstalarFUEngine.exe") {
-        Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
-    }
+# Limpieza: no dejar publish duplicado dentro del repo (solo interesa el .exe final en la raíz).
+if (Test-Path $publishDir) {
+    Remove-Item $publishDir -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+# Por si dotnet/otros scripts re-crearan la carpeta antigua, elimínala al final también.
+if (Test-Path $legacyInstallerPublish) {
+    Remove-Item $legacyInstallerPublish -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 Write-Host "Listo: $rootExe"
