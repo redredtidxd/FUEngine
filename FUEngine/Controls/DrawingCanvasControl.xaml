@@ -5,11 +5,13 @@
     <Grid>
         <ScrollViewer x:Name="ScrollViewer" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
                       Background="#161b22">
-            <Border x:Name="CanvasHost" Background="#0d1117"
+            <Border x:Name="CanvasHost" Background="#0d1117" Focusable="True"
                     MouseLeftButtonDown="CanvasHost_MouseLeftButtonDown"
                     MouseMove="CanvasHost_MouseMove"
                     MouseLeftButtonUp="CanvasHost_MouseLeftButtonUp"
-                    MouseLeave="CanvasHost_MouseLeave">
+                    MouseLeave="CanvasHost_MouseLeave"
+                    LostMouseCapture="CanvasHost_LostMouseCapture"
+                    PreviewKeyDown="CanvasHost_PreviewKeyDown">
                 <Image x:Name="CanvasImage" Stretch="None" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
             </Border>
         </ScrollViewer>

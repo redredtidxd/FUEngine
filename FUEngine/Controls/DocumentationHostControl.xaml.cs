@@ -25,7 +25,17 @@ public partial class DocumentationHostControl : System.Windows.Controls.UserCont
         DocTabs.SelectionChanged += DocTabs_OnSelectionChanged;
     }
 
+    /// <summary>En <see cref="DocumentationWindow"/> se oculta la barra «Ventana aparte».</summary>
+    public void SetDetachChromeVisible(bool visible)
+    {
+        if (DocChromeBar != null)
+            DocChromeBar.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     public event EventHandler? RequestClose;
+
+    /// <summary>Abrir la documentación actual en <see cref="DocumentationWindow"/> (cierra el overlay embebido en el editor/Hub).</summary>
+    public event EventHandler? RequestOpenDetachedWindow;
 
     /// <summary>True cuando el host es el editor con proyecto; habilita «Crear script desde ejemplo».</summary>
     public bool AllowCreateScriptFromProject { get; set; }
@@ -36,6 +46,20 @@ public partial class DocumentationHostControl : System.Windows.Controls.UserCont
         RequestCreateScriptFromExample?.Invoke(this, e);
 
     private void Child_RequestClose(object? sender, System.EventArgs e) => RequestClose?.Invoke(this, e);
+
+    private void BtnOpenDocDetached_OnClick(object sender, RoutedEventArgs e) =>
+        RequestOpenDetachedWindow?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>Id del tema visible en la pestaña activa (manual, Lua o ejemplos).</summary>
+    public string? GetActiveTopicIdForDetach()
+    {
+        return DocTabs.SelectedIndex switch
+        {
+            1 => LuaDocView.CurrentTopicId,
+            2 => ExamplesDocView.CurrentTopicId,
+            _ => ManualDocView.CurrentTopicId
+        };
+    }
 
     /// <summary>Actualiza el delegado de permiso de exportación en la vista de ejemplos.</summary>
     public void SyncScriptExampleExportAvailability()

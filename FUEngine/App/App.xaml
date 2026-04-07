@@ -45,6 +45,14 @@
             <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
         </Style>
 
+        <Style TargetType="ToolTip">
+            <Setter Property="Background" Value="{StaticResource BgLightBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,6"/>
+        </Style>
+
         <Style TargetType="Button">
             <Setter Property="Background" Value="{StaticResource BgLightBrush}"/>
             <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>

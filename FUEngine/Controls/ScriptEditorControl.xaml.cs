@@ -358,6 +358,7 @@ public partial class ScriptEditorControl : System.Windows.Controls.UserControl
         if (completionList.Count == 0) return;
         CloseCompletionWindowIfAny();
         _completionWindow = new CompletionWindow(area);
+        AvalonEditCompletionChrome.ApplyFueDarkTheme(_completionWindow);
         foreach (var item in completionList)
             _completionWindow.CompletionList.CompletionData.Add(item);
         var win = _completionWindow;
@@ -401,6 +402,7 @@ public partial class ScriptEditorControl : System.Windows.Controls.UserControl
 
         CloseCompletionWindowIfAny();
         _completionWindow = new CompletionWindow(area);
+        AvalonEditCompletionChrome.ApplyFueDarkTheme(_completionWindow);
         foreach (var entry in entries)
             _completionWindow.CompletionList.CompletionData.Add(new LuaCompletionItem(entry.Text, entry.InsertText, entry.Description, entry.IconKind));
         _completionWindow.Closed += (_, _) => { _completionWindow = null; };

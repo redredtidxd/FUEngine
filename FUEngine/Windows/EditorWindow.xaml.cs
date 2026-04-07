@@ -177,6 +177,8 @@ public partial class EditorWindow : Window
     private bool _showVisibleArea = true;
     private bool _viewportFrameDragging;
     private System.Windows.Point _viewportDragLastPos;
+    /// <summary>Captura del lienzo del mapa durante un trazo de <see cref="PaintTool"/>.</summary>
+    private bool _mapCanvasPaintCaptureActive;
     private bool _suppressKeepPlayCheckbox;
     private bool _showStreamingGizmos;
     private bool _showColliders;
@@ -1813,7 +1815,7 @@ public partial class EditorWindow : Window
         _pasteOriginTy += dty;
     }
 
-    /// <summary>Clic en zona «+» junto al mapa finito: añade un chunk vacío (ChunkSize×ChunkSize casillas) y recalcula el rectángulo de juego como unión de chunks. Si el visor estaba en el centro geométrico, se recalcula el centro.</summary>
+    /// <summary>Clic en zona «+» junto al mapa finito: añade un chunk vacío (ChunkSize×ChunkSize casillas) y recalcula el rectángulo de juego como unión de chunks. Compensa el scroll para que el mundo bajo el visor y el marco azul no «salten» al cambiar el origen del lienzo.</summary>
     private bool TryHandleFiniteMapExpandClick(System.Windows.Point pos)
     {
         if (_project.Infinite || MapCanvas == null) return false;
@@ -1823,26 +1825,11 @@ public partial class EditorWindow : Window
         int tcy = FiniteMapExpand.FloorDiv(ty, cs);
         if (!FiniteMapExpand.IsExpandTargetChunk(_project, _tileMap, tcx, tcy)) return false;
 
-        int ox = _project.MapBoundsOriginWorldTileX;
-        int oy = _project.MapBoundsOriginWorldTileY;
-        int mw = Math.Max(1, _project.MapWidth);
-        int mh = Math.Max(1, _project.MapHeight);
-        double oldGeomCx = ox + mw * 0.5;
-        double oldGeomCy = oy + mh * 0.5;
-        const double geomEps = 0.85;
-        bool wasGeomCenter =
-            Math.Abs(_project.EditorViewportCenterWorldX - oldGeomCx) < geomEps &&
-            Math.Abs(_project.EditorViewportCenterWorldY - oldGeomCy) < geomEps;
+        int prevMinWx = _canvasMinWx;
+        int prevMinWy = _canvasMinWy;
 
         _tileMap.EnsureEmptyChunksAllLayers(tcx, tcy);
         FiniteMapExpand.SyncProjectBoundsFromChunkUnion(_project, _tileMap);
-
-        if (wasGeomCenter)
-        {
-            GameViewportMath.GetFiniteMapCenterWorldTile(_project, out var ncx, out var ncy);
-            _project.EditorViewportCenterWorldX = ncx;
-            _project.EditorViewportCenterWorldY = ncy;
-        }
 
         ClampViewportCenterForCurrentMap();
         try
@@ -1862,10 +1849,19 @@ public partial class EditorWindow : Window
         _mapRenderer.ResetInfiniteScrollExtent();
         DrawMap();
         ScrollViewer?.UpdateLayout();
-        ScrollMapViewToCenterWorldTile(
-            (int)Math.Round(_project.EditorViewportCenterWorldX),
-            (int)Math.Round(_project.EditorViewportCenterWorldY));
-        DrawMap();
+        double z = _zoom > 0 ? _zoom : 1.0;
+        double ts = _project.TileSize;
+        if (ScrollViewer != null)
+        {
+            double dh = (prevMinWx - _canvasMinWx) * ts * z;
+            double dv = (prevMinWy - _canvasMinWy) * ts * z;
+            double nh = ScrollViewer.HorizontalOffset + dh;
+            double nv = ScrollViewer.VerticalOffset + dv;
+            double maxH = Math.Max(0, ScrollViewer.ScrollableWidth);
+            double maxV = Math.Max(0, ScrollViewer.ScrollableHeight);
+            ScrollViewer.ScrollToHorizontalOffset(Math.Max(0, Math.Min(nh, maxH)));
+            ScrollViewer.ScrollToVerticalOffset(Math.Max(0, Math.Min(nv, maxV)));
+        }
         GetEmbeddedGameTab()?.RefreshViewport();
         return true;
     }
@@ -2312,6 +2308,28 @@ public partial class EditorWindow : Window
         MapCanvas?.ReleaseMouseCapture();
         TrySaveProjectInfo();
         GetEmbeddedGameTab()?.RefreshViewport();
+    }
+
+    private void BeginMapPaintCaptureForTool()
+    {
+        if (_mapCanvasPaintCaptureActive || MapCanvas == null) return;
+        _mapCanvasPaintCaptureActive = true;
+        MapCanvas.CaptureMouse();
+    }
+
+    private void EndMapPaintCaptureForTool()
+    {
+        if (!_mapCanvasPaintCaptureActive || MapCanvas == null) return;
+        _mapCanvasPaintCaptureActive = false;
+        MapCanvas.ReleaseMouseCapture();
+    }
+
+    private void MapCanvas_OnLostMouseCapture(object sender, RoutedEventArgs e)
+    {
+        if (!_mapCanvasPaintCaptureActive) return;
+        _mapCanvasPaintCaptureActive = false;
+        if (MapCanvas != null)
+            _toolController?.HandleMouseUp(Mouse.GetPosition(MapCanvas));
     }
 
     private void MapCanvas_OnMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
@@ -3052,7 +3070,7 @@ public partial class EditorWindow : Window
         var brush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xe6, 0xed, 0xf3));
         var padding = new Thickness(10, 6, 16, 6);
 
-        var categoryOrder = new[] { "Proyecto", "Contenido", "Multimedia", "Debug" };
+        var categoryOrder = new[] { "Proyecto", "Contenido", "Interfaz", "Multimedia", "Debug" };
         var categoryMenus = new Dictionary<string, MenuItem>();
 
         foreach (var cat in categoryOrder)
@@ -3071,6 +3089,50 @@ public partial class EditorWindow : Window
             var item = new MenuItem { Header = icon + displayName, Tag = kind, Foreground = brush, Background = System.Windows.Media.Brushes.Transparent, Padding = padding };
             item.Click += (s, _) => AddOrSelectTabFromMenu((string)((MenuItem)s!).Tag!);
             parent.Items.Add(item);
+        }
+
+        if (categoryMenus.TryGetValue("Interfaz", out var interfazMenu))
+        {
+            var uiRoot = GetCurrentUIRoot();
+            if (uiRoot.Canvases.Count == 0)
+            {
+                interfazMenu.Items.Add(new MenuItem
+                {
+                    Header = "Sin Canvas en la escena — clic der. en la raíz o en UI → Canvas",
+                    IsEnabled = false,
+                    Foreground = brush,
+                    Padding = padding
+                });
+            }
+            else
+            {
+                foreach (var cv in uiRoot.Canvases.OrderBy(c => string.IsNullOrWhiteSpace(c.Name) ? c.Id : c.Name, StringComparer.OrdinalIgnoreCase))
+                {
+                    var label = string.IsNullOrWhiteSpace(cv.Name) ? cv.Id : cv.Name.Trim();
+                    var uiKind = "UI:" + cv.Id;
+                    var uiItem = new MenuItem
+                    {
+                        Header = "\U0001F5A5  Interfaz · " + label,
+                        Tag = uiKind,
+                        Foreground = brush,
+                        Background = System.Windows.Media.Brushes.Transparent,
+                        Padding = padding,
+                        ToolTip = "Editor visual del Canvas: botones, texto, paneles y anclas. Arrastra .seed u otros assets sobre el lienzo del tab cuando el flujo lo permita."
+                    };
+                    uiItem.Click += (s, _) => AddOrSelectTabFromMenu((string)((MenuItem)s!).Tag!);
+                    interfazMenu.Items.Add(uiItem);
+                }
+            }
+            var createCanvasItem = new MenuItem
+            {
+                Header = "➕ Crear Canvas en la escena",
+                Foreground = brush,
+                Background = System.Windows.Media.Brushes.Transparent,
+                Padding = padding,
+                ToolTip = "Añade un Canvas vacío (Jerarquía) y abre su .json para editar."
+            };
+            createCanvasItem.Click += (_, _) => MapHierarchy_OnRequestCreateUICanvas(this, EventArgs.Empty);
+            interfazMenu.Items.Add(createCanvasItem);
         }
 
         var selectedTab = MainTabs?.SelectedItem as TabItem;
@@ -4070,6 +4132,13 @@ public partial class EditorWindow : Window
         var tabItem = new TabItem { Tag = kind };
         var displayName = TabDisplayNames.GetValueOrDefault(kind, kind);
         var icon = TabIcons.TryGetValue(kind, out var iconStr) ? iconStr + " " : "";
+        if (kind.StartsWith("UI:", StringComparison.OrdinalIgnoreCase))
+        {
+            icon = "\U0001F5A5 ";
+            var cid = kind.Length > 3 ? kind.Substring(3) : "";
+            var cv = GetCurrentUIRoot().GetCanvas(cid);
+            displayName = cv != null && !string.IsNullOrWhiteSpace(cv.Name) ? $"Interfaz · {cv.Name.Trim()}" : $"Interfaz · {cid}";
+        }
         var headerPanel = new System.Windows.Controls.StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
         headerPanel.Children.Add(new TextBlock { Text = icon + displayName, VerticalAlignment = VerticalAlignment.Center, Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xe6, 0xed, 0xf3)), Margin = new Thickness(0, 0, 8, 0) });
         var closeBtn = new System.Windows.Controls.Button { Content = "×", Width = 20, Height = 20, Padding = new Thickness(0), FontSize = 14, Foreground = System.Windows.Media.Brushes.White, Background = System.Windows.Media.Brushes.Transparent, Cursor = System.Windows.Input.Cursors.Hand };
@@ -5379,6 +5448,9 @@ public partial class EditorWindow : Window
 
         public bool IsFinitePaintableTile(int tx, int ty) =>
             _w._project.Infinite || GameViewportMath.IsWorldTileInsideFiniteMapBounds(_w._project, tx, ty);
+
+        public void BeginMapPaintCapture() => _w.BeginMapPaintCaptureForTool();
+        public void EndMapPaintCapture() => _w.EndMapPaintCaptureForTool();
     }
 }
 

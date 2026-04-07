@@ -49,6 +49,9 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
 
     public string? InitialTopicId { get; set; }
 
+    /// <summary>Tema mostrado actualmente en el panel de detalle (para ventana aparte).</summary>
+    public string? CurrentTopicId => _current?.Id;
+
     public event EventHandler? RequestClose;
 
     public event EventHandler<CreateScriptFromExampleEventArgs>? RequestCreateScriptFromExample;

@@ -239,7 +239,43 @@ public partial class EditorWindow
 
     private NewProjectWizardPanel? _newProjectWizardPanel;
 
-    private void MenuNuevoProyecto_OnClick(object sender, RoutedEventArgs e) => ShowNewProjectWizardOverlay();
+    private void MenuNuevoProyecto_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (HasUnsavedChanges())
+        {
+            var result = System.Windows.MessageBox.Show(this,
+                "Hay cambios sin guardar. ¿Guardar antes de ir al Hub a crear un proyecto nuevo?",
+                "Nuevo proyecto",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Question);
+            if (result == MessageBoxResult.Cancel) return;
+            if (result == MessageBoxResult.Yes)
+            {
+                try
+                {
+                    var projectDir = _project.ProjectDirectory ?? "";
+                    var projectJsonPath = System.IO.Path.Combine(projectDir, NewProjectStructure.ProjectFileName);
+                    var legacyProjectPath = System.IO.Path.Combine(projectDir, "proyecto.json");
+                    var anyExists = File.Exists(GetCurrentSceneMapPath()) || File.Exists(GetCurrentSceneObjectsPath()) || File.Exists(projectJsonPath) || File.Exists(legacyProjectPath);
+                    if (!ConfirmOverwriteForSave(anyExists, "Algunos archivos del proyecto ya existen. ¿Sobrescribir?", this)) return;
+                    SaveAllOpenScenes();
+                    var saveProjectPath = NewProjectStructure.UsesNewStructure(projectDir) ? projectJsonPath : legacyProjectPath;
+                    ProjectSerialization.Save(_project, saveProjectPath);
+                    RefreshSceneUsedPaths();
+                }
+                catch (Exception ex)
+                {
+                    NotifySaveError("Guardar antes de nuevo proyecto", "Nuevo proyecto", ex);
+                    return;
+                }
+            }
+        }
+        EditorLog.Toast("Abriendo el Hub para crear un proyecto nuevo…", LogLevel.Info, "Nuevo proyecto");
+        var hub = new StartupWindow { OpenNewProjectWizardOnShown = true };
+        hub.Show();
+        System.Windows.Application.Current.MainWindow = hub;
+        Close();
+    }
 
     private void ShowNewProjectWizardOverlay()
     {

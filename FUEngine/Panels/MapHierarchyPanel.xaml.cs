@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows;
@@ -78,6 +79,8 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
     private MapHierarchyItem? _dragStartLayerItem;
     private MapHierarchyItem? _dragObjectItem;
     private System.Windows.Point? _dragStartPoint;
+    /// <summary>Evita que al reemplazar el árbol se dispare selección intermedia (p. ej. raíz) y se vacíe la selección en el editor mientras se edita texto en el inspector.</summary>
+    private bool _suppressHierarchySelectionEvents;
     public const string DataFormatLayerReorder = "FUEngine.HierarchyLayerReorder";
 
     public MapHierarchyPanel()
@@ -106,6 +109,14 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
         _objectLayer = layer;
         if (triggers != null) _triggers = triggers;
         _uiRoot = uiRoot;
+
+        MapHierarchyItem? prevSel = null;
+        try { prevSel = HierarchyTree.SelectedItem as MapHierarchyItem; }
+        catch { /* diseñador / árbol no cargado */ }
+        var keepObj = prevSel?.ObjectInstance;
+        var keepTrig = prevSel?.TriggerZone;
+        var keepCanvas = prevSel?.UICanvas;
+        var keepUi = prevSel?.UIElement;
 
         var sceneTitle = string.IsNullOrWhiteSpace(sceneDisplayName) ? "Escena" : sceneDisplayName.Trim();
         var mapTitle = string.IsNullOrWhiteSpace(mapDisplayName) ? "Mapa" : mapDisplayName.Trim();
@@ -192,8 +203,78 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
             }
         }
 
-        HierarchyTree.ItemsSource = new[] { sceneRoot };
-        Dispatcher.BeginInvoke(new Action(ExpandSceneHierarchy), DispatcherPriority.Loaded);
+        _suppressHierarchySelectionEvents = true;
+        try
+        {
+            HierarchyTree.ItemsSource = new[] { sceneRoot };
+        }
+        catch
+        {
+            _suppressHierarchySelectionEvents = false;
+            throw;
+        }
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            try
+            {
+                ExpandSceneHierarchy();
+                if (keepObj != null || keepTrig != null || keepCanvas != null || keepUi != null)
+                {
+                    if (HierarchyTree.Items.Count > 0 && HierarchyTree.Items[0] is MapHierarchyItem newRoot)
+                    {
+                        var found = FindMatchingHierarchyItem(newRoot, keepObj, keepTrig, keepCanvas, keepUi);
+                        if (found != null)
+                            ExpandPathAndSelect(found);
+                    }
+                }
+            }
+            finally
+            {
+                _suppressHierarchySelectionEvents = false;
+            }
+        }), DispatcherPriority.Loaded);
+    }
+
+    private static MapHierarchyItem? FindMatchingHierarchyItem(MapHierarchyItem node, ObjectInstance? obj, TriggerZone? trig, UICanvas? canvas, UIElementCore? ui)
+    {
+        if (obj != null && ReferenceEquals(node.ObjectInstance, obj)) return node;
+        if (trig != null && ReferenceEquals(node.TriggerZone, trig)) return node;
+        if (canvas != null && ReferenceEquals(node.UICanvas, canvas)) return node;
+        if (ui != null && ReferenceEquals(node.UIElement, ui)) return node;
+        foreach (var ch in node.Children)
+        {
+            var r = FindMatchingHierarchyItem(ch, obj, trig, canvas, ui);
+            if (r != null) return r;
+        }
+        return null;
+    }
+
+    private static bool TryBuildPathFromRoot(MapHierarchyItem current, MapHierarchyItem target, List<MapHierarchyItem> path)
+    {
+        path.Add(current);
+        if (ReferenceEquals(current, target)) return true;
+        foreach (var ch in current.Children)
+        {
+            if (TryBuildPathFromRoot(ch, target, path)) return true;
+        }
+        path.RemoveAt(path.Count - 1);
+        return false;
+    }
+
+    private void ExpandPathAndSelect(MapHierarchyItem target)
+    {
+        if (HierarchyTree.Items.Count == 0 || HierarchyTree.Items[0] is not MapHierarchyItem root) return;
+        var path = new List<MapHierarchyItem>();
+        if (!TryBuildPathFromRoot(root, target, path)) return;
+        HierarchyTree.UpdateLayout();
+        foreach (var node in path)
+        {
+            if (HierarchyTree.ItemContainerGenerator.ContainerFromItem(node) is TreeViewItem tvi)
+                tvi.IsExpanded = true;
+        }
+        HierarchyTree.UpdateLayout();
+        if (HierarchyTree.ItemContainerGenerator.ContainerFromItem(target) is TreeViewItem targetTvi)
+            targetTvi.IsSelected = true;
     }
 
     private void ExpandSceneHierarchy()
@@ -246,6 +327,7 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
 
     private void HierarchyTree_OnSelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
+        if (_suppressHierarchySelectionEvents) return;
         if (e.NewValue is MapHierarchyItem item)
         {
             ObjectSelected?.Invoke(this, item.ObjectInstance);

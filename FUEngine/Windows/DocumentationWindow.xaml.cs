@@ -10,6 +10,7 @@ public partial class DocumentationWindow : Window
     public DocumentationWindow()
     {
         InitializeComponent();
+        DocHost.SetDetachChromeVisible(false);
         Loaded += OnLoaded;
     }
 

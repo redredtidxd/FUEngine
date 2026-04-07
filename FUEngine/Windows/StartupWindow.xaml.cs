@@ -40,6 +40,9 @@ public partial class StartupWindow : Window
     private int _hubTipIndex;
     private readonly ObservableCollection<GlobalLibraryEntryDto> _libraryRows = new();
 
+    /// <summary>Si es true, tras cargar la ventana se abre el asistente «Crear proyecto» (p. ej. desde Archivo → Nuevo proyecto en el editor).</summary>
+    public bool OpenNewProjectWizardOnShown { get; set; }
+
     public StartupWindow()
     {
         InitializeComponent();
@@ -76,8 +79,21 @@ public partial class StartupWindow : Window
         DrawTilePattern();
         _tilePatternTimer.Start();
         EditorLog.ToastRequested += OnToastRequested;
-        Dispatcher.BeginInvoke(new Action(() => ApplyStartupBehaviorIfNeeded(bootSettings)), DispatcherPriority.Background);
+        if (DocumentationEmbedded != null)
+            DocumentationEmbedded.RequestOpenDetachedWindow += DocumentationEmbedded_OnRequestOpenDetachedWindow;
+        var openWizardFromEditor = OpenNewProjectWizardOnShown;
+        if (openWizardFromEditor)
+            OpenNewProjectWizardOnShown = false;
+        if (!openWizardFromEditor)
+            Dispatcher.BeginInvoke(new Action(() => ApplyStartupBehaviorIfNeeded(bootSettings)), DispatcherPriority.Background);
         RefreshDiscordStartupPresence();
+        if (openWizardFromEditor)
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try { BtnCreateProject_OnClick(this, new RoutedEventArgs()); } catch { /* ignore */ }
+            }), DispatcherPriority.Loaded);
+        }
     }
 
     private void ApplyStartupBehaviorIfNeeded(EngineSettings st)
@@ -379,6 +395,16 @@ public partial class StartupWindow : Window
     {
         DocumentationOverlay.Visibility = Visibility.Collapsed;
         RefreshDiscordStartupPresence();
+    }
+
+    private void DocumentationEmbedded_OnRequestOpenDetachedWindow(object? sender, EventArgs e)
+    {
+        if (DocumentationEmbedded == null) return;
+        var topic = DocumentationEmbedded.GetActiveTopicIdForDetach();
+        DocumentationOverlay.Visibility = Visibility.Collapsed;
+        RefreshDiscordStartupPresence();
+        var w = new DocumentationWindow { Owner = this, InitialTopicId = topic };
+        w.Show();
     }
 
     private void BtnQuickLuaIde_OnClick(object sender, RoutedEventArgs e) => GoToGlobalScriptsTab();

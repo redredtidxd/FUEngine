@@ -22,6 +22,8 @@ public partial class DrawingCanvasControl : System.Windows.Controls.UserControl
     private int _height;
     private bool _isDrawing;
     private System.Windows.Point _lastPoint;
+    private readonly List<byte[]> _drawingUndoStack = new();
+    private const int MaxDrawingUndo = 40;
     private DrawingCanvasTool _tool = DrawingCanvasTool.Pencil;
     private System.Windows.Media.Color _primaryColor = System.Windows.Media.Color.FromRgb(255, 255, 255);
     private System.Windows.Media.Color _eraseColor = System.Windows.Media.Color.FromArgb(0, 0, 0, 0);
@@ -65,6 +67,7 @@ public partial class DrawingCanvasControl : System.Windows.Controls.UserControl
         _currentLayerIndex = 0;
         _bgra = new byte[len];
         _bitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgra32, null);
+        _drawingUndoStack.Clear();
         CompositeToDisplay();
         if (CanvasImage != null) CanvasImage.Source = _bitmap;
         SetDirty(false);
@@ -91,6 +94,7 @@ public partial class DrawingCanvasControl : System.Windows.Controls.UserControl
         _currentLayerIndex = 0;
         _bgra = new byte[len];
         _bitmap = new WriteableBitmap(w, h, 96, 96, PixelFormats.Bgra32, null);
+        _drawingUndoStack.Clear();
         CompositeToDisplay();
         if (CanvasImage != null) CanvasImage.Source = _bitmap;
         SetDirty(false);
@@ -200,6 +204,31 @@ public partial class DrawingCanvasControl : System.Windows.Controls.UserControl
     private byte[]? GetCurrentLayerBuffer() =>
         _layers.Count > 0 && _currentLayerIndex >= 0 && _currentLayerIndex < _layers.Count ? _layers[_currentLayerIndex] : null;
 
+    private void PushDrawingUndoSnapshot()
+    {
+        var buf = GetCurrentLayerBuffer();
+        if (buf == null) return;
+        var copy = new byte[buf.Length];
+        Buffer.BlockCopy(buf, 0, copy, 0, buf.Length);
+        _drawingUndoStack.Add(copy);
+        while (_drawingUndoStack.Count > MaxDrawingUndo)
+            _drawingUndoStack.RemoveAt(0);
+    }
+
+    /// <summary>Deshace el último trazo o relleno en la capa activa (Ctrl+Z en el lienzo).</summary>
+    public bool TryUndoDrawing()
+    {
+        if (_drawingUndoStack.Count == 0) return false;
+        var prev = _drawingUndoStack[_drawingUndoStack.Count - 1];
+        _drawingUndoStack.RemoveAt(_drawingUndoStack.Count - 1);
+        var buf = GetCurrentLayerBuffer();
+        if (buf == null || buf.Length != prev.Length) return false;
+        Buffer.BlockCopy(prev, 0, buf, 0, buf.Length);
+        CompositeToDisplay();
+        SetDirty(true);
+        return true;
+    }
+
     private System.Windows.Point ToImageCoords(System.Windows.Point pt)
     {
         if (CanvasImage == null) return pt;
@@ -272,7 +301,10 @@ public partial class DrawingCanvasControl : System.Windows.Controls.UserControl
         if (Mode == DrawingMode.Tile || Tool == DrawingCanvasTool.Pencil || Tool == DrawingCanvasTool.Eraser)
         {
             var c = isEraser ? _eraseColor : _primaryColor;
-            SetPixel(x, y, c.B, c.G, c.R, c.A);
+            byte alphaPx = c.A;
+            if (!isEraser && Mode == DrawingMode.Paint && Tool == DrawingCanvasTool.Pencil)
+                alphaPx = 255;
+            SetPixel(x, y, c.B, c.G, c.R, alphaPx);
             return;
         }
         int radius = Math.Max(1, BrushSize);
@@ -334,10 +366,13 @@ public partial class DrawingCanvasControl : System.Windows.Controls.UserControl
     private void CanvasHost_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (GetCurrentLayerBuffer() == null) return;
+        CanvasHost.Focus();
         var pt = ToImageCoords(e.GetPosition(CanvasHost));
         var (px, py) = SnapToPixel(pt);
+        PushDrawingUndoSnapshot();
         _isDrawing = true;
         _lastPoint = new System.Windows.Point(px, py);
+        CanvasHost.CaptureMouse();
 
         if (Tool == DrawingCanvasTool.Fill)
         {
@@ -357,7 +392,7 @@ public partial class DrawingCanvasControl : System.Windows.Controls.UserControl
 
     private void CanvasHost_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
     {
-        if (!_isDrawing || GetCurrentLayerBuffer() == null) return;
+        if (e.LeftButton != MouseButtonState.Pressed || !_isDrawing || GetCurrentLayerBuffer() == null) return;
         var pt = ToImageCoords(e.GetPosition(CanvasHost));
         var (px, py) = SnapToPixel(pt);
 
@@ -390,10 +425,27 @@ public partial class DrawingCanvasControl : System.Windows.Controls.UserControl
     private void CanvasHost_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         _isDrawing = false;
+        if (CanvasHost.IsMouseCaptured)
+            CanvasHost.ReleaseMouseCapture();
     }
 
     private void CanvasHost_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
     {
+        if (!CanvasHost.IsMouseCaptured)
+            _isDrawing = false;
+    }
+
+    private void CanvasHost_LostMouseCapture(object sender, RoutedEventArgs e)
+    {
         _isDrawing = false;
+    }
+
+    private void CanvasHost_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == Key.Z && (Keyboard.Modifiers & ModifierKeys.Control) != 0 && (Keyboard.Modifiers & ModifierKeys.Shift) == 0)
+        {
+            if (TryUndoDrawing())
+                e.Handled = true;
+        }
     }
 }

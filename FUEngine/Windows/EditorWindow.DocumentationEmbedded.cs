@@ -12,6 +12,17 @@ public partial class EditorWindow
         if (DocumentationEmbedded == null) return;
         DocumentationEmbedded.AllowCreateScriptFromProject = true;
         DocumentationEmbedded.RequestCreateScriptFromExample += DocumentationEmbedded_OnRequestCreateScriptFromExample;
+        DocumentationEmbedded.RequestOpenDetachedWindow += DocumentationEmbedded_OnRequestOpenDetachedWindow;
+    }
+
+    private void DocumentationEmbedded_OnRequestOpenDetachedWindow(object? sender, EventArgs e)
+    {
+        if (DocumentationEmbedded == null) return;
+        var topic = DocumentationEmbedded.GetActiveTopicIdForDetach();
+        DocumentationOverlay.Visibility = Visibility.Collapsed;
+        SyncDiscordRichPresence();
+        var w = new DocumentationWindow { Owner = this, InitialTopicId = topic };
+        w.Show();
     }
 
     private void DocumentationEmbedded_OnRequestCreateScriptFromExample(object? sender, CreateScriptFromExampleEventArgs e)

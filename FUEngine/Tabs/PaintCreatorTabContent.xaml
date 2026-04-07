@@ -12,9 +12,9 @@
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="Tamaño:" VerticalAlignment="Center" Foreground="#e6edf3" Margin="0,0,6,0"/>
                 <ComboBox x:Name="CmbSize" Width="140" Margin="0,0,16,0" SelectionChanged="CmbSize_SelectionChanged"/>
-                <RadioButton x:Name="RbPencil" Content="Lápiz" GroupName="Tool" IsChecked="True" Foreground="#e6edf3" VerticalAlignment="Center" Margin="0,0,8,0" Checked="Tool_Checked"/>
-                <RadioButton x:Name="RbEraser" Content="Goma" GroupName="Tool" Foreground="#e6edf3" VerticalAlignment="Center" Margin="0,0,8,0" Checked="Tool_Checked"/>
-                <RadioButton x:Name="RbFill" Content="Relleno" GroupName="Tool" Foreground="#e6edf3" VerticalAlignment="Center" Margin="0,0,12,0" Checked="Tool_Checked"/>
+                <RadioButton x:Name="RbPencil" Content="✏" ToolTip="Lápiz" FontSize="15" GroupName="Tool" IsChecked="True" Foreground="#e6edf3" VerticalAlignment="Center" Margin="0,0,8,0" Checked="Tool_Checked"/>
+                <RadioButton x:Name="RbEraser" Content="⌫" ToolTip="Goma" FontSize="15" GroupName="Tool" Foreground="#e6edf3" VerticalAlignment="Center" Margin="0,0,8,0" Checked="Tool_Checked"/>
+                <RadioButton x:Name="RbFill" Content="▦" ToolTip="Relleno" FontSize="15" GroupName="Tool" Foreground="#e6edf3" VerticalAlignment="Center" Margin="0,0,12,0" Checked="Tool_Checked"/>
                 <Separator Margin="8,0" Width="2" Background="#30363d"/>
                 <TextBlock Text="Tamaño pincel:" VerticalAlignment="Center" Foreground="#e6edf3" Margin="0,0,6,0"/>
                 <TextBox x:Name="TxtBrushSize" Text="4" Width="36" Margin="0,0,8,0" VerticalContentAlignment="Center"/>

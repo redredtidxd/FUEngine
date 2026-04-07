@@ -11,9 +11,9 @@
         <Border Grid.Row="0" Background="#21262d" Padding="8,6" BorderBrush="#30363d" BorderThickness="0,0,0,1">
             <StackPanel Orientation="Horizontal">
                 <TextBlock x:Name="TxtPath" Text="Tile Editor — Sin archivo" VerticalAlignment="Center" Foreground="#8b949e" Margin="0,0,16,0"/>
-                <RadioButton x:Name="RbPencil" Content="Lápiz" GroupName="Tool" IsChecked="True" Foreground="#e6edf3" VerticalAlignment="Center" Margin="0,0,8,0" Checked="Tool_Checked"/>
-                <RadioButton x:Name="RbEraser" Content="Goma" GroupName="Tool" Foreground="#e6edf3" VerticalAlignment="Center" Margin="0,0,8,0" Checked="Tool_Checked"/>
-                <RadioButton x:Name="RbFill" Content="Relleno" GroupName="Tool" Foreground="#e6edf3" VerticalAlignment="Center" Margin="0,0,16,0" Checked="Tool_Checked"/>
+                <RadioButton x:Name="RbPencil" Content="✏" ToolTip="Lápiz" FontSize="15" GroupName="Tool" IsChecked="True" Foreground="#e6edf3" VerticalAlignment="Center" Margin="0,0,8,0" Checked="Tool_Checked"/>
+                <RadioButton x:Name="RbEraser" Content="⌫" ToolTip="Goma" FontSize="15" GroupName="Tool" Foreground="#e6edf3" VerticalAlignment="Center" Margin="0,0,8,0" Checked="Tool_Checked"/>
+                <RadioButton x:Name="RbFill" Content="▦" ToolTip="Relleno" FontSize="15" GroupName="Tool" Foreground="#e6edf3" VerticalAlignment="Center" Margin="0,0,16,0" Checked="Tool_Checked"/>
                 <Button x:Name="BtnSave" Content="Guardar" Padding="10,4" Click="BtnSave_OnClick" Background="#238636" Foreground="White" BorderThickness="0"/>
             </StackPanel>
         </Border>

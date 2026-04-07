@@ -427,6 +427,7 @@
                                     MouseRightButtonDown="MapCanvas_OnMouseRightButtonDown"
                                     MouseMove="MapCanvas_OnMouseMove"
                                     MouseLeftButtonUp="MapCanvas_OnMouseLeftButtonUp"
+                                    LostMouseCapture="MapCanvas_OnLostMouseCapture"
                                     MouseUp="MapCanvas_OnMouseUp"
                                     DragOver="MapCanvas_OnDragOver"
                                     Drop="MapCanvas_OnDrop"
