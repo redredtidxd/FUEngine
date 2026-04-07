@@ -7,6 +7,7 @@ using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 using FUEngine.Help;
 using ICSharpCode.AvalonEdit;
@@ -82,6 +83,77 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
         var br = new SolidColorBrush(HexColor(hex));
         if (br.CanFreeze) br.Freeze();
         return br;
+    }
+
+    /// <summary>Chip con punto de color real (los emojis 🟢🟡🔴 suelen verse grises en RichText).</summary>
+    private static UIElement? CreateScriptExampleDifficultyChip(string? difficulty)
+    {
+        var tier = difficulty switch
+        {
+            "Básico" => ScriptExampleDifficultyTier.Basic,
+            "Intermedio" => ScriptExampleDifficultyTier.Intermediate,
+            "Avanzado" => ScriptExampleDifficultyTier.Advanced,
+            _ => ScriptExampleDifficultyTier.None
+        };
+        if (tier == ScriptExampleDifficultyTier.None) return null;
+
+        SolidColorBrush dot, ring;
+        string label;
+        switch (tier)
+        {
+            case ScriptExampleDifficultyTier.Basic:
+                dot = B("3fb950");
+                ring = B("238636");
+                label = "Básico";
+                break;
+            case ScriptExampleDifficultyTier.Intermediate:
+                dot = B("d29922");
+                ring = B("9e6a03");
+                label = "Intermedio";
+                break;
+            default:
+                dot = B("f85149");
+                ring = B("da3633");
+                label = "Avanzado";
+                break;
+        }
+
+        var ellipse = new Ellipse
+        {
+            Width = 10,
+            Height = 10,
+            Fill = dot,
+            VerticalAlignment = VerticalAlignment.Center,
+            SnapsToDevicePixels = true,
+        };
+        var title = new TextBlock
+        {
+            Text = "Dificultad: " + label,
+            Foreground = B("e6edf3"),
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(8, 0, 0, 0),
+        };
+        var row = new StackPanel
+        {
+            Orientation = System.Windows.Controls.Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        row.Children.Add(ellipse);
+        row.Children.Add(title);
+
+        return new Border
+        {
+            Background = B("161b22"),
+            BorderBrush = ring,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(999),
+            Padding = new Thickness(12, 6, 14, 6),
+            Margin = new Thickness(0, 0, 0, 12),
+            SnapsToDevicePixels = true,
+            Child = row,
+        };
     }
 
     private static int CompareTopicTitles(DocumentationTopic a, DocumentationTopic b) =>
@@ -415,11 +487,14 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
         var motorBg = B("161b22");
         var bulletColor = B("7ee787");
 
+        const double bodySize = 14;
+        const double bodyLine = 22;
+
         var doc = new FlowDocument
         {
-            PagePadding = new Thickness(0),
+            PagePadding = new Thickness(0, 4, 0, 8),
             FontFamily = new System.Windows.Media.FontFamily("Segoe UI"),
-            FontSize = 13,
+            FontSize = bodySize,
             Foreground = body,
         };
 
@@ -428,7 +503,7 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
             FontSize = theme.TitleSize,
             FontWeight = FontWeights.SemiBold,
             Foreground = theme.TitleAccent,
-            Margin = new Thickness(0, 0, 0, 6),
+            Margin = new Thickness(0, 0, 0, 8),
         };
         AppendStarBoldInlines(titleP.Inlines, topic.Title ?? "", theme.TitleAccent, theme.TitleSize,
             baseFontWeight: FontWeights.SemiBold, emphasisFontWeight: FontWeights.Bold);
@@ -438,39 +513,28 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
         {
             var subP = new Paragraph
             {
-                FontSize = 14,
+                FontSize = 13,
                 FontStyle = FontStyles.Italic,
                 Foreground = muted,
-                Margin = new Thickness(0, 0, 0, 14),
+                LineHeight = bodyLine,
+                Margin = new Thickness(0, 0, 0, 10),
             };
-            AppendStarBoldInlines(subP.Inlines, topic.Subtitle!, muted, 14);
+            AppendStarBoldInlines(subP.Inlines, topic.Subtitle!, muted, 13);
             doc.Blocks.Add(subP);
         }
 
-        if (ScriptExamplesMode && !string.IsNullOrWhiteSpace(topic.ExampleDifficulty))
+        if (ScriptExamplesMode)
         {
-            var d = topic.ExampleDifficulty!;
-            var badge = d switch
-            {
-                "Básico" => "🟢 Básico",
-                "Intermedio" => "🟡 Intermedio",
-                "Avanzado" => "🔴 Avanzado",
-                _ => d
-            };
-            doc.Blocks.Add(new Paragraph(new Run(badge))
-            {
-                FontSize = 12,
-                FontWeight = FontWeights.SemiBold,
-                Foreground = B("7ee787"),
-                Margin = new Thickness(0, 0, 0, 10),
-            });
+            var chip = CreateScriptExampleDifficultyChip(topic.ExampleDifficulty);
+            if (chip != null)
+                doc.Blocks.Add(new BlockUIContainer(chip));
         }
 
         doc.Blocks.Add(new BlockUIContainer(new Border
         {
             Height = 1,
             Background = B("30363d"),
-            Margin = new Thickness(0, 0, 0, 16),
+            Margin = new Thickness(0, 2, 0, 18),
         }));
 
         void AddSection(string label, string? text, SolidColorBrush labelBrush)
@@ -478,19 +542,19 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
             if (string.IsNullOrEmpty(text)) return;
             doc.Blocks.Add(new Paragraph(new Run(label))
             {
-                FontSize = 12,
+                FontSize = 11,
                 FontWeight = FontWeights.SemiBold,
                 Foreground = labelBrush,
-                Margin = new Thickness(0, 14, 0, 6),
+                Margin = new Thickness(0, 16, 0, 6),
             });
             var sectionBody = new Paragraph
             {
-                FontSize = 13,
+                FontSize = bodySize,
                 Foreground = body,
-                LineHeight = 20,
-                Margin = new Thickness(0, 0, 0, 4),
+                LineHeight = bodyLine,
+                Margin = new Thickness(0, 0, 0, 6),
             };
-            AppendStarBoldInlines(sectionBody.Inlines, text, body, 13);
+            AppendStarBoldInlines(sectionBody.Inlines, text, body, bodySize);
             doc.Blocks.Add(sectionBody);
         }
 
@@ -502,10 +566,11 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
             var callout = new Paragraph
             {
                 Margin = new Thickness(0, 16, 0, 8),
-                Padding = new Thickness(12, 10, 12, 10),
+                Padding = new Thickness(14, 12, 14, 12),
                 Background = motorBg,
                 BorderBrush = motorBorder,
                 BorderThickness = new Thickness(4, 0, 0, 0),
+                LineHeight = bodyLine,
             };
             callout.Inlines.Add(new Run("En FUEngine")
             {
@@ -514,7 +579,7 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
                 Foreground = motorBorder,
             });
             callout.Inlines.Add(new LineBreak());
-            AppendStarBoldInlines(callout.Inlines, topic.EnMotor, body, 13);
+            AppendStarBoldInlines(callout.Inlines, topic.EnMotor, body, bodySize);
             doc.Blocks.Add(callout);
         }
 
@@ -522,22 +587,22 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
         {
             doc.Blocks.Add(new Paragraph(new Run("Contenido"))
             {
-                FontSize = 12,
+                FontSize = 11,
                 FontWeight = FontWeights.SemiBold,
                 Foreground = muted,
-                Margin = new Thickness(0, 18, 0, 8),
+                Margin = new Thickness(0, 20, 0, 8),
             });
             foreach (var p in topic.Paragraphs)
             {
                 if (string.IsNullOrEmpty(p)) continue;
                 var contentP = new Paragraph
                 {
-                    FontSize = 13,
+                    FontSize = bodySize,
                     Foreground = body,
-                    LineHeight = 20,
-                    Margin = new Thickness(0, 0, 0, 10),
+                    LineHeight = bodyLine,
+                    Margin = new Thickness(0, 0, 0, 12),
                 };
-                AppendStarBoldInlines(contentP.Inlines, p, body, 13);
+                AppendStarBoldInlines(contentP.Inlines, p, body, bodySize);
                 doc.Blocks.Add(contentP);
             }
         }
@@ -546,21 +611,21 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
         {
             doc.Blocks.Add(new Paragraph(new Run("Puntos clave"))
             {
-                FontSize = 12,
+                FontSize = 11,
                 FontWeight = FontWeights.SemiBold,
                 Foreground = bulletColor,
-                Margin = new Thickness(0, 14, 0, 8),
+                Margin = new Thickness(0, 16, 0, 8),
             });
             foreach (var b in topic.Bullets)
             {
                 if (string.IsNullOrEmpty(b)) continue;
                 var bp = new Paragraph
                 {
-                    Margin = new Thickness(0, 0, 0, 6),
-                    LineHeight = 20,
+                    Margin = new Thickness(0, 0, 0, 8),
+                    LineHeight = bodyLine,
                 };
-                bp.Inlines.Add(new Run("• ") { Foreground = bulletColor, FontSize = 13 });
-                AppendStarBoldInlines(bp.Inlines, b, body, 13);
+                bp.Inlines.Add(new Run("• ") { Foreground = bulletColor, FontSize = bodySize });
+                AppendStarBoldInlines(bp.Inlines, b, body, bodySize);
                 doc.Blocks.Add(bp);
             }
         }
@@ -634,10 +699,10 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
         DetailPanel!.Children.Add(new TextBlock
         {
             Text = "Código",
-            FontSize = 12,
+            FontSize = 11,
             FontWeight = FontWeights.SemiBold,
             Foreground = muted,
-            Margin = new Thickness(0, 20, 0, 8)
+            Margin = new Thickness(0, 22, 0, 8),
         });
 
         var codeBorder = new Border
@@ -645,9 +710,9 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
             BorderBrush = B("30363d"),
             BorderThickness = new Thickness(1),
             Background = B("161b22"),
-            CornerRadius = new CornerRadius(4),
-            Padding = new Thickness(10),
-            Margin = new Thickness(0, 0, 0, 12)
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(12),
+            Margin = new Thickness(0, 0, 0, 14)
         };
 
         LuaHighlightingLoader.EnsureRegistered();

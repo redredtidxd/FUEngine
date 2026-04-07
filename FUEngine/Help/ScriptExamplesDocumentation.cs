@@ -24,7 +24,7 @@ public static class ScriptExamplesDocumentation
                     "Orden sugerido al aprender: primero los temas «Inspector, scripts y @prop» y «Variables expuestas (@prop)» (categoría Editor); luego el ejemplo **gameplay movimiento WASD** (id `script-ex-gameplay-movimiento-wasd-flechas`), más gameplay, escenas, UI, mapa, require y notas. **Buscar:** escribe en el filtro palabras del título (p. ej. `zona`, `loadScene`, `canvas`, `atprop`) o el id completo.",
                     "Los valores que edita el diseñador por instancia (vida, daño, velocidad…) suelen estar en el Inspector: componentes del objeto y el bloque «Variables de script (@prop / globales)» generado desde líneas -- @prop en el .lua.",
                     "Algunos ejemplos asumen protagonista nativo, triggerZones.json o Canvas con Ids concretos: sustituye nombres por los de tu proyecto.",
-                    "Dificultad: 🟢 Básico, 🟡 Intermedio, 🔴 Avanzado. Filtra por palabras (lava, tile, @prop) o usa Spotlight (Ctrl+P).",
+                    "Dificultad: en la lista y en cada ficha verás un **punto de color** (verde = Básico, ámbar = Intermedio, rojo = Avanzado), no emojis (en texto suelen verse grises). Filtra por palabras (lava, tile, @prop) o usa Spotlight (Ctrl+P).",
                     "Plantilla al crear .lua desde el explorador: @prop y hooks (onStart, onUpdate, onDestroy). Código compartido: require(\"Modulo\") con Scripts/Modulo.lua (ver ejemplos require y tabla local).",
                 },
                 bullets: new[]

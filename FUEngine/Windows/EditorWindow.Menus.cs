@@ -77,11 +77,6 @@ public partial class EditorWindow
         if (PopupVisual != null) PopupVisual.IsOpen = !PopupVisual.IsOpen;
     }
 
-    private void BtnTransform_OnClick(object sender, RoutedEventArgs e)
-    {
-        if (PopupTransform != null) PopupTransform.IsOpen = !PopupTransform.IsOpen;
-    }
-
     private static bool ConfirmOverwriteForSave(bool fileOrFilesExist, string message, Window owner, string title = "Confirmar guardado")
     {
         if (!fileOrFilesExist) return true;

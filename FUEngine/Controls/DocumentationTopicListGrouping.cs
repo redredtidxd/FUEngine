@@ -96,8 +96,20 @@ internal static class DocumentationTopicListGrouping
             order = ManualGroupOrder.GetValueOrDefault(groupTitle, 100);
         }
 
+        var tier = scriptExamplesMode ? MapExampleDifficulty(topic.ExampleDifficulty) : ScriptExampleDifficultyTier.None;
         var label = FormatDisplayLabel(topic, scriptExamplesMode, visiblePeers);
-        return new DocumentationTopicListEntry(order, groupTitle, label, topic);
+        return new DocumentationTopicListEntry(order, groupTitle, label, topic, tier);
+    }
+
+    private static ScriptExampleDifficultyTier MapExampleDifficulty(string? d)
+    {
+        return d switch
+        {
+            "Básico" => ScriptExampleDifficultyTier.Basic,
+            "Intermedio" => ScriptExampleDifficultyTier.Intermediate,
+            "Avanzado" => ScriptExampleDifficultyTier.Advanced,
+            _ => ScriptExampleDifficultyTier.None
+        };
     }
 
     private static string ExtractManualGroupTitle(DocumentationTopic topic)
@@ -112,18 +124,6 @@ internal static class DocumentationTopicListGrouping
     private static string FormatDisplayLabel(DocumentationTopic topic, bool scriptExamplesMode, IReadOnlyList<DocumentationTopic> visiblePeers)
     {
         var title = topic.Title ?? "";
-        if (scriptExamplesMode && !string.IsNullOrEmpty(topic.ExampleDifficulty))
-        {
-            var badge = topic.ExampleDifficulty switch
-            {
-                "Básico" => "🟢 ",
-                "Intermedio" => "🟡 ",
-                "Avanzado" => "🔴 ",
-                _ => ""
-            };
-            title = badge + title;
-        }
-
         if (scriptExamplesMode && !string.IsNullOrEmpty(topic.ExampleCategory))
             title = topic.ExampleCategory + " · " + title;
 

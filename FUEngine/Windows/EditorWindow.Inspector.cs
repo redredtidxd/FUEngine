@@ -90,7 +90,7 @@ public partial class EditorWindow
             var tileNames = new[] { "Suelo", "Pared", "Objeto", "Especial" };
             int tileIdx = CmbTileType?.SelectedIndex ?? 0;
             var toolDetail = _toolMode == ToolMode.Pintar ? $"Tile: {tileNames[Math.Clamp(tileIdx, 0, 3)]}" : _toolMode == ToolMode.Colocar && CmbObjectDef?.SelectedItem is ObjectDefinition od ? $"Objeto: {od.Nombre}" : "";
-            var layerName = CmbCapaVisible?.SelectedIndex >= 0 && CmbCapaVisible?.Items?.Count > 0 ? (CmbCapaVisible.SelectedItem as string) ?? "Todas" : "Todas";
+            var layerName = GetActiveLayerDisplayName();
             overview.SetData(_project, _tileMap, _objectLayer, _scriptRegistry, toolName, toolDetail, layerName, 0, tilesCount, _objectLayer.Instances.Count, triggersCount, _scriptRegistry?.GetAll()?.Count ?? 0, (int)_selectedTileType, CmbObjectDef?.SelectedItem as ObjectDefinition);
             InspectorPanel.Content = overview;
             return;

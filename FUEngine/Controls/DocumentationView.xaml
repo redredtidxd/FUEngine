@@ -50,22 +50,66 @@
                     </ListBox.GroupStyle>
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
+                            <Setter Property="SnapsToDevicePixels" Value="True"/>
                             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                            <Setter Property="Padding" Value="4,2"/>
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border x:Name="RowBg" Background="{TemplateBinding Background}" CornerRadius="4" Padding="6,5">
+                                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="RowBg" Property="Background" Value="#1c2128"/>
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="RowBg" Property="Background" Value="#1f3d5c"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
                         </Style>
                     </ListBox.ItemContainerStyle>
                     <ListBox.ItemTemplate>
                         <DataTemplate DataType="{x:Type local:DocumentationTopicListEntry}">
-                            <TextBlock Text="{Binding DisplayLabel}"
-                                       TextWrapping="Wrap"
-                                       Margin="0,2"/>
+                            <Grid Margin="0,1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="18"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Ellipse Grid.Column="0" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="Collapsed">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding DifficultyTier}" Value="{x:Static local:ScriptExampleDifficultyTier.Basic}">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Setter Property="Fill" Value="#3fb950"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding DifficultyTier}" Value="{x:Static local:ScriptExampleDifficultyTier.Intermediate}">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Setter Property="Fill" Value="#d29922"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding DifficultyTier}" Value="{x:Static local:ScriptExampleDifficultyTier.Advanced}">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Setter Property="Fill" Value="#f85149"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                                <TextBlock Grid.Column="1" Text="{Binding DisplayLabel}" TextWrapping="Wrap" VerticalAlignment="Center"
+                                           Foreground="#e6edf3" FontSize="13" LineHeight="18"/>
+                            </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
             </DockPanel>
             <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center" Background="#30363d"
                           ResizeBehavior="PreviousAndNext" ShowsPreview="False"/>
-            <Border Grid.Column="2" Background="#0d1117" BorderBrush="#30363d" BorderThickness="1" Padding="12,8" CornerRadius="4">
+            <Border Grid.Column="2" Background="#0d1117" BorderBrush="#30363d" BorderThickness="1" Padding="16,12" CornerRadius="8">
                 <ScrollViewer x:Name="DetailScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel x:Name="DetailPanel"/>
                 </ScrollViewer>

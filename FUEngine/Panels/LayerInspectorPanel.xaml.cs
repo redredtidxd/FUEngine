@@ -36,6 +36,7 @@ public partial class LayerInspectorPanel : System.Windows.Controls.UserControl
         {
             if (descriptor == null)
             {
+                TxtLayerSummary.Text = "";
                 TxtId.Text = "";
                 TxtName.Text = "";
                 CmbLayerType.SelectedIndex = -1;
@@ -55,6 +56,14 @@ public partial class LayerInspectorPanel : System.Windows.Controls.UserControl
                 return;
             }
             Visibility = Visibility.Visible;
+            TxtLayerSummary.Text = descriptor.LayerType switch
+            {
+                LayerType.Background => "Capa de tiles (suelo). Cada celda tiene datos de tile: tipo, colisión e interactividad. Edita con el pincel en la capa activa del mapa.",
+                LayerType.Solid => "Capa de tiles sólida: las celdas ocupadas pueden bloquear paso según reglas de colisión del motor y la máscara de la capa.",
+                LayerType.Objects => "Capa de tiles orientada a decoración u objetos en rejilla. Las entidades con lógica (instancias) están en la jerarquía del mapa y en objetos.json; las semillas son plantillas reutilizables.",
+                LayerType.Foreground => "Capa de tiles por encima del jugador según orden de capas y «Dibujar encima del jugador». Útil para tejados, vegetación alta, etc.",
+                _ => "Capa de tiles del mapa."
+            };
             TxtId.Text = descriptor.Id;
             TxtName.Text = descriptor.Name;
             CmbLayerType.SelectedIndex = (int)descriptor.LayerType;

@@ -42,6 +42,8 @@ public partial class EditorWindow : Window
     private List<SeedDefinition> _seedDefinitions = new();
     private ScriptRegistry _scriptRegistry = new();
     private double _zoom = 1.0;
+    private double _editorZoomMin = 0.25;
+    private double _editorZoomMax = 4.0;
     private TileType _selectedTileType = TileType.Suelo;
     private bool _isDragging;
     private System.Windows.Point _dragStartPos;
@@ -255,7 +257,6 @@ public partial class EditorWindow : Window
         EnsureDefaultObjectDefinition();
         CmbObjectDef.ItemsSource = _objectLayer?.Definitions?.Values?.ToList() ?? new List<ObjectDefinition>();
         if (CmbObjectDef != null && CmbObjectDef.Items.Count > 0) CmbObjectDef.SelectedIndex = 0;
-        SyncLayerComboFromTileMap();
         if (LayersPanel != null)
         {
             LayersPanel.SetTileMap(_tileMap);
@@ -266,6 +267,7 @@ public partial class EditorWindow : Window
             LayersPanel.LayerRemoved += (_, _) => { SyncLayerComboFromTileMap(); SyncProjectLayerNamesFromTileMap(); RefreshMapHierarchy(); };
             LayersPanel.LayersReordered += (_, _) => { SyncLayerComboFromTileMap(); SyncProjectLayerNamesFromTileMap(); RefreshMapHierarchy(); };
         }
+        SyncLayerComboFromTileMap();
         BuildVisibleLayersFromTileMap();
         Activated += (_, _) => RefreshCoordinateUnitFromSettings();
         Loaded += async (_, _) =>
@@ -279,7 +281,6 @@ public partial class EditorWindow : Window
             UpdatePaletteSelection();
             ApplyZoom();
             UpdateTileSelectionToolbarVisibility();
-            UpdateTransformButtonContent();
             UpdateTilePreview();
             UpdateObjectPreview();
             UpdateToolbarVisibility();
@@ -2352,12 +2353,17 @@ public partial class EditorWindow : Window
             _coordinateUnitDisplay = s.CoordinateUnit ?? "Tiles";
             _zoomWheelSensitivity = s.MapZoomWheelSensitivity > 0 ? s.MapZoomWheelSensitivity : 1;
             _panKeyStepScale = s.MapPanKeyboardStepScale > 0 ? s.MapPanKeyboardStepScale : 1;
+            _editorZoomMin = s.EditorZoomMin > 0 ? s.EditorZoomMin : 0.25;
+            _editorZoomMax = s.EditorZoomMax > 0 ? s.EditorZoomMax : 4.0;
+            _zoom = Math.Clamp(_zoom, _editorZoomMin, _editorZoomMax);
         }
         catch
         {
             _coordinateUnitDisplay = "Tiles";
             _zoomWheelSensitivity = 1;
             _panKeyStepScale = 1;
+            _editorZoomMin = 0.25;
+            _editorZoomMax = 4.0;
         }
     }
 
@@ -2367,7 +2373,7 @@ public partial class EditorWindow : Window
         if (!_project.Infinite && !GameViewportMath.IsWorldTileInsideFiniteMapBounds(_project, mx, my))
         {
             var toolShort = _toolMode switch { ToolMode.Pintar => "Pincel", ToolMode.Rectangulo => "Rect", ToolMode.Linea => "Línea", ToolMode.Relleno => "Relleno", ToolMode.Goma => "Goma", ToolMode.Picker => "Cuentagotas", ToolMode.Stamp => "Stamp", ToolMode.Seleccionar => "Seleccionar", ToolMode.Colocar => "Colocar", ToolMode.Zona => "Zona", ToolMode.Medir => "Medir", ToolMode.PixelEdit => "Pixel", _ => "" };
-            var capaShort = CmbCapaVisible?.SelectedItem as string ?? "Suelo";
+            var capaShort = GetActiveLayerDisplayName();
             UpdateStatusBar($"Fuera del área del mapa  |  {toolShort}  |  Capa: {capaShort}");
             return;
         }
@@ -2423,7 +2429,7 @@ public partial class EditorWindow : Window
         var tileName = _toolMode == ToolMode.Pintar ? new[] { "Suelo", "Pared", "Objeto", "Especial" }[(int)_selectedTileType] : "";
         int cx = _tileMap.ChunkSize > 0 ? (mx < 0 ? (mx + 1) / _tileMap.ChunkSize - 1 : mx / _tileMap.ChunkSize) : 0;
         int cy = _tileMap.ChunkSize > 0 ? (my < 0 ? (my + 1) / _tileMap.ChunkSize - 1 : my / _tileMap.ChunkSize) : 0;
-        var layerName = CmbCapaVisible?.SelectedItem as string ?? "Suelo";
+        var layerName = GetActiveLayerDisplayName();
         var brushSize = CmbBrushSize?.SelectedIndex >= 0 && CmbBrushSize?.Items?.Count > 0 ? (CmbBrushSize.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString() ?? "1" : "1";
         var rotLabel = CmbBrushRotation?.SelectedIndex >= 0 && CmbBrushRotation?.Items?.Count > 0 ? (CmbBrushRotation.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString() ?? "0°" : "0°";
         var status = $"{xyPart}  Chunk: ({cx},{cy})  |  {toolName} {tileName}  |  Capa: {layerName}  Tamaño: {brushSize}  Rot: {rotLabel}".Trim();
@@ -2475,12 +2481,6 @@ public partial class EditorWindow : Window
                 return true;
             case EditorShortcutBindings.SaveAll:
                 MenuGuardarTodo_OnClick(sender, ev);
-                return true;
-            case EditorShortcutBindings.Undo:
-                if (_history.CanUndo) { _history.Undo(); DrawMap(); RefreshInspector(); }
-                return true;
-            case EditorShortcutBindings.Redo:
-                if (_history.CanRedo) { _history.Redo(); DrawMap(); RefreshInspector(); }
                 return true;
             case EditorShortcutBindings.CopyZone:
                 CopyZone();
@@ -2573,6 +2573,47 @@ public partial class EditorWindow : Window
                 return true;
             default:
                 return false;
+        }
+    }
+
+    private void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (KeyboardFocusAcceptsTextInput()) return;
+        var mods = e.KeyboardDevice.Modifiers;
+        var settings = EngineSettings.Load();
+        var id = EditorShortcutBindings.MatchActionId(settings, e.Key, mods);
+        if (id == EditorShortcutBindings.Undo)
+        {
+            if (_history.CanUndo)
+            {
+                _history.Undo();
+                DrawMap();
+                RefreshInspector();
+            }
+            e.Handled = true;
+            return;
+        }
+        if (id == EditorShortcutBindings.Redo)
+        {
+            if (_history.CanRedo)
+            {
+                _history.Redo();
+                DrawMap();
+                RefreshInspector();
+            }
+            e.Handled = true;
+            return;
+        }
+        // Estándar adicional: Ctrl+Mayús+Z = rehacer (aunque en atajos solo figure Ctrl+Y).
+        if (e.Key == System.Windows.Input.Key.Z && (mods & ModifierKeys.Control) != 0 && (mods & ModifierKeys.Shift) != 0)
+        {
+            if (_history.CanRedo)
+            {
+                _history.Redo();
+                DrawMap();
+                RefreshInspector();
+            }
+            e.Handled = true;
         }
     }
 
@@ -2989,21 +3030,11 @@ public partial class EditorWindow : Window
     private void CmbBrushSize_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         _brushSize = CmbBrushSize?.SelectedIndex switch { 0 => 1, 1 => 2, 2 => 3, _ => 1 };
-        UpdateTransformButtonContent();
     }
 
     private void CmbBrushRotation_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         _brushRotation = CmbBrushRotation?.SelectedIndex switch { 0 => 0, 1 => 90, 2 => 180, 3 => 270, _ => 0 };
-        UpdateTransformButtonContent();
-    }
-
-    private void UpdateTransformButtonContent()
-    {
-        if (BtnTransform == null) return;
-        var size = CmbBrushSize?.SelectedIndex switch { 0 => "1", 1 => "2", 2 => "3", _ => "1" };
-        var rot = CmbBrushRotation?.SelectedIndex switch { 0 => "0°", 1 => "90°", 2 => "180°", 3 => "270°", _ => "0°" };
-        BtnTransform.Content = $"{size} · {rot}";
     }
 
     private void BtnAddTab_OnClick(object sender, RoutedEventArgs e)
@@ -4647,6 +4678,7 @@ public partial class EditorWindow : Window
             _selectedTileType = (TileType)idx;
             CmbTileType.SelectedIndex = idx;
             UpdatePaletteSelection();
+            ActivatePaintToolAfterTilePick();
         }
         var data = new System.Windows.DataObject("FUEngine.TileType", tag);
         System.Windows.DragDrop.DoDragDrop(fe, data, System.Windows.DragDropEffects.Copy);
@@ -4784,6 +4816,8 @@ public partial class EditorWindow : Window
         UpdatePaletteSelection();
         UpdateTilePreview();
         RefreshInspector();
+        if (e.RemovedItems != null && e.RemovedItems.Count > 0 && IsLoaded)
+            ActivatePaintToolAfterTilePick();
     }
 
     private void UpdateTilePreview()
@@ -4827,17 +4861,6 @@ public partial class EditorWindow : Window
         }
     }
 
-    private void CmbCapaVisible_OnSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-    {
-        var idx = CmbCapaVisible?.SelectedIndex ?? 0;
-        if (idx < 0 || _tileMap?.Layers == null) return;
-        if (idx >= _tileMap.Layers.Count) idx = Math.Max(0, _tileMap.Layers.Count - 1);
-        _activeLayerIndex = idx;
-        if (LayersPanel != null) LayersPanel.ActiveLayerIndex = idx;
-        BuildVisibleLayersFromTileMap();
-        DrawMap();
-    }
-
     private int GetActiveLayerIndex()
     {
         if (_tileMap?.Layers == null || _tileMap.Layers.Count == 0) return 0;
@@ -4852,11 +4875,26 @@ public partial class EditorWindow : Window
 
     private void SyncLayerComboFromTileMap()
     {
-        if (CmbCapaVisible == null || _tileMap?.Layers == null) return;
-        var names = _tileMap.Layers.Select(l => l.Name).ToList();
-        CmbCapaVisible.ItemsSource = names;
-        if (names.Count > 0)
-            CmbCapaVisible.SelectedIndex = Math.Clamp(_activeLayerIndex, 0, names.Count - 1);
+        if (_tileMap?.Layers == null || _tileMap.Layers.Count == 0) return;
+        _activeLayerIndex = Math.Clamp(_activeLayerIndex, 0, _tileMap.Layers.Count - 1);
+        if (LayersPanel != null && LayersPanel.ActiveLayerIndex != _activeLayerIndex)
+            LayersPanel.ActiveLayerIndex = _activeLayerIndex;
+    }
+
+    private string GetActiveLayerDisplayName()
+    {
+        if (_tileMap?.Layers == null || _tileMap.Layers.Count == 0) return "—";
+        var idx = GetActiveLayerIndex();
+        if (idx < 0 || idx >= _tileMap.Layers.Count) return "—";
+        var n = _tileMap.Layers[idx].Name;
+        return string.IsNullOrWhiteSpace(n) ? $"Capa {idx}" : n;
+    }
+
+    private void ActivatePaintToolAfterTilePick()
+    {
+        if (ToolPintar != null) ToolPintar.IsChecked = true;
+        CurrentToolMode = ToolMode.Pintar;
+        MapCanvas?.Focus();
     }
 
     private void SyncProjectLayerNamesFromTileMap()
@@ -4877,15 +4915,15 @@ public partial class EditorWindow : Window
     private void LayersPanel_OnActiveLayerChanged(object? sender, int index)
     {
         _activeLayerIndex = index;
-        if (CmbCapaVisible != null && _tileMap?.Layers != null && index >= 0 && index < _tileMap.Layers.Count)
-            CmbCapaVisible.SelectedIndex = index;
         DrawMap();
+        Dispatcher.BeginInvoke(new Action(() => MapCanvas?.Focus()), DispatcherPriority.Input);
     }
 
     private void LayersPanel_OnLayerSelected(object? sender, MapLayerDescriptor? descriptor)
     {
         _selection.SetInspectorContextLayer(descriptor);
         RefreshInspector();
+        Dispatcher.BeginInvoke(new Action(() => MapCanvas?.Focus()), DispatcherPriority.Input);
     }
 
     private void LayersPanel_OnLayerVisibilityToggled(object? sender, (int layerIndex, bool visible) e)
@@ -4904,18 +4942,83 @@ public partial class EditorWindow : Window
 
     private void BtnZoom_OnClick(object sender, RoutedEventArgs e)
     {
-        if (sender is System.Windows.Controls.Button btn && btn.Tag is string tag)
-        {
-            _zoom = tag == "+" ? Math.Min(4, _zoom + 0.25) : Math.Max(0.25, _zoom - 0.25);
-            ApplyZoom();
-        }
+        if (sender is not System.Windows.Controls.Button btn || btn.Tag is not string tag) return;
+        double zMin = _editorZoomMin > 0 ? _editorZoomMin : 0.25;
+        double zMax = _editorZoomMax > 0 ? _editorZoomMax : 4.0;
+        double newZoom = tag == "+" ? Math.Min(zMax, _zoom + 0.25) : Math.Max(zMin, _zoom - 0.25);
+        if (Math.Abs(newZoom - _zoom) < 1e-9) return;
+        System.Windows.Point? anchor = null;
+        if (ScrollViewer != null && ScrollViewer.IsMouseOver)
+            anchor = Mouse.GetPosition(ScrollViewer);
+        _zoom = newZoom;
+        ApplyZoom(anchor);
     }
 
-    private void ApplyZoom()
+    /// <summary>Mantiene bajo el puntero el mismo punto del mapa (coordenadas del viewport del <see cref="ScrollViewer"/>).</summary>
+    private void ApplyZoom(System.Windows.Point? anchorInScrollViewer = null)
     {
         if (TxtZoom != null) TxtZoom.Text = $"{(int)(_zoom * 100)}%";
-        if (MapCanvas != null) MapCanvas.LayoutTransform = new System.Windows.Media.ScaleTransform(_zoom, _zoom);
+        if (MapCanvas == null) return;
+
+        var oldT = MapCanvas.LayoutTransform as System.Windows.Media.ScaleTransform;
+        double oldZoom = oldT?.ScaleX is double oz && oz > 0 ? oz : 1.0;
+
+        double? keepLogicalX = null;
+        double? keepLogicalY = null;
+        double keepMx = 0;
+        double keepMy = 0;
+
+        if (ScrollViewer != null && ScrollViewer.IsLoaded)
+        {
+            ScrollViewer.UpdateLayout();
+            double mx = anchorInScrollViewer?.X ?? ScrollViewer.ViewportWidth * 0.5;
+            double my = anchorInScrollViewer?.Y ?? ScrollViewer.ViewportHeight * 0.5;
+            if (ScrollViewer.ViewportWidth <= 0 && ScrollViewer.ActualWidth > 0) mx = ScrollViewer.ActualWidth * 0.5;
+            if (ScrollViewer.ViewportHeight <= 0 && ScrollViewer.ActualHeight > 0) my = ScrollViewer.ActualHeight * 0.5;
+            mx = Math.Clamp(mx, 0, Math.Max(0, ScrollViewer.ViewportWidth));
+            my = Math.Clamp(my, 0, Math.Max(0, ScrollViewer.ViewportHeight));
+            keepMx = mx;
+            keepMy = my;
+
+            double h0 = ScrollViewer.HorizontalOffset;
+            double v0 = ScrollViewer.VerticalOffset;
+            // Punto del lienzo en píxeles lógicos del Canvas bajo el cursor (antes de aplicar el nuevo zoom).
+            keepLogicalX = (h0 + mx) / oldZoom;
+            keepLogicalY = (v0 + my) / oldZoom;
+
+            MapCanvas.LayoutTransform = new System.Windows.Media.ScaleTransform(_zoom, _zoom);
+            ScrollViewer.UpdateLayout();
+
+            void ScrollToKeepLogicalPointUnderCursor()
+            {
+                if (keepLogicalX == null || keepLogicalY == null) return;
+                double h1 = keepLogicalX.Value * _zoom - keepMx;
+                double v1 = keepLogicalY.Value * _zoom - keepMy;
+                ScrollViewer.UpdateLayout();
+                double maxH = Math.Max(0, ScrollViewer.ScrollableWidth);
+                double maxV = Math.Max(0, ScrollViewer.ScrollableHeight);
+                ScrollViewer.ScrollToHorizontalOffset(Math.Max(0, Math.Min(h1, maxH)));
+                ScrollViewer.ScrollToVerticalOffset(Math.Max(0, Math.Min(v1, maxV)));
+            }
+
+            ScrollToKeepLogicalPointUnderCursor();
+        }
+        else
+            MapCanvas.LayoutTransform = new System.Windows.Media.ScaleTransform(_zoom, _zoom);
+
         DrawMap();
+
+        // DrawMap puede cambiar el tamaño del lienzo; repetir scroll con el mismo punto lógico bajo (mx, my).
+        if (keepLogicalX.HasValue && ScrollViewer != null && ScrollViewer.IsLoaded)
+        {
+            ScrollViewer.UpdateLayout();
+            double h1 = keepLogicalX.Value * _zoom - keepMx;
+            double v1 = keepLogicalY!.Value * _zoom - keepMy;
+            double maxH = Math.Max(0, ScrollViewer.ScrollableWidth);
+            double maxV = Math.Max(0, ScrollViewer.ScrollableHeight);
+            ScrollViewer.ScrollToHorizontalOffset(Math.Max(0, Math.Min(h1, maxH)));
+            ScrollViewer.ScrollToVerticalOffset(Math.Max(0, Math.Min(v1, maxV)));
+        }
     }
 
     /// <summary>
@@ -4959,8 +5062,14 @@ public partial class EditorWindow : Window
             return;
         e.Handled = true;
         var step = 0.15 * _zoomWheelSensitivity;
-        _zoom = e.Delta > 0 ? Math.Min(4, _zoom + step) : Math.Max(0.25, _zoom - step);
-        ApplyZoom();
+        double zMin = _editorZoomMin > 0 ? _editorZoomMin : 0.25;
+        double zMax = _editorZoomMax > 0 ? _editorZoomMax : 4.0;
+        double newZoom = e.Delta > 0 ? Math.Min(zMax, _zoom + step) : Math.Max(zMin, _zoom - step);
+        if (Math.Abs(newZoom - _zoom) < 1e-9) return;
+        // Posición actual del puntero respecto al viewport (más fiable que e.GetPosition durante el túnel).
+        var anchor = Mouse.GetPosition(ScrollViewer);
+        _zoom = newZoom;
+        ApplyZoom(anchor);
     }
 
     private void ScrollViewer_OnPreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)

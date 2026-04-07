@@ -4,7 +4,8 @@
              Background="Transparent">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
         <StackPanel Margin="0,0,0,16">
-            <TextBlock Text="Propiedades de la capa" FontWeight="SemiBold" FontSize="13" Foreground="#e6edf3" Margin="0,0,0,10"/>
+            <TextBlock Text="Propiedades de la capa" FontWeight="SemiBold" FontSize="13" Foreground="#e6edf3" Margin="0,0,0,6"/>
+            <TextBlock x:Name="TxtLayerSummary" TextWrapping="Wrap" Foreground="#8b949e" FontSize="10" Margin="0,0,0,10" LineHeight="14"/>
             <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
                 <StackPanel>
                     <TextBlock Text="ID (interno)" Foreground="#8b949e" FontSize="10" Margin="0,0,0,2"/>
