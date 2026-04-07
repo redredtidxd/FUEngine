@@ -37,6 +37,9 @@ packages/
 .DS_Store
 Thumbs.db
 
+# Documentación técnica / onboarding para IA (no subir al remoto; el manual de usuario va en la ayuda in-app)
+docs/
+
 # Cursor e instrucciones solo locales
 .cursor/
 instruccionescursor.md

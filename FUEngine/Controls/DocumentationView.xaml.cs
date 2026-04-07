@@ -341,6 +341,68 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
         return new DetailTheme(B("58a6ff"), B("58a6ff"), 22);
     }
 
+    /// <summary>Interpreta pares <c>**texto**</c> como negrita (convención del manual en strings C#).</summary>
+    private static void AppendStarBoldInlines(
+        InlineCollection inlines,
+        string? text,
+        System.Windows.Media.Brush defaultForeground,
+        double fontSize,
+        FontWeight? baseFontWeight = null,
+        FontWeight? emphasisFontWeight = null)
+    {
+        var baseW = baseFontWeight ?? FontWeights.Normal;
+        var emphW = emphasisFontWeight ?? FontWeights.Bold;
+
+        if (string.IsNullOrEmpty(text)) return;
+        var s = text;
+        var i = 0;
+        while (i < s.Length)
+        {
+            var open = s.IndexOf("**", i, StringComparison.Ordinal);
+            if (open < 0)
+            {
+                inlines.Add(new Run(s[i..])
+                {
+                    Foreground = defaultForeground,
+                    FontSize = fontSize,
+                    FontWeight = baseW,
+                });
+                return;
+            }
+
+            if (open > i)
+            {
+                inlines.Add(new Run(s[i..open])
+                {
+                    Foreground = defaultForeground,
+                    FontSize = fontSize,
+                    FontWeight = baseW,
+                });
+            }
+
+            var close = s.IndexOf("**", open + 2, StringComparison.Ordinal);
+            if (close < 0)
+            {
+                inlines.Add(new Run(s[open..])
+                {
+                    Foreground = defaultForeground,
+                    FontSize = fontSize,
+                    FontWeight = baseW,
+                });
+                return;
+            }
+
+            var inner = s.Substring(open + 2, close - open - 2);
+            inlines.Add(new Run(inner)
+            {
+                Foreground = defaultForeground,
+                FontSize = fontSize,
+                FontWeight = emphW,
+            });
+            i = close + 2;
+        }
+    }
+
     private void RebuildDetail(DocumentationTopic topic)
     {
         if (DetailPanel == null) return;
@@ -361,23 +423,28 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
             Foreground = body,
         };
 
-        doc.Blocks.Add(new Paragraph(new Run(topic.Title ?? ""))
+        var titleP = new Paragraph
         {
             FontSize = theme.TitleSize,
             FontWeight = FontWeights.SemiBold,
             Foreground = theme.TitleAccent,
             Margin = new Thickness(0, 0, 0, 6),
-        });
+        };
+        AppendStarBoldInlines(titleP.Inlines, topic.Title ?? "", theme.TitleAccent, theme.TitleSize,
+            baseFontWeight: FontWeights.SemiBold, emphasisFontWeight: FontWeights.Bold);
+        doc.Blocks.Add(titleP);
 
         if (!string.IsNullOrWhiteSpace(topic.Subtitle))
         {
-            doc.Blocks.Add(new Paragraph(new Run(topic.Subtitle!))
+            var subP = new Paragraph
             {
                 FontSize = 14,
                 FontStyle = FontStyles.Italic,
                 Foreground = muted,
                 Margin = new Thickness(0, 0, 0, 14),
-            });
+            };
+            AppendStarBoldInlines(subP.Inlines, topic.Subtitle!, muted, 14);
+            doc.Blocks.Add(subP);
         }
 
         if (ScriptExamplesMode && !string.IsNullOrWhiteSpace(topic.ExampleDifficulty))
@@ -416,13 +483,15 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
                 Foreground = labelBrush,
                 Margin = new Thickness(0, 14, 0, 6),
             });
-            doc.Blocks.Add(new Paragraph(new Run(text))
+            var sectionBody = new Paragraph
             {
                 FontSize = 13,
                 Foreground = body,
                 LineHeight = 20,
                 Margin = new Thickness(0, 0, 0, 4),
-            });
+            };
+            AppendStarBoldInlines(sectionBody.Inlines, text, body, 13);
+            doc.Blocks.Add(sectionBody);
         }
 
         AddSection("Para qué", topic.ParaQue, theme.SectionAccent);
@@ -445,11 +514,7 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
                 Foreground = motorBorder,
             });
             callout.Inlines.Add(new LineBreak());
-            callout.Inlines.Add(new Run(topic.EnMotor!)
-            {
-                FontSize = 13,
-                Foreground = body,
-            });
+            AppendStarBoldInlines(callout.Inlines, topic.EnMotor, body, 13);
             doc.Blocks.Add(callout);
         }
 
@@ -465,13 +530,15 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
             foreach (var p in topic.Paragraphs)
             {
                 if (string.IsNullOrEmpty(p)) continue;
-                doc.Blocks.Add(new Paragraph(new Run(p))
+                var contentP = new Paragraph
                 {
                     FontSize = 13,
                     Foreground = body,
                     LineHeight = 20,
                     Margin = new Thickness(0, 0, 0, 10),
-                });
+                };
+                AppendStarBoldInlines(contentP.Inlines, p, body, 13);
+                doc.Blocks.Add(contentP);
             }
         }
 
@@ -493,7 +560,7 @@ public partial class DocumentationView : System.Windows.Controls.UserControl
                     LineHeight = 20,
                 };
                 bp.Inlines.Add(new Run("• ") { Foreground = bulletColor, FontSize = 13 });
-                bp.Inlines.Add(new Run(b) { Foreground = body, FontSize = 13 });
+                AppendStarBoldInlines(bp.Inlines, b, body, 13);
                 doc.Blocks.Add(bp);
             }
         }
