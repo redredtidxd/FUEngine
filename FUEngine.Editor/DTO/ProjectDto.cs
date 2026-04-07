@@ -158,7 +158,7 @@ public class SceneDto
 
 public class SplashConfigDto
 {
-    public string LogoPath { get; set; } = "assets/logo_fuengine.png";
+    public string LogoPath { get; set; } = "Assets/mando_logo_de_fuengine.png";
     public int DurationMs { get; set; } = 2500;
     public bool FadeIn { get; set; } = true;
     public bool FadeOut { get; set; } = true;

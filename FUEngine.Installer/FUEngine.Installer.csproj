@@ -7,6 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>fuengine.ico</ApplicationIcon>
     <RootNamespace>FUEngine.Installer</RootNamespace>
     <AssemblyName>InstalarFUEngine</AssemblyName>
     <Description>Instalador de FUEngine</Description>
@@ -41,6 +42,10 @@
       </EmbeddedResource>
     </ItemGroup>
   </Target>
+
+  <ItemGroup>
+    <EmbeddedResource Include="mando_logo_de_fuengine.png" />
+  </ItemGroup>
 
   <Target Name="DeleteIntermediateMotorPackFile" AfterTargets="CoreCompile" Condition="'$(BundleMotor)'=='true'">
     <PropertyGroup>

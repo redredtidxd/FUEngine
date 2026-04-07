@@ -502,7 +502,7 @@ public partial class SettingsWindow : Window
         _settings.SplashDurationMs = (TxtSplashDuration != null && int.TryParse(TxtSplashDuration.Text, out var dur) && dur > 0) ? dur : 2500;
         _settings.SplashFadeIn = ChkSplashFadeIn?.IsChecked == true;
         _settings.SplashFadeOut = ChkSplashFadeOut?.IsChecked == true;
-        _settings.SplashLogoPath = TxtSplashLogoPath?.Text?.Trim() ?? "assets/logo_fuengine.png";
+        _settings.SplashLogoPath = TxtSplashLogoPath?.Text?.Trim() ?? "Assets/mando_logo_de_fuengine.png";
         _settings.BuildExeIconPath = TxtBuildExeIcon?.Text?.Trim() ?? "";
         _settings.BuildGameVersion = TxtBuildGameVersion?.Text?.Trim() ?? "1.0.0";
         _settings.BuildDefaultWindowMode = CmbBuildWindowMode?.SelectedItem?.ToString() ?? "Windowed";

@@ -13,6 +13,12 @@ namespace FUEngine;
 
 public partial class App : System.Windows.Application
 {
+    public App()
+    {
+        InitializeComponent();
+        FueBrandResources.ApplyToApplication(this);
+    }
+
     private Mutex? _instanceMutex;
 
     /// <summary>Evita miles de líneas idénticas en session_*.log cuando un fallo de layout se repite (p. ej. VirtualizingStackPanel).</summary>
@@ -52,7 +58,11 @@ public partial class App : System.Windows.Application
 
         try
         {
-            var splash = new SplashScreenWindow(SplashScreenConfig.Default);
+            var splashCfg = new SplashScreenConfig();
+            var engineLogo = FueBrandResources.TryGetEngineLogoPath();
+            if (!string.IsNullOrEmpty(engineLogo))
+                splashCfg.LogoPath = engineLogo;
+            var splash = new SplashScreenWindow(splashCfg);
             splash.Show();
 
             splash.RunThenClose(() =>

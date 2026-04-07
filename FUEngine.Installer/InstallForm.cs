@@ -1,10 +1,14 @@
 using System.Diagnostics;
+using System.Drawing;
+using System.Linq;
+using System.Reflection;
 using System.Windows.Forms;
 
 namespace FUEngine.Installer;
 
 internal sealed class InstallForm : Form
 {
+    private readonly PictureBox _picBrand = new();
     private readonly Label _lblWelcome = new();
     private readonly Label _lblFootnote = new();
     private readonly Label _lblProblem = new();
@@ -32,9 +36,16 @@ internal sealed class InstallForm : Form
         Font = SystemFonts.MessageBoxFont;
         AutoScaleMode = AutoScaleMode.Font;
 
+        _picBrand.Size = new Size(84, 84);
+        _picBrand.SizeMode = PictureBoxSizeMode.Zoom;
+        _picBrand.Location = new Point(20, 14);
+        _picBrand.BackColor = Color.White;
+        _picBrand.TabStop = false;
+        TryLoadBrandImage();
+
         _lblWelcome.AutoSize = false;
-        _lblWelcome.Size = new Size(460, 76);
-        _lblWelcome.Location = new Point(20, 12);
+        _lblWelcome.Size = new Size(368, 80);
+        _lblWelcome.Location = new Point(112, 12);
         _lblWelcome.Text =
             "FUEngine: Motor 2D de alto rendimiento para Pixel Art. Incluye IDE integrado con validación de sintaxis, " +
             "sistema de partículas avanzado y soporte modular para Lua.";
@@ -42,7 +53,7 @@ internal sealed class InstallForm : Form
 
         _lblFootnote.AutoSize = false;
         _lblFootnote.Size = new Size(460, 56);
-        _lblFootnote.Location = new Point(20, 90);
+        _lblFootnote.Location = new Point(20, 102);
         _lblFootnote.ForeColor = SystemColors.GrayText;
         _lblFootnote.Text =
             "El ejecutable del motor incluye .NET; no hace falta el Desktop Runtime para abrir el editor. " +
@@ -50,7 +61,7 @@ internal sealed class InstallForm : Form
             "Tus proyectos los guardas donde quieras (por ejemplo Documentos\\FUEngine); no se borran al reinstalar el motor.";
 
         _grpDeps.Text = "Dependencias del sistema (antes de copiar el motor)";
-        _grpDeps.Location = new Point(20, 150);
+        _grpDeps.Location = new Point(20, 168);
         _grpDeps.Size = new Size(460, 102);
 
         _chkVc.AutoSize = true;
@@ -73,8 +84,8 @@ internal sealed class InstallForm : Form
         _grpDeps.Controls.Add(_chkNet);
 
         _lblProblem.AutoSize = false;
-        _lblProblem.Size = new Size(460, 44);
-        _lblProblem.Location = new Point(20, 12);
+        _lblProblem.Size = new Size(368, 96);
+        _lblProblem.Location = new Point(112, 16);
         _lblProblem.ForeColor = Color.FromArgb(180, 0, 0);
         _lblProblem.Text =
             "Falta el motor embebido. Vuelve a generar el instalador: installer\\build-installer.ps1 (Release).";
@@ -110,6 +121,7 @@ internal sealed class InstallForm : Form
         _progress.MarqueeAnimationSpeed = 25;
         _progress.Visible = false;
 
+        Controls.Add(_picBrand);
         Controls.Add(_lblWelcome);
         Controls.Add(_lblFootnote);
         Controls.Add(_grpDeps);
@@ -137,9 +149,17 @@ internal sealed class InstallForm : Form
         _grpDeps.Visible = ok;
         _btnInstall.Enabled = ok;
 
-        ClientSize = new Size(500, ok ? 418 : 244);
+        var padLeft = _picBrand.Visible ? 112 : 20;
+        var welcomeW = _picBrand.Visible ? 368 : 460;
+        _lblWelcome.SetBounds(padLeft, 12, welcomeW, 80);
+        if (!ok)
+        {
+            _lblProblem.SetBounds(padLeft, 16, welcomeW, 96);
+        }
 
-        var pathTop = ok ? 268 : 64;
+        ClientSize = new Size(500, ok ? 430 : 260);
+
+        var pathTop = ok ? 286 : 128;
         _lblPath.Location = new Point(20, pathTop);
         _txtPath.Location = new Point(20, pathTop + 22);
         _txtPath.Width = ClientSize.Width - 40 - 100 - 8;
@@ -152,6 +172,27 @@ internal sealed class InstallForm : Form
         _lblStatus.Width = ClientSize.Width - 40;
         _progress.Location = new Point(20, btnTop + 58);
         _progress.Width = ClientSize.Width - 40;
+    }
+
+    private void TryLoadBrandImage()
+    {
+        try
+        {
+            var asm = typeof(InstallForm).Assembly;
+            var resName = asm.GetManifestResourceNames()
+                .FirstOrDefault(n => n.EndsWith("mando_logo_de_fuengine.png", StringComparison.Ordinal));
+            if (resName == null) return;
+            using var stream = asm.GetManifestResourceStream(resName);
+            if (stream == null) return;
+            using var temp = Image.FromStream(stream);
+            _picBrand.Image = new Bitmap(temp);
+            _picBrand.Visible = true;
+        }
+        catch
+        {
+            _picBrand.Visible = false;
+            /* recurso no embebido o imagen inválida */
+        }
     }
 
     private void BrowseFolder()

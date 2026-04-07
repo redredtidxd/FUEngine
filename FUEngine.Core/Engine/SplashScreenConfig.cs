@@ -9,7 +9,7 @@ public class SplashScreenConfig
     /// <summary>Configuración por defecto del motor (logo, duración, fades).</summary>
     public static SplashScreenConfig Default { get; } = new SplashScreenConfig();
 
-    public string LogoPath { get; set; } = "assets/logo_fuengine.png";
+    public string LogoPath { get; set; } = "Assets/mando_logo_de_fuengine.png";
     public int DurationMs { get; set; } = 2500;
     public bool FadeIn { get; set; } = true;
     public bool FadeOut { get; set; } = true;

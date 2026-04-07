@@ -43,6 +43,7 @@
         <Style TargetType="Window">
             <Setter Property="Background" Value="{StaticResource BgDarkBrush}"/>
             <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="Icon" Value="{DynamicResource AppWindowIcon}"/>
         </Style>
 
         <Style TargetType="ToolTip">

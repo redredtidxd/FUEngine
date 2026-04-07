@@ -186,6 +186,8 @@
                                     <DropShadowEffect x:Name="LogoGlow" Color="#58a6ff" BlurRadius="0" ShadowDepth="0" Opacity="0"/>
                                 </Border.Effect>
                                 <StackPanel HorizontalAlignment="Center">
+                                    <Image x:Name="HubBrandImage" MaxHeight="104" MaxWidth="240" Stretch="Uniform"
+                                           Visibility="Collapsed" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
                                     <TextBlock x:Name="LogoText" Text="FUEngine" FontSize="42" FontWeight="Bold" Foreground="#e6edf3" HorizontalAlignment="Center"/>
                                 </StackPanel>
                             </Border>

@@ -326,7 +326,7 @@ public class EngineSettings
     public bool SplashFadeOut { get; set; } = true;
 
     [JsonPropertyName("splashLogoPath")]
-    public string SplashLogoPath { get; set; } = "assets/logo_fuengine.png";
+    public string SplashLogoPath { get; set; } = "Assets/mando_logo_de_fuengine.png";
 
     [JsonPropertyName("tempBuildPath")]
     public string TempBuildPath { get; set; } = "";

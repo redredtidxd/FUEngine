@@ -66,6 +66,7 @@ public partial class StartupWindow : Window
         EngineTypography.ApplyToRoot(this);
         Title = $"FUEngine {EngineVersion.Current}";
         if (RunEngineVersion != null) RunEngineVersion.Text = EngineVersion.Current;
+        ApplyHubBrandImage();
         var bootSettings = EngineSettings.Load();
         if (MainTabControl != null)
             MainTabControl.SelectedIndex = 0; // Hub por defecto
@@ -858,6 +859,27 @@ public partial class StartupWindow : Window
     {
         if (TilePatternCanvas.Children.Count == 0 && (TilePatternCanvas.ActualWidth > 0 || TilePatternCanvas.ActualHeight > 0))
             DrawTilePattern();
+    }
+
+    private void ApplyHubBrandImage()
+    {
+        var path = FueBrandResources.TryGetEngineLogoPath();
+        if (string.IsNullOrEmpty(path) || HubBrandImage == null || LogoText == null) return;
+        try
+        {
+            var bmp = new BitmapImage();
+            bmp.BeginInit();
+            bmp.UriSource = new Uri(path, UriKind.Absolute);
+            bmp.CacheOption = BitmapCacheOption.OnLoad;
+            bmp.EndInit();
+            HubBrandImage.Source = bmp;
+            HubBrandImage.Visibility = Visibility.Visible;
+            LogoText.Visibility = Visibility.Collapsed;
+        }
+        catch
+        {
+            /* sin archivo o formato no válido: se mantiene el título tipográfico */
+        }
     }
 
     private void Logo_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)

@@ -79,6 +79,22 @@ public static class NewProjectStructure
     public static bool IsValidProjectFolderName(string name) =>
         !string.IsNullOrWhiteSpace(name) && name.IndexOfAny(Path.GetInvalidFileNameChars()) < 0;
 
+    /// <summary>Copia el logo oficial del motor a <c>Assets/mando_logo_de_fuengine.png</c> si existe junto al ejecutable (splash por defecto).</summary>
+    private static void CopyBundledBrandLogoIfPresent(string projectDir)
+    {
+        try
+        {
+            var src = Path.Combine(AppContext.BaseDirectory, "Resources", "mando_logo_de_fuengine.png");
+            if (!File.Exists(src)) return;
+            var dest = Path.Combine(projectDir, "Assets", "mando_logo_de_fuengine.png");
+            File.Copy(src, dest, overwrite: true);
+        }
+        catch
+        {
+            /* sin recurso o disco de solo lectura */
+        }
+    }
+
     /// <summary>Comprueba si se puede crear el proyecto en <paramref name="path"/> (ruta absoluta o relativa normalizable).</summary>
     public static bool TryValidateProjectOutputPath(string path, bool createFolderIfMissing, out string? error)
     {
@@ -161,6 +177,8 @@ public static class NewProjectStructure
         CreateDir(Path.Combine(dir, "Seeds"));
         CreateDir(Path.Combine(dir, ProjectIndexPaths.DataFolderName));
         CreateDir(Path.Combine(dir, "Assets", "Audio"));
+
+        CopyBundledBrandLogoIfPresent(dir);
 
         // Escenas por defecto: Start y End (cada una con su mapa y objetos)
         project.Scenes = DefaultScenes.ToList();

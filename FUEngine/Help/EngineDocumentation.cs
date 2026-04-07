@@ -1201,7 +1201,7 @@ end"),
             porQueImporta: "StartupBehavior en settings decide si abrir Hub, último proyecto o proyecto nuevo.",
             paragraphs: new[]
             {
-                "El Hub (primera pestaña) muestra proyectos fijados y recientes con miniatura del mapa (snapshot, primera escena o mapa.json), y un resumen «N escenas · M objetos» cuando puede calcularse.",
+                "El Hub (primera pestaña) muestra proyectos fijados y recientes con miniatura del mapa (snapshot, primera escena o mapa.json), y un resumen «N escenas · M objetos» cuando puede calcularse. En el centro se muestra el **logo oficial** del motor (mando); el mismo recurso sirve de icono de ventana y del ejecutable, y el instalador WinForms también lo muestra.",
                 "Panel «Estado del motor»: último autoguardado detectado entre carpetas Autoguardados/Mapa de los proyectos recientes; conteo de la biblioteca global (texturas tileset/sprite/imagen/UI y .lua en el índice); versión del ejecutable con enlace a esta documentación integrada.",
                 "Acciones rápidas: pestaña «Scripts globales» (lista + ScriptEditorControl con resaltado y autocompletado en SharedAssets/Scripts); «Biblioteca» lleva a la pestaña Assets; «No usados» abre el escáner; botón «Buscar en el motor…» abre el panel Spotlight en esta ventana (sin atajo de teclado).",
                 "Tips rotativos y recordatorio de atajos; barra inferior: resumen de líneas [Error]/[Critical] en el log de sesión del día y uso aproximado de RAM del proceso; botones «Carpeta» (abre LocalApplicationData/FUEngine/logs) y «Limpiar» (vacía el .log de hoy en disco).",
@@ -1228,7 +1228,8 @@ end"),
                 "La pestaña Explorador añade carpetas que no sustituyen al motor: «Carpetas adicionales» (una por línea, p. ej. un nombre libre) y un «Tema» opcional (UI+Prefabs, Jam, Contenido…) que suma nombres predefinidos. Todo se fusiona sin duplicar nombres.",
                 "El mapa nuevo es finito en el asistente: eliges tamaño de tile (px) y tamaño de chunk; por defecto el motor crea una cuadrícula 4×4 de chunks vacíos (16 chunks en el .map). La paleta del proyecto toma el valor por defecto de la pestaña Motor, no del asistente.",
                 "Color de fondo de la primera escena (hex #RRGGBB) en Render y UI inicial; «Modo depuración» en opciones avanzadas puede heredar el valor por defecto de Explorador. Logs automáticos del motor (Avanzado): por defecto activados en settings.",
-                "El botón «Crear proyecto» solo se activa con nombre de carpeta válido en Windows y ruta usable. Clic fuera del overlay cancela."
+                "El botón «Crear proyecto» solo se activa con nombre de carpeta válido en Windows y ruta usable. Clic fuera del overlay cancela.",
+                "Si el ejecutable del motor incluye `Resources/mando_logo_de_fuengine.png`, al crear el proyecto se copia a **`Assets/mando_logo_de_fuengine.png`** (splash por defecto en publicación / ajustes del proyecto)."
             }),
 
         new(
