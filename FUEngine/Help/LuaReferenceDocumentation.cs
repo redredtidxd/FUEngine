@@ -2,7 +2,10 @@ using System.Linq;
 
 namespace FUEngine.Help;
 
-/// <summary>Temas del manual para la pestaña «Lua — sintaxis y librería» y enlaces desde Spotlight por palabra clave.</summary>
+/// <summary>
+/// Temas del manual para la pestaña «Lua — sintaxis y librería» y enlaces desde Spotlight por palabra clave.
+/// Misma convención que el manual general: **Para qué**, **Por qué importa**, **En FUEngine** (dónde/cómo en el runtime), **Contenido** con **Dónde**/**Cómo** explícitos cuando aplique, **Puntos clave**, ejemplos en párrafos o remisiones al manual de APIs.
+/// </summary>
 internal static class LuaReferenceDocumentation
 {
     public static IReadOnlyList<DocumentationTopic> BuildTopics()
@@ -16,6 +19,7 @@ internal static class LuaReferenceDocumentation
                 porQueImporta: "El mini-IDE, Spotlight y la pestaña «Lua — sintaxis y librería» comparten el mismo vocabulario; así no mezclas tutoriales genéricos con el comportamiento real de NLua en este ejecutable.",
                 paragraphs: new[]
                 {
+                    "**Dónde:** menú **Ayuda** → pestaña **Lua — sintaxis y librería** (o Spotlight **Ctrl+P** con nombre de guía). **Cómo:** elige un tema en la lista izquierda; la derecha muestra secciones estándar (Para qué, En FUEngine, Contenido…).",
                     "Esta pestaña es la referencia Lua del motor: (1) palabras reservadas (índice lua-kw-*), (2) guías de librería —string, table, math, errores— (lua-guide-*) y (3) temas que cruzan con FUEngine: hooks, carpetas del proyecto, require bajo Scripts/, limitaciones del sandbox.",
                     "Las otras dos pestañas de Ayuda: Manual del motor (editor, mapa, Play, JSON) y Ejemplos de scripts (código listo para copiar). Usa el filtro de la lista o Spotlight (Ctrl+P) para saltar a un tema por nombre.",
                     "En FUEngine cada .lua útil debe estar en scripts.json y asignarse en el Inspector (objeto o capa). Lo habitual es un archivo = un chunk con hooks globales (function onStart … end). Para código compartido entre archivos usa require(\"Modulo\") con el .lua bajo Scripts/ (guía «require, package y módulos»).",
@@ -347,7 +351,8 @@ internal static class LuaReferenceDocumentation
                 "En FUEngine: los callbacks de UI deben ser ligeros; trabajo pesado en onUpdate o en sistemas de juego.",
                 "Usa return temprano si el canvas no aplica a un objeto o estado.",
                 "Combina con pcall si el contenido del callback puede fallar (datos de usuario, texto).",
-                "Detalle de controles y bindings: manual «UI canvas runtime» y referencia de APIs ui.*."),
+                "Manual general: tema «GUI (Canvas) y Lua en Play»; ejemplos: ids `script-ex-ui-boton-hud-pausar-movimiento`, `script-ex-escenas-tecla-o-boton-loadscene` (pestaña Ejemplos).",
+                "Detalle de controles y referencia de APIs ui.*: manual «Scripting Lua — referencia completa de APIs» y tema «Iluminación, audio y UI»."),
 
             Guide("layer-scripts", "Scripts de capa (layer) vs objeto",
                 "Un script asignado a una capa del mapa recibe la tabla layer y no tiene self de objeto.",

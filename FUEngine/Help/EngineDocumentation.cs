@@ -2,7 +2,17 @@ using System.Runtime.CompilerServices;
 
 namespace FUEngine.Help;
 
-/// <summary>Contenido de ayuda in-app: qué es cada parte del motor, para qué sirve y por qué existe.</summary>
+/// <summary>
+/// Contenido de ayuda in-app. Convención por tema (<see cref="DocumentationTopic"/> + <see cref="DocumentationView"/>):
+/// <list type="bullet">
+/// <item><description><b>Para qué</b> (<see cref="DocumentationTopic.ParaQue"/>) — objetivo del usuario.</description></item>
+/// <item><description><b>Por qué importa</b> (<see cref="DocumentationTopic.PorQueImporta"/>) — riesgo o contexto si se ignora.</description></item>
+/// <item><description><b>En FUEngine</b> (<see cref="DocumentationTopic.EnMotor"/>) — dónde está en el editor o en el runtime y cómo encaja (menús, jerarquía, APIs).</description></item>
+/// <item><description><b>Contenido</b> (<see cref="DocumentationTopic.Paragraphs"/>) — detalle: suele incluir explícitamente <b>Dónde</b>, <b>Cómo</b> y remisión a <b>Ejemplos</b> cuando aplique.</description></item>
+/// <item><description><b>Puntos clave</b> (<see cref="DocumentationTopic.Bullets"/>) — recordatorios breves.</description></item>
+/// <item><description><b>Código</b> (<see cref="DocumentationTopic.LuaExampleCode"/>) — solo en temas con snippet (p. ej. Ejemplos de scripts).</description></item>
+/// </list>
+/// </summary>
 public static partial class EngineDocumentation
 {
     public const string QuickStartTopicId = "quick-start";
@@ -152,16 +162,43 @@ public static partial class EngineDocumentation
             porQueImporta: "Cada pestaña concentra un flujo (editar Lua, pintar atlas, escuchar audio) sin mezclar UI.",
             paragraphs: new[]
             {
-                "Mapa: edición del tilemap y objetos sobre el canvas (scroll con rueda o pan). Juego: vista Play embebida. Consola: salida de logs del editor.",
-                "Scripts: mini-IDE con lista de scripts registrados (scripts.json + .lua en Scripts/), resaltado Lua/JSON y autocompletado de APIs (ver tema «Mini-IDE de scripts»). Explorador: vista enfocada del árbol de proyecto (según implementación actual).",
-                "Tiles / Animaciones / Seeds: trabajo con catálogo, animaciones y prefabs (seeds comparten UI con objetos en parte del flujo).",
-                "Debug: herramientas de depuración. Audio: manifiesto y escucha.",
-                "Creative Suite: TileCreator, TileEditor, PaintCreator, PaintEditor, CollisionsEditor, ScriptableTile — flujos de arte y colisiones sobre assets."
+                "**Dónde (en pantalla):** la fila de pestañas está **debajo de la barra de menús** y **encima** del lienzo (Mapa), del visor Play (Juego), del log (Consola), etc. No confundir con el **Explorador** (panel izquierdo) ni con el **Inspector** (derecha).",
+                "**Cómo usarlas:** un clic en **Mapa**, **Juego**, **Consola**… trae esa vista al frente. **Ver →** puede ocultar la pestaña **Juego** (Play embebido) o la **Consola**. El botón **«+»** abre el selector de pestañas adicionales (no todas existen en todos los modos).",
+                "**Ejemplos (flujos típicos):** editar tiles → **Mapa**; probar **input.isKeyDown** / **ui.bind** → **Juego** o ventana Play; leer trazas Lua → **Consola**; editar .lua → **Scripts**; buscar archivos → **Explorador** o panel Explorador.",
+                "**Mapa:** lienzo del nivel (tiles, capas, objetos colocados, herramientas de brocha/selección). Zoom con Ctrl+rueda; rueda sin Ctrl desplaza; WASD mueve la **vista** del mapa (no ejecuta scripts de juego). Aquí editas colisión, triggers y posición inicial de instancias.",
+                "**Juego:** vista **Play embebida** del mismo proyecto: aquí ves el runtime y los scripts Lua (input, UI, física). Para probar movimiento WASD o ui.bind usa esta pestaña o una ventana Play a pantalla completa.",
+                "**Consola:** mensajes del editor, errores de Lua con ruta al .lua, advertencias y categorías (p. ej. Discord). Filtra o limpia según la UI actual.",
+                "**Scripts:** mini-IDE con lista de scripts registrados en **scripts.json**, archivos **.lua** bajo **Scripts/**, resaltado y **Ctrl+Espacio** sobre APIs (world, input, ui, …). Botón para crear script desde plantilla o enlazar al proyecto.",
+                "**Explorador:** árbol de carpetas del proyecto (assets, Data, Seeds, mapas). Doble clic en **.lua** abre la pestaña Scripts; en **.FUE** / manifiesto abre configuración del proyecto.",
+                "**Tiles / Animaciones / Seeds:** catálogo de tiles y atlas, clips de animación, prefabs **.seed** reutilizables. Seeds se arrastran al mapa o jerarquía según el flujo documentado en «Semillas».",
+                "**Audio:** manifiesto **audio.json**, ids de clips y prueba de sonido; coherente con **audio.play** / **audio.playMusic** en Lua por id.",
+                "**Debug:** herramientas de depuración visual o trazas según versión (rayos, contadores, etc.).",
+                "**Creative Suite:** TileCreator, TileEditor, PaintCreator, PaintEditor, CollisionsEditor, ScriptableTile — flujos de arte y colisiones sobre assets sin salir del motor."
             },
             bullets: new[]
             {
-                "El botón «+» en las pestañas añade pestañas según contexto (no todas las combinaciones existen para todos los modos).",
-                "El estado de pestañas abiertas puede persistir en el proyecto (layout del editor)."
+                "El botón **«+»** en la fila de pestañas añade pestañas extra (Scripts, Tiles, Creative Suite…) según contexto.",
+                "El estado de pestañas abiertas puede persistir en el proyecto (layout del editor).",
+                "Lua y GUI en Play: ver **«GUI (Canvas) y Lua en Play»** y la pestaña **Ejemplos de scripts** (p. ej. `script-ex-gameplay-movimiento-wasd-flechas`, `script-ex-ui-boton-hud-pausar-movimiento`)."
+            }),
+
+        new(
+            id: "lua-gui-canvas-play",
+            title: "GUI (Canvas) y Lua en Play",
+            paraQue: "Entender cómo se enlazan botones, paneles y texto en pantalla con **ui.*** durante la simulación.",
+            porQueImporta: "Los Ids del Canvas y de cada control deben coincidir con **ui.bind** y **ui.show**; el foco decide qué canvas recibe clics.",
+            paragraphs: new[]
+            {
+                "**Dónde (editor):** clic en la escena en la **Jerarquía** → **Crear / UI** o menú contextual → **UICanvas**. Renombra el **Id** del canvas (único). Añade **Button** u otros controles como hijos; anota sus **Ids**. El texto visible del botón y estilos se editan en el **Inspector** del control (no hace falta Lua solo para el aspecto).",
+                "**Cómo (Lua en Play):** la tabla global **ui** ofrece **show(id)**, **hide(id)**, **setFocus(idCanvas)** y **bind(canvasId, elementId, \"click\", función)**. Registra el **click** en **onStart** del script; el callback recibe el evento cuando el usuario pulsa. Solo el canvas con **foco** recibe clics de ratón en la práctica — usa **setFocus** al abrir un menú.",
+                "**Cómo (probar):** inicia **Play** (pestaña **Juego** o ventana Play). **input.isKeyDown** solo refleja el juego en simulación, no el foco del editor en Mapa.",
+                "**Ejemplos (código en la ayuda):** ids `script-ex-escenas-tecla-o-boton-loadscene`, `script-ex-ui-hud-mostrar-ocultar-canvas`, `script-ex-ui-boton-hud-pausar-movimiento` — pestaña **Ejemplos de scripts**. Guía de callbacks: pestaña **Lua** → guía **ui.bind**.",
+                "Referencias cruzadas: tema **«Iluminación, audio y UI»** (panorama); manual **«Scripting Lua — referencia completa de APIs»** para firmas de **ui.***."
+            },
+            bullets: new[]
+            {
+                "**game.loadScene** y **audio.play** usan nombres definidos en tu proyecto (escenas, ids de audio); revisa mayúsculas.",
+                "Errores «nil» en **ui**: comprueba que el Canvas exista en la escena guardada y que Play esté iniciado."
             }),
 
         new(
@@ -1244,6 +1281,7 @@ public static partial class EngineDocumentation
             bullets: new[]
             {
                 "No envía contenido de tus scripts ni rutas de proyecto a Discord; solo metadatos de estado del editor.",
+                "El identificador de la aplicación en el Developer Portal no se publica como número en claro en el código fuente del motor.",
                 "Problemas de conexión: mensajes en consola; el motor sigue funcionando sin Rich Presence."
             }),
 

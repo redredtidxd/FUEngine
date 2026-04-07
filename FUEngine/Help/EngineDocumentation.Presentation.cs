@@ -49,7 +49,10 @@ public static partial class EngineDocumentation
             "Los paneles son fijos en este editor; Ver → muestra u oculta. No hay dock como VS Code: el flujo es mapa + selección + inspector documentado aquí."),
         ["pestañas"] = (
             "Mapa, Juego, Scripts y pestañas +",
-            "Las pestañas centrales son el contrato de trabajo del motor; añadir Creative Suite o Tiles no cambia el modelo de escena JSON. Play usa la pestaña Juego o el menú Proyecto."),
+            "Dónde: barra de pestañas central (debajo de la barra de menús, sobre el lienzo) y botón «+». Cómo: clic en el nombre de la pestaña; Ver → para mostrar/ocultar; «+» añade Scripts/Tiles/Creative Suite según contexto. Ejemplos de uso: Juego = probar Lua/input; Consola = errores; Scripts = editar .lua. El modelo de escena sigue siendo JSON; Play suele iniciarse desde Proyecto o la pestaña Juego."),
+        ["lua-gui-canvas-play"] = (
+            "Canvas, botones y ui.bind en simulación",
+            "Dónde: Jerarquía → escena → UICanvas e hijos (Ids en Inspector); árbol guardado en datos de escena. Cómo: script del objeto en onStart con ui.bind / ui.setFocus; onUpdate para lógica; probar en pestaña Juego. Ejemplos: ayuda → Ejemplos de scripts («botón», «Canvas», escena+UI). No es diseño WPF remoto: Lua solo reacciona a Ids y eventos."),
         ["menus-principales"] = (
             "Archivo, Editar, Proyecto, Ayuda…",
             "Los menús disparan comandos sobre el proyecto actual; no hay proyecto global fuera de la carpeta .FUE. Ayuda y Proyecto enlazan la misma documentación integrada."),

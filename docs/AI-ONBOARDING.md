@@ -28,9 +28,23 @@ Este archivo es **referencia técnica** para quien modifica el motor o automatiz
 ### Documentación en la app (usuarios)
 
 - **Dónde:** menú **Ayuda** (manual rápido/completo, API Lua, logs, GitHub), botón **Ayuda / Guía del motor** en la pantalla de inicio. Host: [`DocumentationHostControl.xaml`](../FUEngine/Controls/DocumentationHostControl.xaml) — pestañas **Manual del motor** · **Lua** (`lua-kw-*`, `lua-guide-*`, `lua-reference-intro`) · **Ejemplos** (`script-ex-*`). **«Completa»** abre el manual largo en `crear-juego` (`FullManualStartTopicId`).
+- **IDs de ejemplos:** `script-ex-<área>-<descripción-kebab>` (p. ej. `script-ex-gameplay-movimiento-wasd-flechas`, `script-ex-ui-boton-hud-pausar-movimiento`); el filtro de la pestaña **Ejemplos** coincide por texto del id, título y etiquetas.
 - **Fuentes en código:** [`EngineDocumentation.cs`](../FUEngine/Help/EngineDocumentation.cs) (manual general + `EngineDocumentation.Presentation.cs`), [`LuaReferenceDocumentation.cs`](../FUEngine/Help/LuaReferenceDocumentation.cs), [`ScriptExamplesDocumentation.cs`](../FUEngine/Help/ScriptExamplesDocumentation.cs); todo se une en `BuildTopics()`.
 - **Spotlight** (Ctrl+P / Ctrl+Espacio) indexa manual, ejemplos y símbolos Lua/API sin mezclar categorías; detalle en §24.10.
 - **Regla:** cualquier cambio visible en menús, inspectores o API Lua debe reflejarse en esos archivos **y** aquí cuando sea comportamiento técnico.
+
+### Convención de contenido (cada tema de ayuda)
+
+Cada tema (`DocumentationTopic` en `EngineDocumentation.cs`, `LuaReferenceDocumentation.cs`, `ScriptExamplesDocumentation.cs`) debe permitir al usuario contestar:
+
+| Pregunta | Dónde se refleja en la app |
+|----------|----------------------------|
+| **¿Para qué sirve?** | Campo **Para qué** (`ParaQue`). |
+| **¿Dónde está?** (menú, panel, jerarquía, pestaña) | Recuadro **En FUEngine** (`EnMotor`; en el manual general suele venir de `EngineDocumentation.Presentation.cs` → `ApplyManualPresentation`) y párrafos con títulos **Dónde** cuando ayude. |
+| **¿Cómo se usa?** | Párrafos bajo **Contenido** (y guías Lua en la pestaña Lua); incluir pasos o orden **Cómo**. |
+| **¿Ejemplos?** | Bloque de código (`LuaExampleCode`) en **Ejemplos de scripts**; **Puntos clave** con mini-ejemplos o remisiones; temas del manual pueden remitir a IDs `script-ex-*`. |
+
+`DocumentationView` pinta: Para qué → Por qué importa → En FUEngine → Contenido → Puntos clave → snippet Lua si existe.
 
 ### Manual integrado — detalles de implementación (WPF)
 
@@ -46,7 +60,7 @@ Este archivo es **referencia técnica** para quien modifica el motor o automatiz
 
 **Datos del editor (no del juego exportado):** `%LocalAppData%/FUEngine/` — `Config/user_preferences.json` (preferencias del editor: tema, idioma, rutas; migración automática desde `settings.json`), `Storage/project_history.json` (Hub recientes; migración desde `recent.json`), `logs/session_*.log` y `logs/crash_*.txt` (autopsia en fallos no capturados), `ProjectThumbs/*.png` (miniatura del mapa tras Guardar todo), carpetas reservadas `GlobalTemplates/` (seeds globales entre proyectos), `Cache/LuaMetadata/` (caché Lua/IDE futura), `Extensions/`, `Vulkan/`. Clase central: `FUEngineAppPaths`.
 
-**Convención del repo:** al cambiar el editor o APIs visibles para el usuario, actualizar **`docs/AI-ONBOARDING.md`** (versionado en Git), **`EngineDocumentation.Topics`** (guía rápida / manual) y, si aplica, **`LuaEditorCompletionCatalog`** (autocompletado del mini-IDE). Apuntes personales opcionales: [`instruccionescursor.md`](../instruccionescursor.md) (ignorado por Git).
+**Convención del repo:** al cambiar el editor o APIs visibles para el usuario, actualizar **`docs/AI-ONBOARDING.md`** (versionado en Git), **`EngineDocumentation.Topics`** (guía rápida / manual; cada tema: para qué, dónde, cómo, ejemplos — ver subsección *Convención de contenido* arriba) y, si aplica, **`LuaEditorCompletionCatalog`** (autocompletado del mini-IDE). Apuntes personales opcionales: [`instruccionescursor.md`](../instruccionescursor.md) (ignorado por Git).
 
 **Ejecutar vs compilar el motor (humano, una sola fuente):** el **[README.md](../README.md)** en la raíz del repo explica que **no se debe confundir** abrir `FUEngine.exe` con generar el build. El **instalador** se genera con **`installer/build-installer.ps1`**: deja **`InstalarFUEngine.exe`** (single-file autocontenido) en la **raíz del repo** y el mismo binario en **`FUEngine.Installer/publish/`**; elimina el layout antiguo **`InstalarFUEngine/`** si existía. El motor va **embebido** en el ensamblado del instalador; **Release** obligatorio (`BundleMotor` desactivado en Debug). El payload del motor se publica primero en **`obj/engine_publish_stage/`** y el script ejecuta un **smoke test** mínimo antes de aceptar el instalador (`FUEngine.exe`, `Resources/Lua.xshd`, carpeta `Templates/`). El contrato de qué assets entran en el instalador vive en **`FUEngine/FUEngine.csproj`**: se usa una **cosecha amplia** de archivos no-fuente bajo el proyecto `FUEngine` para que casi cualquier archivo nuevo entre en output/publish sin tocar el instalador; se excluyen código, XAML, `bin/`, `obj/`, metadatos de build y `Lua.xshd`, que sigue además como recurso embebido para AvalonEdit. Las carpetas vacías no se publican por sí solas: deben contener al menos un archivo o crearse después. El **`InstalarFUEngine.exe`** en la raíz se sube con **Git LFS**; **`installer/setup-git-local.ps1`** (una vez por clon) activa **`gitignore`** (sin punto) como `core.excludesfile` y **`git lfs track`** sin versionar **`.gitignore`** ni **`.gitattributes`** en el remoto. Tras regenerar el instalador, `git add` ese archivo y commit/push. Al terminar, se abre el Explorador en la carpeta de instalación. En la UI se pueden marcar **dependencias opcionales** antes de copiar: **Visual C++ 2015-2022 x64** (NLua/Vulkan/NAudio), **DirectX End-User Runtime** (instalador web) y **comprobar .NET 8 Desktop** (abrir la página de descarga si falta; el editor publicado sigue siendo **autocontenido** y no lo exige). **Menú Inicio** (`Red Redtid\FUEngine`): motor, carpeta de logs (`%LocalAppData%\FUEngine\logs`), acceso a ayuda en el motor. **Asociación** `.FUE` y `.fueproj` → `FUEngine.exe`. Preferencias, logs y cachés del usuario siguen en **`%LocalAppData%/FUEngine`** (no en Archivos de programa); la raíz por defecto de proyectos también vive fuera de `Program Files` y es configurable desde preferencias del editor. **UI:** [`InstallForm.cs`](../FUEngine.Installer/InstallForm.cs), [`PrerequisiteOptions.cs`](../FUEngine.Installer/PrerequisiteOptions.cs), [`PrerequisitesInstaller.cs`](../FUEngine.Installer/PrerequisitesInstaller.cs), [`ShellFileAssociation.cs`](../FUEngine.Installer/ShellFileAssociation.cs).
 
@@ -572,7 +586,7 @@ Código del editor **WPF** (`FUEngine.csproj` en la carpeta `FUEngine/` del repo
 - `EditorLogServiceAdapter.cs` — adapta `IEditorLog` al `ServiceLocator`.
 - `ImageNearestNeighborResize.cs` — reescala PNG/JPEG/BMP (vecino más cercano); usado con `ImageResizeDialog`.
 - `NewProjectCreation.cs` — creación en disco desde `NewProjectWizardPanel` (Hub y menú del editor, sin ventana nueva).
-- `DiscordRichPresenceService.cs` — Rich Presence de Discord (NuGet **DiscordRichPresence**): `DiscordRpcClient` con **autoEvents: true** (constructor de 5 parámetros; evita depender de `Invoke()` manual); Hub, pestañas del editor, Play embebido y ventana Play; botón **«Ver en GitHub»** → `https://github.com/redredtidxd/FUEngine` vía `SetPresence` + **`UpdateButtons`** (refuerzo IPC); `OnError` → `EditorLog` si Discord rechaza el payload; asset **`logo_principal`** debe coincidir con el portal; si el botón no se ve en el cliente, revisar portal (Rich Presence / URLs) y perfil de usuario (actividad expandida).
+- `DiscordRichPresenceService.cs` — Rich Presence de Discord (NuGet **DiscordRichPresence**): `DiscordRpcClient` con **autoEvents: true** (constructor de 5 parámetros; evita depender de `Invoke()` manual); el Application ID no se mantiene como literal decimal en texto plano en el fuente; Hub, pestañas del editor, Play embebido y ventana Play; botón **«Ver en GitHub»** → `https://github.com/redredtidxd/FUEngine` vía `SetPresence` + **`UpdateButtons`** (refuerzo IPC); `OnError` → `EditorLog` si Discord rechaza el payload; asset **`logo_principal`** debe coincidir con el portal; si el botón no se ve en el cliente, revisar portal (Rich Presence / URLs) y perfil de usuario (actividad expandida).
 - `AudioAssetRegistry.cs`, `AudioSystem.cs`, `AutoSaveService.cs`, `CanvasControllerLuaTemplate.cs`, `CreativeSuiteMetadata.cs`, `DefaultLuaScriptTemplate.cs`, `EditorAudioBackend.cs`, `ExplorerMetadataService.cs`, `FUEngineAppPaths.cs`, `GlobalAssetLibraryService.cs`, `IAudioBackend.cs`, `IAudioHandle.cs`, `MapSnapshotService.cs`, `NativeAutoAnimationApplier.cs`, `NativeProtagonistController.cs`, `PlayerLaunchArgs.cs`, `PlayModeRunner.cs`, `PlayNaudioAudioEngine.cs`, `ProjectBuildService.cs`, `ProjectExportHelper.cs`, `ProjectFormatOpenHelper.cs`, `ProjectIntegrityChecker.cs`, `ProjectManifestPaths.cs`, `ProjectThumbnailService.cs`, `SceneAssetReferenceCollector.cs`, `ScriptHotReloadWatcher.cs`, `ScriptRegistryProjectWriter.cs`, `SelectionManager.cs`, `SimulatedAdsApi.cs`, `StartupService.cs`, `TemplateProvider.cs`, `TextureAssetCache.cs`, `TileDataFile.cs`, `TilePaintService.cs`, `UnusedAssetScanner.cs`, `WpfPlayAudioApi.cs`, `ZoneClipboardService.cs`.
 
 ### Settings
@@ -590,7 +604,7 @@ Código del editor **WPF** (`FUEngine.csproj` en la carpeta `FUEngine/` del repo
 ### Ayuda (contenido)
 - `FUEngine/Help/EngineDocumentation.cs` (+ `EngineDocumentation.Presentation.cs`) — `BuildTopics()`, manual general + `ApplyManualPresentation`.
 - `LuaReferenceDocumentation.cs` — pestaña Lua (`kw`/`Guide`).
-- `ScriptExamplesDocumentation.cs` — pestaña Ejemplos.
+- `ScriptExamplesDocumentation.cs` — pestaña Ejemplos (intro + snippets: WASD/flechas en cualquier objeto, HUD con botón, escenas, UI, mapa, require, etc.).
 
 ### Otros
 - `TileImageLoader.cs` — carga de bitmaps para tiles.

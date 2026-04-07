@@ -1,3 +1,4 @@
+using System.Globalization;
 using DiscordRPC;
 using DiscordRPC.Message;
 using FUEngine.Core;
@@ -9,12 +10,21 @@ namespace FUEngine;
 /// Imagen grande: el nombre del asset en el Developer Portal (Rich Presence → Art Assets) debe coincidir
 /// carácter a carácter con <see cref="LargeImageKey"/>; si no, Discord muestra un recuadro gris.
 /// Punto de extensión futura (licencia Pro): sustituir <see cref="LargeImageKey"/> según el juego del usuario.
+/// El Application ID no se guarda como literal legible en el repositorio (evita copiarlo desde el código fuente).
 /// </summary>
 public sealed class DiscordRichPresenceService
 {
     public static DiscordRichPresenceService Instance { get; } = new();
 
-    private const string ApplicationClientId = "1486054213984452759";
+    /// <summary>ID de aplicación Discord (snowflake) — valor embebido sin cadena decimal en claro.</summary>
+    private static string ApplicationClientId => ResolveDiscordApplicationClientId();
+
+    private static string ResolveDiscordApplicationClientId()
+    {
+        const ulong obfuscated = 16880402861275492999UL;
+        const ulong xorKey = 0xFEDCBA9876543210UL;
+        return (obfuscated ^ xorKey).ToString(CultureInfo.InvariantCulture);
+    }
     /// <summary>Nombre exacto del arte en el portal (no renombrar sin actualizar el portal).</summary>
     public const string LargeImageKey = "logo_principal";
     /// <summary>Repositorio público (botón Rich Presence).</summary>
