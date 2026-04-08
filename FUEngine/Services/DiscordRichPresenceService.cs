@@ -9,6 +9,7 @@ namespace FUEngine;
 /// Rich Presence de Discord (cliente local). Falla en silencio si Discord no está disponible.
 /// Imagen grande: el nombre del asset en el Developer Portal (Rich Presence → Art Assets) debe coincidir
 /// carácter a carácter con <see cref="LargeImageKey"/>; si no, Discord muestra un recuadro gris.
+/// Debe ser el mismo arte que el logo del motor (p. ej. el PNG en <c>Resources/mando_logo_de_fuengine.png</c>), subido al portal con el nombre <see cref="LargeImageKey"/>.
 /// Punto de extensión futura (licencia Pro): sustituir <see cref="LargeImageKey"/> según el juego del usuario.
 /// El Application ID no se guarda como literal legible en el repositorio (evita copiarlo desde el código fuente).
 /// </summary>
@@ -25,8 +26,8 @@ public sealed class DiscordRichPresenceService
         const ulong xorKey = 0xFEDCBA9876543210UL;
         return (obfuscated ^ xorKey).ToString(CultureInfo.InvariantCulture);
     }
-    /// <summary>Nombre exacto del arte en el portal (no renombrar sin actualizar el portal).</summary>
-    public const string LargeImageKey = "logo_principal";
+    /// <summary>Nombre exacto del arte en el portal: logo del motor (mismo branding que el ejecutable / <c>mando_logo_de_fuengine.png</c>).</summary>
+    public const string LargeImageKey = "fuengine_motor";
     /// <summary>Repositorio público (botón Rich Presence).</summary>
     public const string GitHubRepositoryUrl = "https://github.com/redredtidxd/FUEngine";
 
@@ -147,7 +148,7 @@ public sealed class DiscordRichPresenceService
             Assets = new Assets
             {
                 LargeImageKey = LargeImageKey,
-                LargeImageText = $"FUEngine v{EngineVersion.Current}"
+                LargeImageText = $"FUEngine · logo del motor · v{EngineVersion.Current}"
             }
         };
 

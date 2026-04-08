@@ -27,6 +27,11 @@ public partial class EditorWindow
 
     private void MenuDuplicarZona_OnClick(object sender, RoutedEventArgs e)
     {
+        if (IsActiveLayerLocked())
+        {
+            EditorLog.Toast("La capa activa está bloqueada.", LogLevel.Info, "Editor");
+            return;
+        }
         var bounds = ZoneClipboardService.TryGetCopyBounds(
             _selection.HasTileSelection,
             _selection.TileMinTx, _selection.TileMinTy, _selection.TileMaxTx, _selection.TileMaxTy,
@@ -54,10 +59,8 @@ public partial class EditorWindow
     {
         if (ToolPintar?.IsChecked == true) CurrentToolMode = ToolMode.Pintar;
         else if (ToolRectangulo?.IsChecked == true) CurrentToolMode = ToolMode.Rectangulo;
-        else if (ToolLinea?.IsChecked == true) CurrentToolMode = ToolMode.Linea;
         else if (ToolRelleno?.IsChecked == true) CurrentToolMode = ToolMode.Relleno;
         else if (ToolGoma?.IsChecked == true) CurrentToolMode = ToolMode.Goma;
-        else if (ToolPicker?.IsChecked == true) CurrentToolMode = ToolMode.Picker;
         else if (ToolStamp?.IsChecked == true) CurrentToolMode = ToolMode.Stamp;
         else if (ToolSeleccionar?.IsChecked == true) CurrentToolMode = ToolMode.Seleccionar;
         else if (ToolColocar?.IsChecked == true) CurrentToolMode = ToolMode.Colocar;
@@ -66,7 +69,6 @@ public partial class EditorWindow
         else if (ToolPixelEdit?.IsChecked == true) CurrentToolMode = ToolMode.PixelEdit;
         _measureStart = null;
         _measureEnd = null;
-        _lineStart = null;
         _rectDragging = false;
         UpdateZoneMenuState();
         RefreshInspector();
@@ -666,10 +668,8 @@ public partial class EditorWindow
             if (tag == "Pintar") { ToolPintar.IsChecked = true; CurrentToolMode = ToolMode.Pintar; }
             else if (tag == "Borrar") { ToolGoma.IsChecked = true; CurrentToolMode = ToolMode.Goma; }
             else if (tag == "Rectangulo") { ToolRectangulo.IsChecked = true; CurrentToolMode = ToolMode.Rectangulo; }
-            else if (tag == "Linea") { ToolLinea.IsChecked = true; CurrentToolMode = ToolMode.Linea; }
             else if (tag == "Relleno") { ToolRelleno.IsChecked = true; CurrentToolMode = ToolMode.Relleno; }
             else if (tag == "Goma") { ToolGoma.IsChecked = true; CurrentToolMode = ToolMode.Goma; }
-            else if (tag == "Picker") { ToolPicker.IsChecked = true; CurrentToolMode = ToolMode.Picker; }
             else if (tag == "Stamp") { ToolStamp.IsChecked = true; CurrentToolMode = ToolMode.Stamp; }
             else if (tag == "Colocar") { ToolColocar.IsChecked = true; CurrentToolMode = ToolMode.Colocar; }
             else if (tag == "Seleccionar") { ToolSeleccionar.IsChecked = true; CurrentToolMode = ToolMode.Seleccionar; }

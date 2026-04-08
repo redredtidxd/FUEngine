@@ -100,7 +100,11 @@ public static class MapSerialization
                         CatalogTileId = data.CatalogTileId,
                         TilesetPath = data.TilesetPath,
                         CatalogGridTileWidth = data.CatalogGridTileWidth,
-                        CatalogGridTileHeight = data.CatalogGridTileHeight
+                        CatalogGridTileHeight = data.CatalogGridTileHeight,
+                        AtlasSubRectX = data.AtlasSubRectX,
+                        AtlasSubRectY = data.AtlasSubRectY,
+                        AtlasSubRectW = data.AtlasSubRectW,
+                        AtlasSubRectH = data.AtlasSubRectH
                     };
                     if (data.PixelOverlay != null && data.PixelOverlay.RgbaData != null && data.PixelOverlay.RgbaData.Length > 0)
                     {
@@ -201,7 +205,11 @@ public static class MapSerialization
             CatalogTileId = t.CatalogTileId,
             TilesetPath = t.TilesetPath,
             CatalogGridTileWidth = t.CatalogGridTileWidth,
-            CatalogGridTileHeight = t.CatalogGridTileHeight
+            CatalogGridTileHeight = t.CatalogGridTileHeight,
+            AtlasSubRectX = t.AtlasSubRectX,
+            AtlasSubRectY = t.AtlasSubRectY,
+            AtlasSubRectW = t.AtlasSubRectW,
+            AtlasSubRectH = t.AtlasSubRectH
         };
         if (!string.IsNullOrEmpty(t.OverlayBase64) && t.OverlayWidth > 0 && t.OverlayHeight > 0)
         {
@@ -245,7 +253,11 @@ public static class MapSerialization
                 CatalogTileId = data.CatalogTileId,
                 TilesetPath = data.TilesetPath,
                 CatalogGridTileWidth = data.CatalogGridTileWidth,
-                CatalogGridTileHeight = data.CatalogGridTileHeight
+                CatalogGridTileHeight = data.CatalogGridTileHeight,
+                AtlasSubRectX = data.AtlasSubRectX,
+                AtlasSubRectY = data.AtlasSubRectY,
+                AtlasSubRectW = data.AtlasSubRectW,
+                AtlasSubRectH = data.AtlasSubRectH
             };
             if (data.PixelOverlay != null && data.PixelOverlay.RgbaData != null && data.PixelOverlay.RgbaData.Length > 0)
             {

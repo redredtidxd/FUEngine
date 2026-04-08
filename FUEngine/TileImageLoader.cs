@@ -177,6 +177,67 @@ public static class TileImageLoader
         }
     }
 
+    /// <summary>Recorta un rectángulo arbitrario del atlas (píxeles fuente) y escala a outW×outH.</summary>
+    public static byte[]? LoadAtlasSubRectToRgba(string fullPath, int srcX, int srcY, int srcW, int srcH, int outW, int outH)
+    {
+        if (string.IsNullOrWhiteSpace(fullPath) || !File.Exists(fullPath) || srcW <= 0 || srcH <= 0 || outW <= 0 || outH <= 0)
+            return null;
+        try
+        {
+            var uri = new Uri(fullPath, UriKind.Absolute);
+            var decoder = BitmapDecoder.Create(uri, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+            var frame = decoder.Frames[0];
+            if (frame == null) return null;
+            int imgW = frame.PixelWidth;
+            int imgH = frame.PixelHeight;
+            if (imgW <= 0 || imgH <= 0) return null;
+            srcX = Math.Clamp(srcX, 0, Math.Max(0, imgW - 1));
+            srcY = Math.Clamp(srcY, 0, Math.Max(0, imgH - 1));
+            srcW = Math.Min(srcW, imgW - srcX);
+            srcH = Math.Min(srcH, imgH - srcY);
+            if (srcW <= 0 || srcH <= 0) return null;
+            var converted = new FormatConvertedBitmap(frame, PixelFormats.Bgra32, null, 0);
+            int stride = imgW * 4;
+            var srcPixels = new byte[imgH * stride];
+            converted.CopyPixels(srcPixels, stride, 0);
+            var crop = new byte[srcW * srcH * 4];
+            for (int dy = 0; dy < srcH; dy++)
+            for (int dx = 0; dx < srcW; dx++)
+            {
+                int sx = srcX + dx;
+                int sy = srcY + dy;
+                int si = (sy * imgW + sx) * 4;
+                int di = (dy * srcW + dx) * 4;
+                crop[di] = srcPixels[si + 2];
+                crop[di + 1] = srcPixels[si + 1];
+                crop[di + 2] = srcPixels[si];
+                crop[di + 3] = srcPixels[si + 3];
+            }
+            if (outW == srcW && outH == srcH)
+                return crop;
+            var result = new byte[outW * outH * 4];
+            for (int dy = 0; dy < outH; dy++)
+            for (int dx = 0; dx < outW; dx++)
+            {
+                int sx = (dx * srcW) / outW;
+                int sy = (dy * srcH) / outH;
+                if (sx >= srcW) sx = srcW - 1;
+                if (sy >= srcH) sy = srcH - 1;
+                int si = (sy * srcW + sx) * 4;
+                int di = (dy * outW + dx) * 4;
+                result[di] = crop[si];
+                result[di + 1] = crop[si + 1];
+                result[di + 2] = crop[si + 2];
+                result[di + 3] = crop[si + 3];
+            }
+            return result;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     /// <summary>
     /// Obtiene el color del píxel (dx, dy) desde un buffer RGBA de tamaño (width, height).
     /// </summary>

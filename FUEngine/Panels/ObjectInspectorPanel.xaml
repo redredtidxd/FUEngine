@@ -243,7 +243,8 @@
                 </Expander>
                 <Button x:Name="BtnAddComponent" Content="Añadir componente…" Padding="10,10" Margin="0,0,0,8" HorizontalAlignment="Stretch"
                         Background="#238636" Foreground="White" BorderThickness="0" Click="BtnAddComponent_OnClick" ToolTip="Catálogo: render, colisión, luz, script…"/>
-                <Border x:Name="AccionesRapidasPanel" Visibility="Collapsed" Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                <Border x:Name="AccionesRapidasPanel" Visibility="Collapsed" Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8"
+                        HorizontalAlignment="Left" MaxWidth="220">
                     <StackPanel>
                         <TextBlock Text="Acciones rápidas" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
                         <Button x:Name="BtnDuplicate" Content="Duplicar" Padding="8,4" Margin="0,0,0,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnDuplicate_OnClick"/>

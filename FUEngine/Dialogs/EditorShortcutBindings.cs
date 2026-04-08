@@ -25,6 +25,7 @@ public static class EditorShortcutBindings
     public const string ToggleGrid = "ToggleGrid";
     public const string GroupObjects = "GroupObjects";
     public const string HandPan = "HandPan";
+    public const string SelectAllMap = "SelectAllMap";
 
     public sealed record Definition(string Id, string Category, string Description, string DefaultDisplay, bool Rebindable);
 
@@ -49,6 +50,7 @@ public static class EditorShortcutBindings
         new Definition(ToggleGrid, "Vista", "Mostrar u ocultar grid", "G", true),
         new Definition(GroupObjects, "Objetos", "Agrupar objetos (experimental)", "Ctrl+G", true),
         new Definition(HandPan, "Vista", "Mano / pan (mantener y arrastrar con clic izq.)", "Space", true),
+        new Definition(SelectAllMap, "Mapa", "Seleccionar todo en la capa activa (tiles + objetos con mismo orden)", "Ctrl+A", true),
         new Definition("_ReadOnlyPanKeys", "Vista", "Desplazar vista con teclado (mapa con foco)", "W A S D / flechas", false),
     };
 

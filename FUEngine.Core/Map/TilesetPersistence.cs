@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace FUEngine.Core;
 
-/// <summary>Serialización JSON de <see cref="Tileset"/> (archivo .tileset.json).</summary>
+/// <summary>Serialización JSON de <see cref="Tileset"/> (archivos <c>.tileset.json</c> o <c>.fuetileset</c>, mismo formato).</summary>
 public static class TilesetPersistence
 {
     private static readonly JsonSerializerOptions Options = new()

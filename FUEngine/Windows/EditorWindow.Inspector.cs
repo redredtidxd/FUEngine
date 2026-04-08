@@ -15,6 +15,7 @@ public partial class EditorWindow
         if (MenuBorrarObjeto != null)
             MenuBorrarObjeto.IsEnabled = _selection.SelectedObjects.Count > 0;
         UpdateZoneMenuState();
+        RefreshToolbarMapHint();
         if (InspectorPanel == null) return;
         if (_selection.SelectedTrigger != null)
         {
@@ -72,7 +73,7 @@ public partial class EditorWindow
             if (_selection.InspectorContextKind == InspectorContextKind.Tile && _selection.InspectorContextTileId != null)
             {
                 var tilePanel = GetOrCreateTileInspectorPanel();
-                tilePanel.SetTile(_selection.InspectorContextTileId);
+                tilePanel.SetTile(_project, _tileMap, GetActiveLayerIndex(), _selection.InspectorContextTileId, _selection.InspectorContextTilesetRelPath);
                 InspectorPanel.Content = tilePanel;
                 return;
             }
@@ -86,12 +87,19 @@ public partial class EditorWindow
                 }
             int triggersCount = 0;
             try { if (File.Exists(_project.TriggerZonesPath)) triggersCount = TriggerZoneSerialization.Load(_project.TriggerZonesPath).Count; } catch (System.Exception ex) { EditorLog.Warning($"No se pudo contar triggers: {ex.Message}", "Editor"); }
-            var toolName = _toolMode switch { ToolMode.Pintar => "Pincel", ToolMode.Rectangulo => "Rectángulo", ToolMode.Linea => "Línea", ToolMode.Relleno => "Relleno", ToolMode.Goma => "Goma", ToolMode.Picker => "Cuentagotas", ToolMode.Stamp => "Stamp", ToolMode.Seleccionar => "Seleccionar", ToolMode.Colocar => "Colocar objeto", ToolMode.Zona => "Zona", ToolMode.Medir => "Medir", ToolMode.PixelEdit => "Pixel", _ => "Pincel" };
-            var tileNames = new[] { "Suelo", "Pared", "Objeto", "Especial" };
-            int tileIdx = CmbTileType?.SelectedIndex ?? 0;
-            var toolDetail = _toolMode == ToolMode.Pintar ? $"Tile: {tileNames[Math.Clamp(tileIdx, 0, 3)]}" : _toolMode == ToolMode.Colocar && CmbObjectDef?.SelectedItem is ObjectDefinition od ? $"Objeto: {od.Nombre}" : "";
+            var toolName = _toolMode switch { ToolMode.Pintar => "Pincel", ToolMode.Rectangulo => "Rectángulo relleno", ToolMode.Relleno => "Relleno", ToolMode.Goma => "Goma", ToolMode.Stamp => "Sello", ToolMode.Seleccionar => "Seleccionar", ToolMode.Colocar => "Colocar objeto", ToolMode.Zona => "Zona", ToolMode.Medir => "Medir", ToolMode.PixelEdit => "Pixel", _ => "Pincel" };
+            string toolDetail;
+            if (_toolMode == ToolMode.Pintar)
+            {
+                if (!ActiveLayerUsesTilesetCatalog())
+                    toolDetail = "Asigna un tileset (.json / .fuetileset) a la capa activa para pintar desde el atlas.";
+                else
+                    toolDetail = _selectedCatalogTileId is int cid ? $"Catálogo: tile #{cid}" : "Catálogo: elige un tile en la pestaña «Tiles» (abajo).";
+            }
+            else
+                toolDetail = _toolMode == ToolMode.Colocar && CmbObjectDef?.SelectedItem is ObjectDefinition od ? $"Objeto: {od.Nombre}" : "";
             var layerName = GetActiveLayerDisplayName();
-            overview.SetData(_project, _tileMap, _objectLayer, _scriptRegistry, toolName, toolDetail, layerName, 0, tilesCount, _objectLayer.Instances.Count, triggersCount, _scriptRegistry?.GetAll()?.Count ?? 0, (int)_selectedTileType, CmbObjectDef?.SelectedItem as ObjectDefinition);
+            overview.SetData(_project, _tileMap, _objectLayer, _scriptRegistry, toolName, toolDetail, layerName, 0, tilesCount, _objectLayer.Instances.Count, triggersCount, _scriptRegistry?.GetAll()?.Count ?? 0, 0, CmbObjectDef?.SelectedItem as ObjectDefinition);
             InspectorPanel.Content = overview;
             return;
         }

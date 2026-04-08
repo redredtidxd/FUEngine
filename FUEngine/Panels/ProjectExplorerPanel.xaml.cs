@@ -7,6 +7,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
+using FUEngine.Core;
+using Wpf = System.Windows.Controls;
 
 namespace FUEngine;
 
@@ -1223,6 +1225,12 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
                 var miOpen = new MenuItem { Header = "Abrir" };
                 miOpen.Click += (_, _) => { if (!string.IsNullOrEmpty(item.FullPath)) _metadataService?.RecordRecent(item.FullPath); RequestOpenInEditor?.Invoke(this, item); };
                 menu.Items.Add(miOpen);
+                if (string.Equals(Path.GetExtension(item.FullPath), ".png", StringComparison.OrdinalIgnoreCase))
+                {
+                    var miFueTileset = new MenuItem { Header = "Crear tileset desde imagen (.fuetileset)…" };
+                    miFueTileset.Click += (_, _) => CreateTilesetFromRasterImage(item);
+                    menu.Items.Add(miFueTileset);
+                }
                 if (CreativeSuiteMetadata.IsImagePath(item.FullPath))
                 {
                     var miCollisions = new MenuItem { Header = "Editar colisiones..." };
@@ -1321,6 +1329,58 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
             RefreshTree();
         }
         catch (Exception ex) { System.Windows.MessageBox.Show(ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error); }
+    }
+
+    private void CreateTilesetFromRasterImage(ProjectExplorerItem item)
+    {
+        if (string.IsNullOrEmpty(_projectDirectory) || string.IsNullOrEmpty(item.FullPath) || item.IsFolder) return;
+        if (!string.Equals(Path.GetExtension(item.FullPath), ".png", StringComparison.OrdinalIgnoreCase)) return;
+        var owner = Window.GetWindow(this);
+        var w = new Wpf.TextBox { Text = "32", Width = 64 };
+        var h = new Wpf.TextBox { Text = "32", Width = 64 };
+        var panel = new Wpf.StackPanel { Margin = new Thickness(16) };
+        panel.Children.Add(new Wpf.TextBlock { Text = "Tamaño de celda en píxeles (recorte del atlas):", Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xe6, 0xed, 0xf3)), Margin = new Thickness(0, 0, 0, 8) });
+        var row = new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal };
+        row.Children.Add(new Wpf.TextBlock { Text = "Ancho:", Foreground = System.Windows.Media.Brushes.White, VerticalAlignment = VerticalAlignment.Center });
+        row.Children.Add(w);
+        row.Children.Add(new Wpf.TextBlock { Text = "Alto:", Foreground = System.Windows.Media.Brushes.White, Margin = new Thickness(12, 0, 4, 0), VerticalAlignment = VerticalAlignment.Center });
+        row.Children.Add(h);
+        panel.Children.Add(row);
+        var btnRow = new Wpf.StackPanel { Orientation = Wpf.Orientation.Horizontal, Margin = new Thickness(0, 16, 0, 0) };
+        var dlg = new Window
+        {
+            Title = "Nuevo .fuetileset",
+            SizeToContent = SizeToContent.WidthAndHeight,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = owner,
+            Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x21, 0x26, 0x2d))
+        };
+        var ok = new Wpf.Button { Content = "Crear", Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(12, 6, 12, 6) };
+        ok.Click += (_, _) => { dlg.DialogResult = true; };
+        var cancel = new Wpf.Button { Content = "Cancelar", Padding = new Thickness(12, 6, 12, 6) };
+        cancel.Click += (_, _) => { dlg.DialogResult = false; };
+        btnRow.Children.Add(ok);
+        btnRow.Children.Add(cancel);
+        panel.Children.Add(btnRow);
+        dlg.Content = panel;
+        if (dlg.ShowDialog() != true) return;
+        if (!int.TryParse(w.Text.Trim(), out int tw) || tw < 1) tw = 16;
+        if (!int.TryParse(h.Text.Trim(), out int th) || th < 1) th = 16;
+        try
+        {
+            var relImg = Path.GetRelativePath(_projectDirectory, item.FullPath).Replace('\\', '/');
+            var stem = Path.GetFileNameWithoutExtension(item.FullPath);
+            var dir = Path.GetDirectoryName(item.FullPath)!;
+            var outPath = Path.Combine(dir, stem + ".fuetileset");
+            outPath = GetUniquePath(outPath);
+            var ts = new Tileset { Id = stem, Name = stem, TexturePath = relImg, TileWidth = tw, TileHeight = th };
+            TilesetPersistence.Save(outPath, ts);
+            RefreshTree();
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(ex.Message, "Tileset", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private void CreateNewSeed(string targetDir)

@@ -18,6 +18,7 @@ public sealed class SelfProxy
     private readonly WorldApi? _worldApi;
     private readonly Func<GameObject, string, bool>? _playAnimationClip;
     private readonly Action<GameObject>? _stopAnimation;
+    private InspectorPropertiesProxy? _inspectorProperties;
 
     public SelfProxy(GameObject gameObject, string? instanceId = null,
         Func<GameObject, string?, string?, SelfProxy>? createProxyFor = null, WorldApi? worldApi = null,
@@ -61,6 +62,9 @@ public sealed class SelfProxy
 
     /// <summary>Capa de dibujado (mayor = delante). Igual que LayerOrder del editor.</summary>
     public int renderOrder { get => _gameObject.RenderOrder; set => _gameObject.RenderOrder = value; }
+
+    /// <summary>Proxy tipo tabla para propiedades de Inspector (Lua: <c>self.properties["x"] = 10</c>, tinte, etc.).</summary>
+    public InspectorPropertiesProxy properties => _inspectorProperties ??= new InspectorPropertiesProxy(_gameObject);
 
     public void destroy()
     {

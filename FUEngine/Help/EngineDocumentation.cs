@@ -160,7 +160,7 @@ end"),
             paragraphs: new[]
             {
                 "**Dónde:** la fila de pestañas está **debajo del menú** y **sobre** el área central. **Ver →** muestra u oculta **Juego** y **Consola**. **«+»** añade pestañas opcionales agrupadas por **Proyecto**, **Contenido**, **Multimedia** y **Debug**.",
-                "**Mapa:** lienzo del tilemap, objetos colocados, triggers, herramientas de pintura y selección. Ctrl+rueda = zoom; WASD mueve la **cámara del editor**, no el personaje en juego. Aquí ajustas capas, colisión por tipo de capa y datos de celda.",
+                "**Mapa:** lienzo del tilemap, objetos colocados, triggers, herramientas de pintura y selección. Ctrl+rueda = zoom; WASD mueve la **cámara del editor**, no el personaje en juego. Aquí ajustas capas, colisión por tipo de capa y datos de celda. El panel **Capas** del Inspector solo se muestra con la pestaña **Mapa** activa. Con **Mapa** activo, el panel **inferior izquierdo** ofrece **Explorador** y **Tiles**: en **Tiles** eliges un tileset del proyecto (lista de `.fuetileset` / `.tileset.json`), ves el atlas en miniatura y puedes activar **Recorte libre** para arrastrar un rectángulo fuente en píxeles (subrect en el PNG). **Ctrl+A** selecciona todo lo ocupado en la **capa activa** (tiles + objetos cuyo orden de capa coincide). Clic derecho en un `.png` → **Crear tileset desde imagen** genera el `.fuetileset`. Doble clic en una miniatura abre el editor rápido de colisión del tile en el molde.",
                 "**Juego (Play embebido):** inicia o reanuda el **mismo runtime Lua y simulación** que la build; el **dibujo** es un viewport **WPF** (lienzo), no la ventana Vulkan. Incluye jerarquía/runtime del tab y **lista de log** propia: errores Lua con ruta; **doble clic** en una línea con archivo abre el .lua en **Scripts**.",
                 "**Consola:** log global del editor (info, advertencias, errores, categoría Lua, Discord, etc.). Útil cuando Play no está en primer plano. También toasts para avisos breves.",
                 "**Scripts:** vista del registro **`scripts.json`**, editor **AvalonEdit** con resaltado LuaFUE, **Ctrl+Espacio**, línea roja si el chunk no compila. Crear scripts con **Explorador → Nuevo → Script Lua** (actualiza el registro solo); desde aquí editas y revisas la lista.",
@@ -292,7 +292,7 @@ end"),
             },
             bullets: new[]
             {
-                "Herramientas (barra): Pincel, Rectángulo, Línea, Cubeta, Goma, Cuentagotas, Pegar zona, Seleccionar, Colocar objeto, Zona, Medir, Píxeles.",
+                "Herramientas (barra del mapa): iconos con nombre en la descripción emergente — Pincel, rectángulo relleno, cubeta, goma, sello (pegar zona); selección por marco, colocar objeto, zona, medir, píxeles. Clic medio en el mapa muestrea el tipo de tile (sustituye al cuentagotas).",
                 "Visual → área visible: marco azul = rectángulo de la cámara/render (px y casillas mostrados en el propio marco). Alt+arrastrar mueve la cámara. Botones Centro mapa / Mundo 0,0 en la barra; scripts en Play usan el mismo rectángulo de vista que el visor (tamaño del canvas del tab Juego). Fuera del área jugable: celdas «+ chunk» en la frontera del conjunto de chunks. Al expandir con «+ chunk», la vista se mantiene alineada al mundo (sin saltar el marco por el solo hecho de crecer el mapa). Proyecto → Avanzado: color del lienzo y fondo de escena.",
                 "Visual → Play activo también en pestaña Mapa: el sandbox del tab Juego no se pausa al volver al mapa (edición y play a la vez).",
                 "Inspector de capa (`LayerInspectorPanel`): al final del bloque de propiedades, «Añadir componente…» abre el catálogo (script Lua de capa y entradas reservadas)."
@@ -437,7 +437,7 @@ end"),
                 "Convención: scripts de objeto pueden definir onStart() y onUpdate(dt). El motor crea self como proxy del objeto dueño del ScriptComponent.",
                 "Scripts de capa (mapa): se asignan en el Inspector de capa (campo de ruta o «Añadir componente…» al pie de ese inspector); ruta .lua relativa al proyecto. Tabla layer (offsetX, offsetY, parallaxX, parallaxY, opacity, …). Eventos: onAwake, onStart, onLayerUpdate(dt), onDestroy. Mismas APIs globales que un script de objeto salvo self.",
                 "Constantes: Key.* (W, A, S, D, Space, …) y Mouse.* (Left=0, Right=1) para pasar a input.isKeyDown / isMouseDown.",
-                "self (SelfProxy): id, name, tag, tags[], hasTag, x, y, rotation, scale, visible, active, renderOrder; move, rotate, destroy; find, findInHierarchy, getParent, getChildren, setParent; getComponent, removeComponent; setSpriteTexture, addSpriteFrame, clearSpriteFrames, spriteFrame, setSpriteAnimationFps, setSpriteSortOffset, setSpriteDisplaySize, setSpriteTint(r,g,b); playAnimation(clipId) / stopAnimation — aplican clips de animaciones.json al SpriteComponent en Play; instantiate(prefab, x, y, rot?, variant?).",
+                "self (SelfProxy): id, name, tag, tags[], hasTag, x, y, rotation, scale, visible, active, renderOrder; properties — proxy tipo tabla (p. ej. self.properties[\"x\"], tintR/tintG/tintB o color.r/g/b, renderOrder, visible) para reflejar en runtime campos habituales del Inspector sin sustituir a x/y; move, rotate, destroy; find, findInHierarchy, getParent, getChildren, setParent; getComponent, removeComponent; setSpriteTexture, addSpriteFrame, clearSpriteFrames, spriteFrame, setSpriteAnimationFps, setSpriteSortOffset, setSpriteDisplaySize, setSpriteTint(r,g,b); playAnimation(clipId) / stopAnimation — aplican clips de animaciones.json al SpriteComponent en Play; instantiate(prefab, x, y, rot?, variant?).",
                 "world: findObject / getObjectByName, findObjectByInstanceId(id), findByTag / getObjectByTag / getObjects / getAllObjects, findByPath, findNearestByTag, spawn/instantiate, destroy, setPosition, getPlayer, getTile(x,y,layerName), setTile(x,y,layerName,catalogId), raycast(origen, dir, maxDist, ignore?), raycastTiles, raycastCombined.",
                 "input: isKeyDown, isKeyPressed, isMouseDown, mouseX, mouseY.",
                 "time: delta, time, seconds, frame, scale.",
@@ -756,12 +756,12 @@ end"),
 
         new(
             id: "tilemap-catalogo",
-            title: "Tiles: modo catálogo vs clásico",
-            paraQue: "Elegir cómo pintar y qué poner en world.setTile.",
-            porQueImporta: "El catálogo usa IDs de atlas; el modo clásico usa tipos e imágenes por celda.",
+            title: "Tiles: catálogo y tileset",
+            paraQue: "Pintar con atlas y qué poner en world.setTile.",
+            porQueImporta: "El editor pinta por ID de atlas; la definición de colisión vive en el JSON del tileset.",
             paragraphs: new[]
             {
-                "En catálogo, cada tile del mapa guarda un CatalogTileId que el tileset resuelve a rectángulo en textura.",
+                "Cada tile colocado guarda un CatalogTileId que el tileset resuelve a rectángulo en textura; opcionalmente puede guardar un subrect en píxeles dentro del PNG (recorte libre en el editor).",
                 "world.setTile(layerName, tx, ty, catalogId) modifica el mapa en runtime y puede marcar chunks para no perder cambios al hacer streaming.",
                 "Las capas sólidas hacen que cualquier tile ocupe celda de colisión según reglas del TileMap.",
                 "Auto-tiling puede aplicar variantes según vecinos (máscara de bits)."
@@ -1328,6 +1328,7 @@ end"),
             paragraphs: new[]
             {
                 "Con la aplicación Discord en ejecución, FUEngine puede enviar actividad enriquecida: pestaña o ventana visible (Hub, Mapa, Scripts, Juego, Consola, documentación, Spotlight, diálogos de configuración o exportación, etc.).",
+                "La imagen grande del perfil es el **logo del motor** (mismo criterio que el icono/PNG del ejecutable). Discord **no** acepta enviar un archivo desde el PC: en el **Developer Portal** de la aplicación, pestaña Rich Presence → **Art Assets**, sube el PNG del logo (p. ej. el de `Resources/mando_logo_de_fuengine.png` en el repo) y asígnale el nombre de arte exacto **`fuengine_motor`** — debe coincidir con la clave que usa el motor. Si ves un recuadro gris, el nombre no coincide o falta subir el asset.",
                 "El perfil puede incluir un botón «Ver en GitHub» al repositorio público del motor (según configuración de la aplicación Discord y políticas de URL). Si no ves el botón, revisa el Developer Portal de Discord y la consola del editor (categoría Discord) por errores del RPC.",
                 "La pestaña Juego con Play en marcha puede mostrar estado de «probando» o similar; al cambiar de pestaña, el texto suele reflejar la vista activa (p. ej. Consola cuando la ves).",
                 "Si no usas Discord, desactivar o ignorar esta función no afecta al guardado de proyectos ni al runtime Lua."
@@ -1335,6 +1336,7 @@ end"),
             bullets: new[]
             {
                 "No envía contenido de tus scripts ni rutas de proyecto a Discord; solo metadatos de estado del editor.",
+                "Imagen grande: asset **`fuengine_motor`** en el portal = logo del motor (PNG recomendado: mismo que `mando_logo_de_fuengine.png`).",
                 "El identificador de la aplicación en el Developer Portal no se publica como número en claro en el código fuente del motor.",
                 "Problemas de conexión: mensajes en consola; el motor sigue funcionando sin Rich Presence."
             }),

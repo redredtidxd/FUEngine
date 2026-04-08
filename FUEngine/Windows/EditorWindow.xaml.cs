@@ -15,6 +15,7 @@ using System.Windows.Threading;
 using FUEngine.Core;
 using FUEngine.Dialogs;
 using FUEngine.Editor;
+using FUEngine.Services;
 
 namespace FUEngine;
 
@@ -54,7 +55,7 @@ public partial class EditorWindow : Window
     private int _zoneStartTx, _zoneStartTy;
     private ZoneClipboard? _zoneClipboard;
     private int _pasteOriginTx = 0, _pasteOriginTy = 0;
-    private enum ToolMode { Pintar, Rectangulo, Linea, Relleno, Goma, Picker, Stamp, Seleccionar, Colocar, Zona, Medir, PixelEdit }
+    private enum ToolMode { Pintar, Rectangulo, Relleno, Goma, Stamp, Seleccionar, Colocar, Zona, Medir, PixelEdit }
     private ToolMode _toolMode = ToolMode.Seleccionar;
 
     /// <summary>Active tool mode. Setter updates ToolController so no need to call UpdateCurrentTool() manually.</summary>
@@ -72,7 +73,6 @@ public partial class EditorWindow : Window
     private int _brushRotation; // 0, 90, 180, 270
     private bool _rectDragging;
     private int _rectStartTx, _rectStartTy, _rectEndTx, _rectEndTy;
-    private (int x, int y)? _lineStart;
     private readonly EditorHistory _history = new();
     private (int x, int y)? _measureStart;
     private (int x, int y)? _measureEnd;
@@ -200,6 +200,19 @@ public partial class EditorWindow : Window
     private ToolController? _toolController;
     private IMapEditorToolContext? _toolContext;
     private PaintTool? _paintTool;
+    /// <summary>Índice de celda en el atlas de la capa activa (tileset); null hasta que el usuario elija en la pestaña Tiles.</summary>
+    private int? _selectedCatalogTileId;
+    private string? _tilesetPathBoundToCatalogPick;
+    /// <summary>Ruta relativa del tileset mostrado en el ComboBox del tab Tiles (puede coincidir con la capa activa).</summary>
+    private string? _catalogPickerTilesetRelPath;
+    private bool _suppressTilesetCatalogComboEvent;
+    private bool _freeAtlasBrushMode;
+    private int _brushAtlasSubRectX, _brushAtlasSubRectY, _brushAtlasSubRectW, _brushAtlasSubRectH;
+    private bool _atlasFreeDragging;
+    private System.Windows.Point _atlasFreeAnchorDisplay;
+    private System.Windows.Point _atlasFreeCurrentDisplay;
+    private readonly Dictionary<string, Tileset?> _tilesetCache = new(StringComparer.OrdinalIgnoreCase);
+    private Border? _catalogTilePickHighlight;
     /// <summary>
     /// Si se asigna (p. ej. al iniciar modo Play), se invoca al guardar un .lua con la ruta relativa para hot reload.
     /// El motor debe: 1) Llamar a LuaScriptRuntime.ReloadScript(relPath). 2) Suscribirse a runtime.ScriptReloaded y
@@ -280,10 +293,9 @@ public partial class EditorWindow : Window
             _mapAnimationTimer.Tick += (_, _) => DrawMap();
             _mapAnimationTimer.Start();
             MapCanvas?.Focus();
-            UpdatePaletteSelection();
             ApplyZoom();
             UpdateTileSelectionToolbarVisibility();
-            UpdateTilePreview();
+            RefreshToolbarMapHint();
             UpdateObjectPreview();
             UpdateToolbarVisibility();
             BuildScenesStrip();
@@ -420,6 +432,12 @@ public partial class EditorWindow : Window
             { "PaintEditor", _ => new PaintEditorTabContent() },
             { "CollisionsEditor", _ => new CollisionsEditorTabContent() },
             { "ScriptableTile", _ => new ScriptableTileTabContent() }
+        };
+        Loaded += (_, __) =>
+        {
+            var map = MainTabs?.SelectedItem is TabItem ti && ti.Tag as string == "Mapa";
+            SyncLeftBottomExplorerLayout(map);
+            RefreshToolbarMapHint();
         };
     }
 
@@ -1803,7 +1821,6 @@ public partial class EditorWindow : Window
                 _selection.TileMaxTy!.Value + dty);
         }
         _rectStartTx += dtx; _rectStartTy += dty; _rectEndTx += dtx; _rectEndTy += dty;
-        if (_lineStart.HasValue) _lineStart = (_lineStart.Value.x + dtx, _lineStart.Value.y + dty);
         if (_measureStart.HasValue) _measureStart = (_measureStart.Value.x + dtx, _measureStart.Value.y + dty);
         if (_measureEnd.HasValue) _measureEnd = (_measureEnd.Value.x + dtx, _measureEnd.Value.y + dty);
         _zoneStartTx += dtx; _zoneStartTy += dty;
@@ -1918,10 +1935,8 @@ public partial class EditorWindow : Window
 
         var (tx2, ty2) = GetTileAt(pos);
         if (_toolMode == ToolMode.Rectangulo) { HandleRectToolClick(tx2, ty2); return; }
-        if (_toolMode == ToolMode.Linea) { HandleLineToolClick(tx2, ty2); return; }
         if (_toolMode == ToolMode.Relleno) { BucketFill(tx2, ty2); return; }
         if (_toolMode == ToolMode.Goma) { HandleEraserClick(tx2, ty2); return; }
-        if (_toolMode == ToolMode.Picker) { HandlePickerClick(tx2, ty2); return; }
         if (_toolMode == ToolMode.Stamp) { HandleStampClick(tx2, ty2); return; }
     }
 
@@ -1982,7 +1997,13 @@ public partial class EditorWindow : Window
             int minTy = Math.Min(_rectStartTy, endTy), maxTy = Math.Max(_rectStartTy, endTy);
             var layerIdx = GetActiveLayerIndex();
             var batch = new PaintTileBatchCommand(_tileMap, layerIdx);
-            var newTile = CreateTileData(_selectedTileType);
+            if (!TryGetPaintTile(out var rectTemplate))
+            {
+                UpdateStatusBar("Rectángulo: elige un tile en la pestaña «Tiles» o usa una capa sin tileset.");
+                _rectDragging = false;
+                return;
+            }
+            var newTile = rectTemplate;
             for (int tx = minTx; tx <= maxTx; tx++)
                 for (int ty = minTy; ty <= maxTy; ty++)
                 {
@@ -2125,59 +2146,56 @@ public partial class EditorWindow : Window
         DrawMap();
     }
 
-    private void HandleLineToolClick(int tx, int ty)
-    {
-        if (!_lineStart.HasValue)
-        {
-            _lineStart = (tx, ty);
-            UpdateStatusBar($"Línea: origen ({tx}, {ty}) — clic en destino");
-            DrawMap();
-            return;
-        }
-        if (IsActiveLayerLocked()) { _lineStart = null; return; }
-        var (x0, y0) = _lineStart.Value;
-        var layerIdx = GetActiveLayerIndex();
-        var batch = new PaintTileBatchCommand(_tileMap, layerIdx);
-        var newTile = CreateTileData(_selectedTileType);
-        foreach (var (px, py) in LineTiles(x0, y0, tx, ty))
-        {
-            if (!_project.Infinite && !GameViewportMath.IsWorldTileInsideFiniteMapBounds(_project, px, py)) continue;
-            _tileMap.TryGetTile(layerIdx, px, py, out var prev);
-            batch.Add(px, py, prev, newTile.Clone());
-        }
-        if (batch.Count > 0) _history.Push(batch);
-        _lineStart = null;
-        ProjectExplorer.SetModified(GetCurrentSceneMapPath(), true);
-        DrawMap();
-    }
-
     private void HandleEraserClick(int tx, int ty)
     {
         if (IsActiveLayerLocked()) return;
         var layerIdx = GetActiveLayerIndex();
         var batch = new PaintTileBatchCommand(_tileMap, layerIdx);
-        var emptyTile = CreateTileData(TileType.Suelo);
-        for (int dx = 0; dx < _brushSize; dx++)
-            for (int dy = 0; dy < _brushSize; dy++)
-            {
-                int px = tx + dx, py = ty + dy;
-                if (!_project.Infinite && !GameViewportMath.IsWorldTileInsideFiniteMapBounds(_project, px, py)) continue;
-                if (_tileMap.TryGetTile(layerIdx, px, py, out var old) && old != null)
-                    batch.Add(px, py, old, emptyTile);
-            }
+        if (ActiveLayerUsesTilesetCatalog())
+        {
+            for (int dx = 0; dx < _brushSize; dx++)
+                for (int dy = 0; dy < _brushSize; dy++)
+                {
+                    int px = tx + dx, py = ty + dy;
+                    if (!_project.Infinite && !GameViewportMath.IsWorldTileInsideFiniteMapBounds(_project, px, py)) continue;
+                    if (_tileMap.TryGetTile(layerIdx, px, py, out var old) && old != null)
+                        batch.Add(px, py, old, null);
+                }
+        }
+        else
+        {
+            var emptyTile = CreateTileData(TileType.Suelo);
+            for (int dx = 0; dx < _brushSize; dx++)
+                for (int dy = 0; dy < _brushSize; dy++)
+                {
+                    int px = tx + dx, py = ty + dy;
+                    if (!_project.Infinite && !GameViewportMath.IsWorldTileInsideFiniteMapBounds(_project, px, py)) continue;
+                    if (_tileMap.TryGetTile(layerIdx, px, py, out var old) && old != null)
+                        batch.Add(px, py, old, emptyTile);
+                }
+        }
         if (batch.Count > 0) _history.Push(batch);
         ProjectExplorer.SetModified(GetCurrentSceneMapPath(), true);
         DrawMap();
     }
 
-    private void HandlePickerClick(int tx, int ty)
+    /// <summary>Muestrea el tipo de tile de una celda (clic medio en el mapa; sustituye la herramienta Cuentagotas).</summary>
+    private void PickTileTypeFromMapCell(int tx, int ty)
     {
         var layerIdx = GetActiveLayerIndex();
         if (_tileMap.TryGetTile(layerIdx, tx, ty, out var picked) && picked != null)
         {
-            _selectedTileType = picked.TipoTile;
-            if (CmbTileType != null) CmbTileType.SelectedIndex = (int)_selectedTileType;
-            UpdateStatusBar($"Cuentagotas: {picked.TipoTile}");
+            if (!string.IsNullOrWhiteSpace(picked.TilesetPath))
+            {
+                _selectedCatalogTileId = picked.CatalogTileId;
+                _tilesetPathBoundToCatalogPick = GetActiveLayerTilesetPathKey();
+                RefreshMapTilePickerUi();
+                _selection.SetInspectorContextTile(picked.CatalogTileId, GetActiveLayerTilesetPathKey());
+                UpdateStatusBar($"Muestreo: catálogo tile #{picked.CatalogTileId}");
+                RefreshInspector();
+            }
+            else
+                UpdateStatusBar("Muestreo: esta celda no usa atlas. Asigna un tileset a la capa y pinta desde el catálogo.");
         }
         DrawMap();
     }
@@ -2194,24 +2212,16 @@ public partial class EditorWindow : Window
             UpdateStatusBar("Stamp: copia una zona (Zona → selecciona → Ctrl+C) antes de pegar.");
     }
 
-    private static IEnumerable<(int x, int y)> LineTiles(int x0, int y0, int x1, int y1)
-    {
-        int dx = Math.Abs(x1 - x0), dy = Math.Abs(y1 - y0);
-        int steps = Math.Max(Math.Max(dx, dy), 1);
-        for (int i = 0; i <= steps; i++)
-        {
-            float t = (float)i / steps;
-            int x = (int)Math.Round(x0 + (x1 - x0) * t);
-            int y = (int)Math.Round(y0 + (y1 - y0) * t);
-            yield return (x, y);
-        }
-    }
-
     private void BucketFill(int startTx, int startTy)
     {
         if (IsActiveLayerLocked()) return;
+        if (!TryGetPaintTile(out var paintTemplate))
+        {
+            UpdateStatusBar("Relleno: asigna un tileset a la capa y elige un tile en la pestaña «Tiles».");
+            return;
+        }
         var layerIdx = GetActiveLayerIndex();
-        var newTile = CreateTileData(_selectedTileType);
+        var newTile = paintTemplate.Clone();
         var cells = TilePaintService.ComputeBucketFill(
             _tileMap,
             startTx,
@@ -2291,7 +2301,13 @@ public partial class EditorWindow : Window
             _viewportDragLastPos = pos;
             MapCanvas.CaptureMouse();
             e.Handled = true;
+            return;
         }
+        var (tx, ty) = GetTileAt(pos);
+        if (!_project.Infinite && !GameViewportMath.IsWorldTileInsideFiniteMapBounds(_project, tx, ty))
+            return;
+        PickTileTypeFromMapCell(tx, ty);
+        e.Handled = true;
     }
 
     private void MapCanvas_OnMouseUp(object sender, MouseButtonEventArgs e)
@@ -2390,7 +2406,7 @@ public partial class EditorWindow : Window
         var (mx, my) = GetTileAt(pos);
         if (!_project.Infinite && !GameViewportMath.IsWorldTileInsideFiniteMapBounds(_project, mx, my))
         {
-            var toolShort = _toolMode switch { ToolMode.Pintar => "Pincel", ToolMode.Rectangulo => "Rect", ToolMode.Linea => "Línea", ToolMode.Relleno => "Relleno", ToolMode.Goma => "Goma", ToolMode.Picker => "Cuentagotas", ToolMode.Stamp => "Stamp", ToolMode.Seleccionar => "Seleccionar", ToolMode.Colocar => "Colocar", ToolMode.Zona => "Zona", ToolMode.Medir => "Medir", ToolMode.PixelEdit => "Pixel", _ => "" };
+            var toolShort = _toolMode switch { ToolMode.Pintar => "Pincel", ToolMode.Rectangulo => "Rect", ToolMode.Relleno => "Relleno", ToolMode.Goma => "Goma", ToolMode.Stamp => "Sello", ToolMode.Seleccionar => "Seleccionar", ToolMode.Colocar => "Colocar", ToolMode.Zona => "Zona", ToolMode.Medir => "Medir", ToolMode.PixelEdit => "Pixel", _ => "" };
             var capaShort = GetActiveLayerDisplayName();
             UpdateStatusBar($"Fuera del área del mapa  |  {toolShort}  |  Capa: {capaShort}");
             return;
@@ -2443,8 +2459,10 @@ public partial class EditorWindow : Window
             else
                 xyPart = $"X: {mx}  Y: {my}";
         }
-        var toolName = _toolMode switch { ToolMode.Pintar => "Pincel", ToolMode.Rectangulo => "Rect", ToolMode.Linea => "Línea", ToolMode.Relleno => "Relleno", ToolMode.Goma => "Goma", ToolMode.Picker => "Cuentagotas", ToolMode.Stamp => "Stamp", ToolMode.Seleccionar => "Seleccionar", ToolMode.Colocar => "Colocar", ToolMode.Zona => "Zona", ToolMode.Medir => "Medir", ToolMode.PixelEdit => "Pixel", _ => "" };
-        var tileName = _toolMode == ToolMode.Pintar ? new[] { "Suelo", "Pared", "Objeto", "Especial" }[(int)_selectedTileType] : "";
+        var toolName = _toolMode switch { ToolMode.Pintar => "Pincel", ToolMode.Rectangulo => "Rectángulo relleno", ToolMode.Relleno => "Relleno", ToolMode.Goma => "Goma", ToolMode.Stamp => "Sello", ToolMode.Seleccionar => "Seleccionar", ToolMode.Colocar => "Colocar", ToolMode.Zona => "Zona", ToolMode.Medir => "Medir", ToolMode.PixelEdit => "Pixel", _ => "" };
+        var tileName = _toolMode == ToolMode.Pintar && ActiveLayerUsesTilesetCatalog() && _selectedCatalogTileId is int cid
+            ? $"#{cid}"
+            : "";
         int cx = _tileMap.ChunkSize > 0 ? (mx < 0 ? (mx + 1) / _tileMap.ChunkSize - 1 : mx / _tileMap.ChunkSize) : 0;
         int cy = _tileMap.ChunkSize > 0 ? (my < 0 ? (my + 1) / _tileMap.ChunkSize - 1 : my / _tileMap.ChunkSize) : 0;
         var layerName = GetActiveLayerDisplayName();
@@ -2589,6 +2607,9 @@ public partial class EditorWindow : Window
                     Mouse.OverrideCursor = System.Windows.Input.Cursors.Hand;
                 }
                 return true;
+            case EditorShortcutBindings.SelectAllMap:
+                SelectAllOnActiveLayer();
+                return true;
             default:
                 return false;
         }
@@ -2660,6 +2681,9 @@ public partial class EditorWindow : Window
             e.Handled = HandleConfigurableShortcut(id, sender);
             return;
         }
+
+        if ((mods & ModifierKeys.Control) != 0)
+            return;
 
         if (ScrollViewer != null && (key == System.Windows.Input.Key.W || key == System.Windows.Input.Key.Up || key == System.Windows.Input.Key.A || key == System.Windows.Input.Key.Left || key == System.Windows.Input.Key.S || key == System.Windows.Input.Key.Down || key == System.Windows.Input.Key.D || key == System.Windows.Input.Key.Right))
         {
@@ -3016,6 +3040,11 @@ public partial class EditorWindow : Window
 
     private void CopyZone()
     {
+        if (IsActiveLayerLocked())
+        {
+            EditorLog.Toast("La capa activa está bloqueada: no se puede copiar tiles desde ella.", LogLevel.Info, "Editor");
+            return;
+        }
         var bounds = ZoneClipboardService.TryGetCopyBounds(
             _selection.HasTileSelection,
             _selection.TileMinTx, _selection.TileMinTy, _selection.TileMaxTx, _selection.TileMaxTy,
@@ -3337,6 +3366,7 @@ public partial class EditorWindow : Window
         var state = _openScenes[_currentSceneIndex];
         _tileMap = state.TileMap;
         _objectLayer = state.ObjectLayer;
+        InvalidateTilesetCache();
         _mapRenderer.ResetInfiniteScrollExtent();
         RefreshLayersPanelFromTileMap();
         RemoveOptionalTabs();
@@ -3369,6 +3399,7 @@ public partial class EditorWindow : Window
         var state = _openScenes[_currentSceneIndex];
         _tileMap = state.TileMap;
         _objectLayer = state.ObjectLayer;
+        InvalidateTilesetCache();
         _mapRenderer.ResetInfiniteScrollExtent();
         RefreshLayersPanelFromTileMap();
         RemoveOptionalTabs();
@@ -4216,7 +4247,11 @@ public partial class EditorWindow : Window
         if (kind == "Tiles" && content is TilesTabContent tilesContent)
         {
             tilesContent.SetProject(_project);
-            tilesContent.TileSelected += (_, id) => { _selection.SetInspectorContextTile(id); RefreshInspector(); };
+            tilesContent.TileSelected += (_, id) =>
+            {
+                _selection.SetInspectorContextTile(id, GetActiveLayerTilesetPathKey());
+                RefreshInspector();
+            };
         }
         if (kind == "TileCreator" && content is TileCreatorTabContent tileCreatorContent)
         {
@@ -4435,6 +4470,9 @@ public partial class EditorWindow : Window
     private void MainTabs_OnSelectionChanged(object? sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
         var selected = MainTabs?.SelectedItem as TabItem;
+        var mapTab = (selected?.Tag as string) == "Mapa";
+        SyncLeftBottomExplorerLayout(mapTab);
+        if (mapTab) RefreshToolbarMapHint();
         ApplyGameTabPausePolicy(selected);
         if (MenuVerConsola != null)
             MenuVerConsola.IsChecked = selected == TabConsola;
@@ -4466,6 +4504,24 @@ public partial class EditorWindow : Window
             ToolbarMinimalLabel.Text = tag == "Consola" ? "Consola · Lua, editor y proyecto (filtros + doble clic → script)"
                 : tag == "Juego" ? "Juego · Play embebido (sandbox con escena actual)"
                 : "Explorador · Favoritos, recientes y árbol del proyecto";
+        SyncLayersPanelVisibility();
+    }
+
+    /// <summary>Panel de capas en el Inspector solo con la pestaña Mapa activa.</summary>
+    private void SyncLayersPanelVisibility()
+    {
+        var mapTab = (MainTabs?.SelectedItem as TabItem)?.Tag as string == "Mapa";
+        var vis = mapTab ? Visibility.Visible : Visibility.Collapsed;
+        if (BorderLayersPanelSectionTitle != null) BorderLayersPanelSectionTitle.Visibility = vis;
+        if (LayersPanel != null) LayersPanel.Visibility = vis;
+        if (SplitterLayersInspector != null) SplitterLayersInspector.Visibility = vis;
+        if (RowLayersPanel != null)
+        {
+            RowLayersPanel.Height = mapTab ? new GridLength(200) : new GridLength(0);
+            RowLayersPanel.MinHeight = mapTab ? 100 : 0;
+        }
+        if (RowLayersSplitter != null)
+            RowLayersSplitter.Height = mapTab ? new GridLength(4) : new GridLength(0);
     }
 
     private void ToolbarScriptRun_OnClick(object sender, RoutedEventArgs e)
@@ -4739,20 +4795,6 @@ public partial class EditorWindow : Window
         }
     }
 
-    private void PaletteTile_StartDrag(object sender, MouseButtonEventArgs e)
-    {
-        if (sender is not System.Windows.FrameworkElement fe || fe.Tag is not string tag) return;
-        if (int.TryParse(tag, out int idx) && idx >= 0 && idx <= 3 && CmbTileType != null)
-        {
-            _selectedTileType = (TileType)idx;
-            CmbTileType.SelectedIndex = idx;
-            UpdatePaletteSelection();
-            ActivatePaintToolAfterTilePick();
-        }
-        var data = new System.Windows.DataObject("FUEngine.TileType", tag);
-        System.Windows.DragDrop.DoDragDrop(fe, data, System.Windows.DragDropEffects.Copy);
-    }
-
     private void MapCanvas_OnDragOver(object sender, System.Windows.DragEventArgs e)
     {
         if (e.Data.GetDataPresent("FUEngine.TileType") || e.Data.GetDataPresent(ProjectExplorerPanel.DataFormatAssetPath)
@@ -4827,16 +4869,7 @@ public partial class EditorWindow : Window
         }
 
         if (!e.Data.GetDataPresent("FUEngine.TileType")) return;
-        var tag = e.Data.GetData("FUEngine.TileType") as string;
-        if (string.IsNullOrEmpty(tag) || !int.TryParse(tag, out int tileType)) return;
-        if (IsActiveLayerLocked()) return;
-        var layerIdx = GetActiveLayerIndex();
-        _tileMap.TryGetTile(layerIdx, tx, ty, out var prev);
-        var tileTypeEnum = (TileType)tileType;
-        var newTile = CreateTileData(tileTypeEnum);
-        _history.Push(new PaintTileCommand(_tileMap, layerIdx, tx, ty, prev, newTile));
-        ProjectExplorer.SetModified(GetCurrentSceneMapPath(), true);
-        DrawMap();
+        UpdateStatusBar("Arrastra desde el catálogo de tiles (pestaña «Tiles»); el pintado por tipos de color ya no está disponible.");
         e.Handled = true;
     }
 
@@ -4878,31 +4911,6 @@ public partial class EditorWindow : Window
         }
     }
 
-    private void CmbTileType_OnSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-    {
-        if (CmbTileType?.SelectedIndex is int i and >= 0)
-            _selectedTileType = (TileType)i;
-        UpdatePaletteSelection();
-        UpdateTilePreview();
-        RefreshInspector();
-        if (e.RemovedItems != null && e.RemovedItems.Count > 0 && IsLoaded)
-            ActivatePaintToolAfterTilePick();
-    }
-
-    private void UpdateTilePreview()
-    {
-        if (TilePreview == null) return;
-        var colors = new[]
-        {
-            System.Windows.Media.Color.FromRgb(0x50, 0x50, 0x50),
-            System.Windows.Media.Color.FromRgb(0x78, 0x50, 0x3c),
-            System.Windows.Media.Color.FromRgb(0x5a, 0x5a, 0x78),
-            System.Windows.Media.Color.FromRgb(0x64, 0x3c, 0x64)
-        };
-        var idx = Math.Clamp((int)_selectedTileType, 0, colors.Length - 1);
-        TilePreview.Background = new SolidColorBrush(colors[idx]);
-    }
-
     private void CmbObjectDef_OnSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
         UpdateObjectPreview();
@@ -4915,19 +4923,6 @@ public partial class EditorWindow : Window
             ObjectPreviewText.Text = def.Nombre[0].ToString().ToUpperInvariant();
         else
             ObjectPreviewText.Text = "?";
-    }
-
-    private void UpdatePaletteSelection()
-    {
-        var accent = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x58, 0xa6, 0xff));
-        var unselected = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x30, 0x36, 0x3d));
-        var tiles = new[] { PaletteSuelo, PalettePared, PaletteObjeto, PaletteEspecial };
-        for (int i = 0; i < tiles.Length && i < 4; i++)
-        {
-            if (tiles[i] == null) continue;
-            tiles[i].BorderBrush = _selectedTileType == (TileType)i ? accent : unselected;
-            tiles[i].BorderThickness = _selectedTileType == (TileType)i ? new Thickness(2) : new Thickness(1);
-        }
     }
 
     private int GetActiveLayerIndex()
@@ -4959,13 +4954,6 @@ public partial class EditorWindow : Window
         return string.IsNullOrWhiteSpace(n) ? $"Capa {idx}" : n;
     }
 
-    private void ActivatePaintToolAfterTilePick()
-    {
-        if (ToolPintar != null) ToolPintar.IsChecked = true;
-        CurrentToolMode = ToolMode.Pintar;
-        MapCanvas?.Focus();
-    }
-
     private void SyncProjectLayerNamesFromTileMap()
     {
         if (_tileMap?.Layers == null) return;
@@ -4984,6 +4972,10 @@ public partial class EditorWindow : Window
     private void LayersPanel_OnActiveLayerChanged(object? sender, int index)
     {
         _activeLayerIndex = index;
+        SyncCatalogSelectionToActiveLayer();
+        if (LeftBottomTabs?.Visibility == Visibility.Visible)
+            RefreshMapTilePickerUi();
+        RefreshToolbarMapHint();
         DrawMap();
         Dispatcher.BeginInvoke(new Action(() => MapCanvas?.Focus()), DispatcherPriority.Input);
     }
@@ -5007,6 +4999,9 @@ public partial class EditorWindow : Window
         SyncLayerComboFromTileMap();
         BuildVisibleLayersFromTileMap();
         SyncProjectLayerNamesFromTileMap();
+        if (LeftBottomTabs?.Visibility == Visibility.Visible)
+            RefreshMapTilePickerUi();
+        RefreshToolbarMapHint();
     }
 
     private void BtnZoom_OnClick(object sender, RoutedEventArgs e)
@@ -5144,6 +5139,8 @@ public partial class EditorWindow : Window
     private void ScrollViewer_OnPreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         if (sender is not System.Windows.Controls.ScrollViewer sv) return;
+        if (IsUnderScrollBar(e.OriginalSource as DependencyObject))
+            return;
         if (_spacePanHeld && e.ChangedButton == System.Windows.Input.MouseButton.Left)
         {
             _panDragging = true;
@@ -5173,11 +5170,15 @@ public partial class EditorWindow : Window
 
     private void ScrollViewer_OnPreviewMouseUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
-        if (e.ChangedButton == System.Windows.Input.MouseButton.Middle && sender is System.Windows.Controls.ScrollViewer sv)
+        if (sender is not System.Windows.Controls.ScrollViewer sv) return;
+        if (!_panDragging) return;
+        if (e.ChangedButton == System.Windows.Input.MouseButton.Middle
+            || (e.ChangedButton == System.Windows.Input.MouseButton.Left && _spacePanHeld))
         {
             _panDragging = false;
             _panStartPoint = null;
             sv.ReleaseMouseCapture();
+            e.Handled = true;
         }
     }
 
@@ -5276,18 +5277,76 @@ public partial class EditorWindow : Window
 
     private void UpdateTileSelectionToolbarVisibility()
     {
-        var hasSelection = _selection.HasTileSelection;
-        var vis = hasSelection ? Visibility.Visible : Visibility.Collapsed;
+        var hasZoneRect = _zoneMinTx.HasValue && _zoneMinTy.HasValue && _zoneMaxTx.HasValue && _zoneMaxTy.HasValue;
+        var hasMeaningfulTileSel = _selection.HasTileSelection && TileSelectionContainsOccupiedCells();
+        var hasObjects = _selection.SelectedObjects.Count > 0;
+        var showGroup = hasMeaningfulTileSel || hasObjects || hasZoneRect;
+        var vis = showGroup ? Visibility.Visible : Visibility.Collapsed;
+        var visTile = hasMeaningfulTileSel ? Visibility.Visible : Visibility.Collapsed;
         if (LblSelection != null) LblSelection.Visibility = vis;
-        if (BtnRotate90 != null) BtnRotate90.Visibility = vis;
-        if (BtnRotate180 != null) BtnRotate180.Visibility = vis;
-        if (BtnFlipH != null) BtnFlipH.Visibility = vis;
-        if (BtnFlipV != null) BtnFlipV.Visibility = vis;
-        if (BtnFillSelection != null) BtnFillSelection.Visibility = vis;
+        if (BtnRotate90 != null) BtnRotate90.Visibility = visTile;
+        if (BtnRotate180 != null) BtnRotate180.Visibility = visTile;
+        if (BtnFlipH != null) BtnFlipH.Visibility = visTile;
+        if (BtnFlipV != null) BtnFlipV.Visibility = visTile;
+        if (BtnFillSelection != null) BtnFillSelection.Visibility = visTile;
         if (BtnCopySelection != null) BtnCopySelection.Visibility = vis;
         if (BtnPasteSelection != null) BtnPasteSelection.Visibility = vis;
         if (BtnDuplicateZone != null) BtnDuplicateZone.Visibility = vis;
         UpdateZoneMenuState();
+    }
+
+    private bool TileSelectionContainsOccupiedCells()
+    {
+        if (!_selection.HasTileSelection || _selection.TileSelection is not TileSelectionRect r)
+            return false;
+        int layerIdx = GetActiveLayerIndex();
+        for (int tx = r.MinTx; tx <= r.MaxTx; tx++)
+            for (int ty = r.MinTy; ty <= r.MaxTy; ty++)
+                if (_tileMap.TryGetTile(layerIdx, tx, ty, out var d) && d != null)
+                    return true;
+        return false;
+    }
+
+    private void SelectAllOnActiveLayer()
+    {
+        if (MainTabs?.SelectedItem is not TabItem ti || ti.Tag as string != "Mapa") return;
+        if (IsActiveLayerLocked())
+        {
+            EditorLog.Toast("La capa activa está bloqueada.", LogLevel.Info, "Mapa");
+            return;
+        }
+        int layerIdx = GetActiveLayerIndex();
+        int cs = Math.Max(1, _tileMap.ChunkSize);
+        int? minTx = null, minTy = null, maxTx = null, maxTy = null;
+        foreach (var (cx, cy) in _tileMap.EnumerateChunkCoords(layerIdx))
+        {
+            var ch = _tileMap.GetChunk(layerIdx, cx, cy);
+            if (ch == null) continue;
+            foreach (var (lx, ly, _) in ch.EnumerateTiles())
+            {
+                int wx = cx * cs + lx;
+                int wy = cy * cs + ly;
+                minTx = minTx.HasValue ? Math.Min(minTx.Value, wx) : wx;
+                minTy = minTy.HasValue ? Math.Min(minTy.Value, wy) : wy;
+                maxTx = maxTx.HasValue ? Math.Max(maxTx.Value, wx) : wx;
+                maxTy = maxTy.HasValue ? Math.Max(maxTy.Value, wy) : wy;
+            }
+        }
+        var objsOnLayer = _objectLayer.Instances.Where(o => o.LayerOrder == layerIdx).ToList();
+        if (!minTx.HasValue && objsOnLayer.Count == 0)
+        {
+            EditorLog.Toast("No hay tiles ni objetos en esta capa.", LogLevel.Info, "Mapa");
+            return;
+        }
+        _selection.ClearTileSelection();
+        _selection.ClearObjectSelection();
+        if (minTx.HasValue && minTy.HasValue && maxTx.HasValue && maxTy.HasValue)
+            _selection.SetTileSelectionRect(minTx.Value, minTy.Value, maxTx.Value, maxTy.Value);
+        if (objsOnLayer.Count > 0)
+            _selection.SetObjectSelection(objsOnLayer);
+        DrawMap();
+        RefreshInspector();
+        UpdateTileSelectionToolbarVisibility();
     }
 
     private void BtnTransformSelection_OnClick(object sender, RoutedEventArgs e)
@@ -5317,10 +5376,15 @@ public partial class EditorWindow : Window
     {
         if (!_selection.HasTileSelection) return;
         if (IsActiveLayerLocked()) return;
+        if (!TryGetPaintTile(out var fillTemplate))
+        {
+            UpdateStatusBar("Rellenar selección: elige un tile en la pestaña «Tiles» o capa sin tileset.");
+            return;
+        }
         var layerIdx = GetActiveLayerIndex();
         var r = _selection.TileSelection!.Value;
         int minTx = r.MinTx, minTy = r.MinTy, maxTx = r.MaxTx, maxTy = r.MaxTy;
-        var newTile = CreateTileData(_selectedTileType);
+        var newTile = fillTemplate;
         var batch = new PaintTileBatchCommand(_tileMap, layerIdx);
         for (int tx = minTx; tx <= maxTx; tx++)
             for (int ty = minTy; ty <= maxTy; ty++)
@@ -5417,6 +5481,548 @@ public partial class EditorWindow : Window
         DrawMap();
     }
 
+    private static bool IsUnderScrollBar(DependencyObject? src)
+    {
+        for (var d = src; d != null; d = VisualTreeHelper.GetParent(d))
+        {
+            if (d is System.Windows.Controls.Primitives.ScrollBar) return true;
+        }
+        return false;
+    }
+
+    /// <summary>Capa activa con <see cref="MapLayerDescriptor.TilesetAssetPath"/> definido.</summary>
+    private bool ActiveLayerUsesTilesetCatalog()
+    {
+        var idx = GetActiveLayerIndex();
+        if (_tileMap == null || idx < 0 || idx >= _tileMap.Layers.Count) return false;
+        return !string.IsNullOrWhiteSpace(_tileMap.Layers[idx].TilesetAssetPath);
+    }
+
+    private void InvalidateTilesetCache() => _tilesetCache.Clear();
+
+    private Tileset? LoadTilesetCached(string absoluteTilesetJsonPath)
+    {
+        if (_tilesetCache.TryGetValue(absoluteTilesetJsonPath, out var c)) return c;
+        var ts = File.Exists(absoluteTilesetJsonPath) ? TilesetPersistence.Load(absoluteTilesetJsonPath) : null;
+        _tilesetCache[absoluteTilesetJsonPath] = ts;
+        return ts;
+    }
+
+    private static int GetAtlasCellCount(string projectDir, Tileset ts)
+    {
+        var tex = (ts.TexturePath ?? "").Replace('\\', '/').Trim();
+        if (string.IsNullOrEmpty(tex)) return 0;
+        var full = System.IO.Path.Combine(projectDir, tex.Replace('/', System.IO.Path.DirectorySeparatorChar));
+        if (!File.Exists(full)) return 0;
+        try
+        {
+            using var stream = File.OpenRead(full);
+            var dec = BitmapDecoder.Create(stream, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+            var f = dec.Frames[0];
+            int iw = f.PixelWidth, ih = f.PixelHeight;
+            int tw = Math.Max(1, ts.TileWidth), th = Math.Max(1, ts.TileHeight);
+            int cols = iw / tw, rows = ih / th;
+            return Math.Max(0, cols * rows);
+        }
+        catch { return 0; }
+    }
+
+    private void SyncCatalogSelectionToActiveLayer()
+    {
+        var idx = GetActiveLayerIndex();
+        if (_tileMap == null || idx < 0 || idx >= _tileMap.Layers.Count) return;
+        var p = (_tileMap.Layers[idx].TilesetAssetPath ?? "").Replace('\\', '/').Trim();
+        if (!string.Equals(p, _tilesetPathBoundToCatalogPick, StringComparison.OrdinalIgnoreCase))
+        {
+            _tilesetPathBoundToCatalogPick = string.IsNullOrEmpty(p) ? null : p;
+            _selectedCatalogTileId = null;
+            ClearBrushAtlasSubRect();
+            SelectTilesetComboItemForPath(string.IsNullOrEmpty(p) ? null : p);
+        }
+    }
+
+    /// <inheritdoc cref="IMapEditorToolContext.TryGetPaintTile"/>
+    public bool TryGetPaintTile(out TileData tile)
+    {
+        tile = null!;
+        SyncCatalogSelectionToActiveLayer();
+        var idx = GetActiveLayerIndex();
+        if (_tileMap == null || idx < 0 || idx >= _tileMap.Layers.Count) return false;
+        var layer = _tileMap.Layers[idx];
+        var dir = _project.ProjectDirectory ?? "";
+        var relTileset = (_catalogPickerTilesetRelPath ?? "").Replace('\\', '/').Trim();
+        if (string.IsNullOrEmpty(relTileset))
+            relTileset = (layer.TilesetAssetPath ?? "").Replace('\\', '/').Trim();
+        if (string.IsNullOrWhiteSpace(relTileset))
+            return false;
+        var abs = System.IO.Path.Combine(dir, relTileset.Trim());
+        var ts = LoadTilesetCached(abs);
+        if (ts == null) return false;
+        if (_brushAtlasSubRectW > 0 && _brushAtlasSubRectH > 0)
+        {
+            int anchor = _selectedCatalogTileId ?? 0;
+            int max = GetAtlasCellCount(dir, ts) - 1;
+            if (max < 0) return false;
+            if (anchor < 0) anchor = 0;
+            if (anchor > max) anchor = max;
+            tile = TileCatalogHelper.CreatePlacedTile(ts, anchor, layer, _brushAtlasSubRectX, _brushAtlasSubRectY, _brushAtlasSubRectW, _brushAtlasSubRectH);
+            return true;
+        }
+        if (_selectedCatalogTileId is not int cid || cid < 0) return false;
+        int maxC = GetAtlasCellCount(dir, ts) - 1;
+        if (maxC < 0 || cid > maxC) return false;
+        tile = TileCatalogHelper.CreatePlacedTile(ts, cid, layer);
+        return true;
+    }
+
+    private void RefreshToolbarMapHint()
+    {
+        if (ToolbarMapTileHint == null) return;
+        var idx = GetActiveLayerIndex();
+        if (_tileMap == null || idx < 0 || idx >= _tileMap.Layers.Count)
+        {
+            ToolbarMapTileHint.Text = "Pincel: asigna un tileset a la capa y elige un tile en «Tiles» (abajo).";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_tileMap.Layers[idx].TilesetAssetPath))
+        {
+            ToolbarMapTileHint.Text = "Pincel: la capa activa no tiene tileset. Asígnalo en el Inspector de capa (JSON).";
+            return;
+        }
+        if (_selectedCatalogTileId is int cid)
+            ToolbarMapTileHint.Text = $"Pincel: tile #{cid} · {_tileMap.Layers[idx].TilesetAssetPath}";
+        else
+            ToolbarMapTileHint.Text = "Pincel: elige un tile en la pestaña «Tiles» (panel inferior).";
+    }
+
+    private void ShowCatalogTileCollisionEditor(int tileId)
+    {
+        var dir = _project.ProjectDirectory ?? "";
+        if (string.IsNullOrEmpty(dir)) return;
+        var rel = GetActiveLayerTilesetPathKey();
+        if (string.IsNullOrWhiteSpace(rel)) return;
+        var abs = System.IO.Path.Combine(dir, rel.Trim());
+        if (!File.Exists(abs)) return;
+        var dlg = new TileCollisionMiniDialog(abs, tileId, dir) { Owner = this };
+        dlg.ShowDialog();
+        InvalidateTilesetCache();
+        RefreshMapTilePickerUi();
+        DrawMap();
+    }
+
+    private void SyncLeftBottomExplorerLayout(bool mapTabActive)
+    {
+        if (GridLeftColumnRoot == null || ProjectExplorer == null || LeftBottomTabs == null || BorderLeftExplorerHost == null)
+            return;
+        if (mapTabActive)
+        {
+            if (ProjectExplorer.Parent == GridLeftColumnRoot)
+                GridLeftColumnRoot.Children.Remove(ProjectExplorer);
+            BorderLeftExplorerHost.Child = ProjectExplorer;
+            LeftBottomTabs.Visibility = Visibility.Visible;
+            RefreshMapTilePickerUi();
+        }
+        else
+        {
+            BorderLeftExplorerHost.Child = null;
+            if (!GridLeftColumnRoot.Children.Contains(ProjectExplorer))
+            {
+                Grid.SetRow(ProjectExplorer, 4);
+                GridLeftColumnRoot.Children.Add(ProjectExplorer);
+            }
+            LeftBottomTabs.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void RefreshMapTilePickerUi()
+    {
+        if (CatalogTilePickerItems == null || TxtMapTilePickerEmpty == null) return;
+        if (CmbTilesetCatalog != null && CmbTilesetCatalog.Items.Count == 0)
+            PopulateTilesetCatalogCombo();
+        CatalogTilePickerItems.Items.Clear();
+        _catalogTilePickHighlight = null;
+        SyncCatalogSelectionToActiveLayer();
+        var idx = GetActiveLayerIndex();
+        if (_tileMap == null || idx < 0 || idx >= _tileMap.Layers.Count) return;
+        var dir = _project.ProjectDirectory ?? "";
+        TxtMapTilePickerEmpty.Visibility = Visibility.Collapsed;
+        var relPath = GetTilesetPathForCatalogUi();
+        if (string.IsNullOrWhiteSpace(relPath))
+        {
+            TxtMapTilePickerEmpty.Text = "Elige un tileset en la lista superior o asigna uno a la capa activa en el Inspector de capa.";
+            TxtMapTilePickerEmpty.Visibility = Visibility.Visible;
+            LoadAtlasPreviewForFreePick();
+            return;
+        }
+        var abs = System.IO.Path.Combine(dir, relPath.Trim());
+        var ts = LoadTilesetCached(abs);
+        if (ts == null)
+        {
+            TxtMapTilePickerEmpty.Text = "No se pudo cargar el tileset. Comprueba la ruta del archivo .tileset.json.";
+            TxtMapTilePickerEmpty.Visibility = Visibility.Visible;
+            LoadAtlasPreviewForFreePick();
+            return;
+        }
+        int n = GetAtlasCellCount(dir, ts);
+        if (n <= 0)
+        {
+            TxtMapTilePickerEmpty.Text = "No hay tiles en el atlas (textura ausente o tamaño de celda incorrecto).";
+            TxtMapTilePickerEmpty.Visibility = Visibility.Visible;
+            LoadAtlasPreviewForFreePick();
+            return;
+        }
+        const int thumb = 36;
+        for (int id = 0; id < n; id++)
+        {
+            var texPath = (ts.TexturePath ?? "").Replace('\\', '/').Trim();
+            var fullTex = string.IsNullOrEmpty(texPath) ? null : System.IO.Path.Combine(dir, texPath.Replace('/', System.IO.Path.DirectorySeparatorChar));
+            BitmapSource? bmp = null;
+            if (fullTex != null)
+            {
+                var rgba = TileImageLoader.LoadAtlasTileToRgba(fullTex, Math.Max(1, ts.TileWidth), Math.Max(1, ts.TileHeight), id, thumb, thumb);
+                if (rgba != null && rgba.Length >= thumb * thumb * 4)
+                {
+                    var wb = new WriteableBitmap(thumb, thumb, 96, 96, PixelFormats.Bgra32, null);
+                    var bgra = new byte[rgba.Length];
+                    for (int i = 0; i < rgba.Length; i += 4)
+                    {
+                        bgra[i] = rgba[i + 2];
+                        bgra[i + 1] = rgba[i + 1];
+                        bgra[i + 2] = rgba[i];
+                        bgra[i + 3] = rgba[i + 3];
+                    }
+                    wb.WritePixels(new Int32Rect(0, 0, thumb, thumb), bgra, thumb * 4, 0);
+                    wb.Freeze();
+                    bmp = wb;
+                }
+            }
+            var border = new Border
+            {
+                Width = thumb + 8,
+                Height = thumb + 8,
+                Margin = new Thickness(2),
+                Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x21, 0x26, 0x2d)),
+                BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x30, 0x36, 0x3d)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(3),
+                Tag = id,
+                Cursor = System.Windows.Input.Cursors.Hand,
+                Child = new System.Windows.Controls.Image { Source = bmp, Width = thumb, Height = thumb, Stretch = Stretch.Uniform }
+            };
+            border.MouseLeftButtonDown += (s, e) =>
+            {
+                if (e.ClickCount == 2)
+                {
+                    ShowCatalogTileCollisionEditor(id);
+                    e.Handled = true;
+                    return;
+                }
+                CatalogTileThumb_OnMouseLeftButtonDown(s, e);
+            };
+            CatalogTilePickerItems.Items.Add(border);
+            if (_selectedCatalogTileId == id)
+            {
+                border.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x58, 0xa6, 0xff));
+                border.BorderThickness = new Thickness(2);
+                _catalogTilePickHighlight = border;
+            }
+        }
+        LoadAtlasPreviewForFreePick();
+    }
+
+    private void PopulateTilesetCatalogCombo()
+    {
+        if (CmbTilesetCatalog == null) return;
+        var dir = _project.ProjectDirectory ?? "";
+        if (string.IsNullOrEmpty(dir)) return;
+        var paths = TilesetAssetIndexer.EnumerateRegisteredTilesets(dir);
+        _suppressTilesetCatalogComboEvent = true;
+        try
+        {
+            CmbTilesetCatalog.Items.Clear();
+            foreach (var abs in paths)
+            {
+                var rel = System.IO.Path.GetRelativePath(dir, abs).Replace('\\', '/');
+                CmbTilesetCatalog.Items.Add(rel);
+            }
+            string? pick = _catalogPickerTilesetRelPath;
+            if (string.IsNullOrEmpty(pick))
+            {
+                var idx = GetActiveLayerIndex();
+                if (_tileMap != null && idx >= 0 && idx < _tileMap.Layers.Count)
+                    pick = (_tileMap.Layers[idx].TilesetAssetPath ?? "").Replace('\\', '/').Trim();
+            }
+            if (!string.IsNullOrEmpty(pick))
+            {
+                foreach (var item in CmbTilesetCatalog.Items)
+                {
+                    if (item is string s && string.Equals(s, pick, StringComparison.OrdinalIgnoreCase))
+                    {
+                        CmbTilesetCatalog.SelectedItem = item;
+                        _catalogPickerTilesetRelPath = s;
+                        return;
+                    }
+                }
+            }
+            if (CmbTilesetCatalog.Items.Count > 0)
+            {
+                CmbTilesetCatalog.SelectedIndex = 0;
+                _catalogPickerTilesetRelPath = CmbTilesetCatalog.Items[0] as string;
+            }
+        }
+        finally { _suppressTilesetCatalogComboEvent = false; }
+    }
+
+    private string? GetTilesetPathForCatalogUi()
+    {
+        var p = (_catalogPickerTilesetRelPath ?? "").Replace('\\', '/').Trim();
+        if (!string.IsNullOrEmpty(p)) return p;
+        var idx = GetActiveLayerIndex();
+        if (_tileMap == null || idx < 0 || idx >= _tileMap.Layers.Count) return null;
+        return (_tileMap.Layers[idx].TilesetAssetPath ?? "").Replace('\\', '/').Trim();
+    }
+
+    private void SelectTilesetComboItemForPath(string? relPath)
+    {
+        relPath = (relPath ?? "").Replace('\\', '/').Trim();
+        _catalogPickerTilesetRelPath = string.IsNullOrEmpty(relPath) ? null : relPath;
+        if (CmbTilesetCatalog == null) return;
+        if (CmbTilesetCatalog.Items.Count == 0)
+            PopulateTilesetCatalogCombo();
+        _suppressTilesetCatalogComboEvent = true;
+        try
+        {
+            if (string.IsNullOrEmpty(relPath))
+            {
+                CmbTilesetCatalog.SelectedIndex = -1;
+                return;
+            }
+            foreach (var item in CmbTilesetCatalog.Items)
+            {
+                if (item is string s && string.Equals(s, relPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    CmbTilesetCatalog.SelectedItem = item;
+                    return;
+                }
+            }
+            CmbTilesetCatalog.SelectedIndex = -1;
+        }
+        finally { _suppressTilesetCatalogComboEvent = false; }
+    }
+
+    private void CmbTilesetCatalog_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressTilesetCatalogComboEvent) return;
+        _catalogPickerTilesetRelPath = CmbTilesetCatalog?.SelectedItem as string;
+        ClearBrushAtlasSubRect();
+        _selectedCatalogTileId = null;
+        _tilesetPathBoundToCatalogPick = _catalogPickerTilesetRelPath;
+        RefreshMapTilePickerUi();
+        RefreshToolbarMapHint();
+    }
+
+    private void ChkFreeAtlasBrush_OnChanged(object sender, RoutedEventArgs e)
+    {
+        _freeAtlasBrushMode = ChkFreeAtlasBrush?.IsChecked == true;
+        if (BorderAtlasFreePick != null)
+            BorderAtlasFreePick.Visibility = _freeAtlasBrushMode ? Visibility.Visible : Visibility.Collapsed;
+        if (!_freeAtlasBrushMode)
+            ClearBrushAtlasSubRect();
+        else
+            LoadAtlasPreviewForFreePick();
+    }
+
+    private void ClearBrushAtlasSubRect()
+    {
+        _brushAtlasSubRectX = _brushAtlasSubRectY = _brushAtlasSubRectW = _brushAtlasSubRectH = 0;
+        if (RectAtlasSelectionOverlay != null)
+            RectAtlasSelectionOverlay.Visibility = Visibility.Collapsed;
+    }
+
+    private void LoadAtlasPreviewForFreePick()
+    {
+        if (ImgAtlasFull == null || BorderAtlasFreePick == null) return;
+        if (!_freeAtlasBrushMode)
+        {
+            BorderAtlasFreePick.Visibility = Visibility.Collapsed;
+            return;
+        }
+        var rel = GetTilesetPathForCatalogUi();
+        var dir = _project.ProjectDirectory ?? "";
+        if (string.IsNullOrEmpty(rel) || string.IsNullOrEmpty(dir))
+        {
+            BorderAtlasFreePick.Visibility = Visibility.Collapsed;
+            return;
+        }
+        var abs = System.IO.Path.Combine(dir, rel.Trim());
+        var ts = LoadTilesetCached(abs);
+        if (ts == null) { BorderAtlasFreePick.Visibility = Visibility.Collapsed; return; }
+        var texPath = (ts.TexturePath ?? "").Replace('\\', '/').Trim();
+        var fullTex = string.IsNullOrEmpty(texPath) ? null : System.IO.Path.Combine(dir, texPath.Replace('/', System.IO.Path.DirectorySeparatorChar));
+        if (fullTex == null || !File.Exists(fullTex)) { BorderAtlasFreePick.Visibility = Visibility.Collapsed; return; }
+        try
+        {
+            var bmp = new BitmapImage();
+            bmp.BeginInit();
+            bmp.UriSource = new Uri(fullTex, UriKind.Absolute);
+            bmp.CacheOption = BitmapCacheOption.OnLoad;
+            bmp.EndInit();
+            bmp.Freeze();
+            ImgAtlasFull.Source = bmp;
+            BorderAtlasFreePick.Visibility = Visibility.Visible;
+        }
+        catch { BorderAtlasFreePick.Visibility = Visibility.Collapsed; }
+    }
+
+    private void GridAtlasFreePickHost_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!_freeAtlasBrushMode || ImgAtlasFull?.Source is not BitmapSource bmp) return;
+        var posInImg = e.GetPosition(ImgAtlasFull);
+        if (!TryMapAtlasDisplayPointToTexels(posInImg, bmp, out _, out _)) return;
+        _atlasFreeDragging = true;
+        _atlasFreeAnchorDisplay = posInImg;
+        _atlasFreeCurrentDisplay = posInImg;
+        GridAtlasFreePickHost?.CaptureMouse();
+        UpdateAtlasFreeOverlayRect();
+        e.Handled = true;
+    }
+
+    private void GridAtlasFreePickHost_OnMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (!_atlasFreeDragging || ImgAtlasFull == null) return;
+        _atlasFreeCurrentDisplay = e.GetPosition(ImgAtlasFull);
+        UpdateAtlasFreeOverlayRect();
+        e.Handled = true;
+    }
+
+    private void GridAtlasFreePickHost_OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_atlasFreeDragging) return;
+        FinalizeAtlasFreeBrushDrag();
+        e.Handled = true;
+    }
+
+    private void GridAtlasFreePickHost_OnMouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (!_atlasFreeDragging) return;
+        FinalizeAtlasFreeBrushDrag();
+    }
+
+    private void FinalizeAtlasFreeBrushDrag()
+    {
+        if (!_atlasFreeDragging) return;
+        _atlasFreeDragging = false;
+        GridAtlasFreePickHost?.ReleaseMouseCapture();
+        if (ImgAtlasFull?.Source is not BitmapSource bmp) return;
+        var p0 = _atlasFreeAnchorDisplay;
+        var p1 = _atlasFreeCurrentDisplay;
+        if (!TryMapAtlasDisplayPointToTexels(p0, bmp, out var x0, out var y0)) return;
+        if (!TryMapAtlasDisplayPointToTexels(p1, bmp, out var x1, out var y1)) return;
+        int rx = Math.Min(x0, x1), ry = Math.Min(y0, y1);
+        int rw = Math.Abs(x1 - x0) + 1, rh = Math.Abs(y1 - y0) + 1;
+        rw = Math.Min(rw, bmp.PixelWidth - rx);
+        rh = Math.Min(rh, bmp.PixelHeight - ry);
+        if (rw < 1 || rh < 1) { ClearBrushAtlasSubRect(); return; }
+        _brushAtlasSubRectX = rx;
+        _brushAtlasSubRectY = ry;
+        _brushAtlasSubRectW = rw;
+        _brushAtlasSubRectH = rh;
+        var rel = GetTilesetPathForCatalogUi();
+        var dir = _project.ProjectDirectory ?? "";
+        if (!string.IsNullOrEmpty(rel) && !string.IsNullOrEmpty(dir))
+        {
+            var ts = LoadTilesetCached(System.IO.Path.Combine(dir, rel.Trim()));
+            if (ts != null)
+            {
+                int tw = Math.Max(1, ts.TileWidth), th = Math.Max(1, ts.TileHeight);
+                int col = Math.Clamp(rx / tw, 0, Math.Max(0, bmp.PixelWidth / tw - 1));
+                int row = Math.Clamp(ry / th, 0, Math.Max(0, bmp.PixelHeight / th - 1));
+                int cols = Math.Max(1, bmp.PixelWidth / tw);
+                _selectedCatalogTileId = row * cols + col;
+            }
+        }
+        _tilesetPathBoundToCatalogPick = _catalogPickerTilesetRelPath;
+        RefreshToolbarMapHint();
+    }
+
+    private bool TryMapAtlasDisplayPointToTexels(System.Windows.Point posInImage, BitmapSource bmp, out int tx, out int ty)
+    {
+        tx = ty = 0;
+        if (ImgAtlasFull == null) return false;
+        double w = ImgAtlasFull.ActualWidth, h = ImgAtlasFull.ActualHeight;
+        if (w <= 0 || h <= 0) return false;
+        int pw = bmp.PixelWidth, ph = bmp.PixelHeight;
+        double scale = Math.Min(w / pw, h / ph);
+        double dispW = pw * scale, dispH = ph * scale;
+        double offX = (w - dispW) * 0.5, offY = (h - dispH) * 0.5;
+        double lx = posInImage.X - offX, ly = posInImage.Y - offY;
+        if (lx < 0 || ly < 0 || lx > dispW || ly > dispH) return false;
+        tx = (int)(lx / scale);
+        ty = (int)(ly / scale);
+        tx = Math.Clamp(tx, 0, pw - 1);
+        ty = Math.Clamp(ty, 0, ph - 1);
+        return true;
+    }
+
+    private void UpdateAtlasFreeOverlayRect()
+    {
+        if (RectAtlasSelectionOverlay == null || GridAtlasFreePickHost == null || ImgAtlasFull?.Source is not BitmapSource bmp) return;
+        var p0 = _atlasFreeAnchorDisplay;
+        var p1 = _atlasFreeCurrentDisplay;
+        if (!TryMapAtlasDisplayPointToTexels(p0, bmp, out var tx0, out var ty0)) { RectAtlasSelectionOverlay.Visibility = Visibility.Collapsed; return; }
+        if (!TryMapAtlasDisplayPointToTexels(p1, bmp, out var tx1, out var ty1)) { RectAtlasSelectionOverlay.Visibility = Visibility.Collapsed; return; }
+        int rx = Math.Min(tx0, tx1), ry = Math.Min(ty0, ty1);
+        int rw = Math.Abs(tx1 - tx0) + 1, rh = Math.Abs(ty1 - ty0) + 1;
+        double w = ImgAtlasFull.ActualWidth, h = ImgAtlasFull.ActualHeight;
+        int pw = bmp.PixelWidth, ph = bmp.PixelHeight;
+        double scale = Math.Min(w / pw, h / ph);
+        double dispW = pw * scale, dispH = ph * scale;
+        double offXI = (w - dispW) * 0.5, offYI = (h - dispH) * 0.5;
+        var topLeft = ImgAtlasFull.TranslatePoint(new System.Windows.Point(0, 0), GridAtlasFreePickHost);
+        double gx = topLeft.X + offXI + rx * scale;
+        double gy = topLeft.Y + offYI + ry * scale;
+        RectAtlasSelectionOverlay.Margin = new Thickness(gx, gy, 0, 0);
+        RectAtlasSelectionOverlay.Width = rw * scale;
+        RectAtlasSelectionOverlay.Height = rh * scale;
+        RectAtlasSelectionOverlay.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
+        RectAtlasSelectionOverlay.VerticalAlignment = System.Windows.VerticalAlignment.Top;
+        RectAtlasSelectionOverlay.Visibility = Visibility.Visible;
+    }
+
+    private void CatalogTileThumb_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not Border b || b.Tag is not int id) return;
+        ClearBrushAtlasSubRect();
+        _selectedCatalogTileId = id;
+        _tilesetPathBoundToCatalogPick = _catalogPickerTilesetRelPath ?? GetActiveLayerTilesetPathKey();
+        if (CatalogTilePickerItems != null)
+        {
+            foreach (var item in CatalogTilePickerItems.Items)
+            {
+                if (item is Border ob)
+                {
+                    ob.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x30, 0x36, 0x3d));
+                    ob.BorderThickness = new Thickness(1);
+                }
+            }
+        }
+        b.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x58, 0xa6, 0xff));
+        b.BorderThickness = new Thickness(2);
+        _catalogTilePickHighlight = b;
+        _selection.SetInspectorContextTile(id, GetActiveLayerTilesetPathKey());
+        RefreshToolbarMapHint();
+        RefreshInspector();
+        e.Handled = true;
+    }
+
+    private string? GetActiveLayerTilesetPathKey()
+    {
+        var idx = GetActiveLayerIndex();
+        if (_tileMap == null || idx < 0 || idx >= _tileMap.Layers.Count) return null;
+        var p = (_tileMap.Layers[idx].TilesetAssetPath ?? "").Replace('\\', '/').Trim();
+        return string.IsNullOrEmpty(p) ? null : p;
+    }
+
     private sealed class EditorToolContext : IMapEditorToolContext
     {
         private readonly EditorWindow _w;
@@ -5441,6 +6047,7 @@ public partial class EditorWindow : Window
         public int BrushSize => _w._brushSize;
         public int BrushRotation => _w._brushRotation;
         public TileData CreateTileData(TileType tipo) => EditorWindow.CreateTileData(tipo);
+        public bool TryGetPaintTile(out TileData tile) => _w.TryGetPaintTile(out tile);
         public void SetMapModified() => _w.ProjectExplorer?.SetModified(_w.GetCurrentSceneMapPath(), true);
         public void SetObjectsModified() => _w.ProjectExplorer?.SetModified(_w.GetCurrentSceneObjectsPath(), true);
         public int ActiveLayerIndex => _w.GetActiveLayerIndex();

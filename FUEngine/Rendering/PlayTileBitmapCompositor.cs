@@ -21,7 +21,11 @@ public static class PlayTileBitmapCompositor
         if (!string.IsNullOrWhiteSpace(data.SourceImagePath) && !string.IsNullOrWhiteSpace(projectDir))
         {
             var fullPath = Path.Combine(projectDir, data.SourceImagePath);
-            if (data.CatalogTileId > 0 && data.CatalogGridTileWidth > 0 && data.CatalogGridTileHeight > 0 && File.Exists(fullPath))
+            if (data.AtlasSubRectW > 0 && data.AtlasSubRectH > 0 && File.Exists(fullPath))
+            {
+                baseRgba = TileImageLoader.LoadAtlasSubRectToRgba(fullPath, data.AtlasSubRectX, data.AtlasSubRectY, data.AtlasSubRectW, data.AtlasSubRectH, w, h);
+            }
+            else if (data.CatalogTileId > 0 && data.CatalogGridTileWidth > 0 && data.CatalogGridTileHeight > 0 && File.Exists(fullPath))
             {
                 baseRgba = TileImageLoader.LoadAtlasTileToRgba(fullPath, data.CatalogGridTileWidth, data.CatalogGridTileHeight, data.CatalogTileId, w, h);
             }

@@ -78,6 +78,12 @@ public partial class DefaultInspectorPanel : System.Windows.Controls.UserControl
             TxtPreviewType.Text = selectedObjectDef.Nombre;
             TxtPreviewProps.Text = $"Colisión: {(selectedObjectDef.Colision ? "Sí" : "No")}  ·  {selectedObjectDef.Width}×{selectedObjectDef.Height}";
         }
+        else if (!string.IsNullOrEmpty(toolDetail) && (toolDetail.Contains("Catálogo", StringComparison.Ordinal) || toolDetail.Contains("tileset", StringComparison.OrdinalIgnoreCase)))
+        {
+            PreviewBox.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x30, 0x36, 0x3d));
+            TxtPreviewType.Text = "Pincel (atlas)";
+            TxtPreviewProps.Text = toolDetail;
+        }
         else
         {
             var brush = selectedTileType switch

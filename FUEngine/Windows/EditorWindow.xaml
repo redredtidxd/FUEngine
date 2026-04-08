@@ -12,11 +12,13 @@
     <Window.Resources>
         <!-- Barra mapa: botón de herramienta activo resaltado -->
         <Style TargetType="RadioButton" x:Key="MapToolRadioStyle">
+            <Setter Property="Foreground" Value="#e6edf3"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
-                        <Border x:Name="bg" Background="Transparent" BorderBrush="#30363d" BorderThickness="1" Padding="6,3" MinHeight="22">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Border x:Name="bg" Background="Transparent" BorderBrush="#30363d" BorderThickness="1" Padding="5,3" MinWidth="28" MinHeight="26">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -25,6 +27,7 @@
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="bg" Property="Background" Value="#388bfd"/>
                                 <Setter TargetName="bg" Property="BorderBrush" Value="#58a6ff"/>
+                                <Setter Property="Foreground" Value="White"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -157,12 +160,10 @@
             </MenuItem>
             <MenuItem Header="Herramientas" Foreground="#e6edf3">
                 <MenuItem Header="Pincel" Click="MenuHerramienta_OnClick" Tag="Pintar"/>
-                <MenuItem Header="Rectángulo" Click="MenuHerramienta_OnClick" Tag="Rectangulo"/>
-                <MenuItem Header="Línea" Click="MenuHerramienta_OnClick" Tag="Linea"/>
+                <MenuItem Header="Rectángulo relleno" Click="MenuHerramienta_OnClick" Tag="Rectangulo"/>
                 <MenuItem Header="Relleno (Shift+clic)" Click="MenuHerramienta_OnClick" Tag="Relleno"/>
                 <MenuItem Header="Goma" Click="MenuHerramienta_OnClick" Tag="Goma"/>
-                <MenuItem Header="Cuentagotas" Click="MenuHerramienta_OnClick" Tag="Picker"/>
-                <MenuItem Header="Stamp (pegar zona)" Click="MenuHerramienta_OnClick" Tag="Stamp"/>
+                <MenuItem Header="Sello (pegar zona)" Click="MenuHerramienta_OnClick" Tag="Stamp"/>
                 <MenuItem Header="Seleccionar" Click="MenuHerramienta_OnClick" Tag="Seleccionar"/>
                 <MenuItem Header="Colocar objeto" Click="MenuHerramienta_OnClick" Tag="Colocar"/>
                 <MenuItem Header="Zona (copiar/pegar)" Click="MenuHerramienta_OnClick" Tag="Zona"/>
@@ -186,32 +187,66 @@
             <Border x:Name="ToolbarMapa" Background="#161b22" Padding="6,4" BorderBrush="#30363d" BorderThickness="0,0,0,1" Visibility="Visible">
             <ToolBarTray Background="Transparent">
                 <ToolBar Background="Transparent" Foreground="#e6edf3" OverflowMode="AsNeeded" ToolBarTray.IsLocked="True">
+                    <ToolBar.Resources>
+                        <Style TargetType="Button">
+                            <Setter Property="Foreground" Value="#e6edf3"/>
+                            <Setter Property="Background" Value="#21262d"/>
+                            <Setter Property="BorderBrush" Value="#30363d"/>
+                        </Style>
+                    </ToolBar.Resources>
                     <Button x:Name="BtnStopPlay" Content="■ Detener" Width="80" Height="26" Margin="4,0,0,0" Padding="6,0" Background="#da3633" Foreground="White" BorderThickness="0"
                             ToolTip="Detener el juego" Click="BtnStopPlay_OnClick" Visibility="Collapsed"/>
                     <Button x:Name="BtnPausePlay" Content="⏸ Pausar" Width="70" Height="26" Margin="2,0,0,0" Padding="6,0" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
                             ToolTip="Pausar el juego" Click="BtnPausePlay_OnClick" Visibility="Collapsed"/>
                     <Separator/>
-                    <!-- Dibujo -->
-                    <TextBlock Text="Dibujo" VerticalAlignment="Center" Foreground="#6e7681" FontSize="10" Margin="0,0,6,0"/>
-                    <RadioButton x:Name="ToolPintar" Style="{StaticResource MapToolRadioStyle}" Content="Pincel" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" FontSize="10" Margin="0,0,2,0" MinHeight="22" Padding="6,2" ToolTip="Pincel — pintar tiles (arrastrar). Mayús+clic = relleno por inundación en la capa activa."/>
-                    <RadioButton x:Name="ToolRectangulo" Style="{StaticResource MapToolRadioStyle}" Content="Rectángulo" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" FontSize="10" Margin="0,0,2,0" MinHeight="22" Padding="6,2" ToolTip="Rectángulo — clic y arrastra para rellenar un bloque con el tile elegido."/>
-                    <RadioButton x:Name="ToolLinea" Style="{StaticResource MapToolRadioStyle}" Content="Línea" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" FontSize="10" Margin="0,0,2,0" MinHeight="22" Padding="6,2" ToolTip="Línea — primer clic origen, segundo clic destino."/>
-                    <RadioButton x:Name="ToolRelleno" Style="{StaticResource MapToolRadioStyle}" Content="Cubeta" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" FontSize="10" Margin="0,0,2,0" MinHeight="22" Padding="6,2" ToolTip="Cubeta — relleno por inundación (también Mayús+clic con el pincel)."/>
-                    <RadioButton x:Name="ToolGoma" Style="{StaticResource MapToolRadioStyle}" Content="Goma" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" FontSize="10" Margin="0,0,2,0" MinHeight="22" Padding="6,2" ToolTip="Goma — borrar tiles en la capa activa."/>
-                    <RadioButton x:Name="ToolPicker" Style="{StaticResource MapToolRadioStyle}" Content="Cuentagotas" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" FontSize="10" Margin="0,0,2,0" MinHeight="22" Padding="6,2" ToolTip="Cuentagotas — copiar el tipo de tile de una celda."/>
-                    <RadioButton x:Name="ToolStamp" Style="{StaticResource MapToolRadioStyle}" Content="Pegar zona" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" FontSize="10" Margin="0,0,8,0" MinHeight="22" Padding="6,2" ToolTip="Pegar zona copiada (tras copiar con herramienta Zona)."/>
+                    <!-- Dibujo (solo iconos; nombre en ToolTip) -->
+                    <RadioButton x:Name="ToolPintar" Style="{StaticResource MapToolRadioStyle}" GroupName="Tool" Checked="Tool_OnChecked" Margin="0,0,1,0"
+                                 ToolTip="Pincel — pintar tiles (arrastrar). Mayús+clic: relleno por inundación en la capa activa.">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Text="&#xEC88;" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </RadioButton>
+                    <RadioButton x:Name="ToolRectangulo" Style="{StaticResource MapToolRadioStyle}" GroupName="Tool" Checked="Tool_OnChecked" Margin="0,0,1,0"
+                                 ToolTip="Rectángulo relleno — arrastra para rellenar un bloque con el tile elegido (plataformas, habitaciones).">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Text="&#xE739;" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </RadioButton>
+                    <RadioButton x:Name="ToolRelleno" Style="{StaticResource MapToolRadioStyle}" GroupName="Tool" Checked="Tool_OnChecked" Margin="0,0,1,0"
+                                 ToolTip="Cubeta — relleno por inundación (también Mayús+clic con el pincel).">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Text="&#xE73F;" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </RadioButton>
+                    <RadioButton x:Name="ToolGoma" Style="{StaticResource MapToolRadioStyle}" GroupName="Tool" Checked="Tool_OnChecked" Margin="0,0,1,0"
+                                 ToolTip="Goma — borrar tiles en la capa activa.">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Text="&#xE75C;" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </RadioButton>
+                    <RadioButton x:Name="ToolStamp" Style="{StaticResource MapToolRadioStyle}" GroupName="Tool" Checked="Tool_OnChecked" Margin="0,0,6,0"
+                                 ToolTip="Sello — pegar la zona copiada (tras copiar con la herramienta Zona o menú Zona).">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Text="&#xE8C8;" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </RadioButton>
                     <Separator/>
                     <!-- Selección y colocación -->
-                    <TextBlock Text="Selección" VerticalAlignment="Center" Foreground="#6e7681" FontSize="10" Margin="0,0,6,0"/>
-                    <RadioButton x:Name="ToolSeleccionar" Style="{StaticResource MapToolRadioStyle}" Content="Seleccionar" GroupName="Tool" IsChecked="True" Checked="Tool_OnChecked" Foreground="#e6edf3" FontSize="10" Margin="0,0,2,0" MinHeight="22" Padding="6,2" ToolTip="Seleccionar — objetos o rectángulo de tiles; Supr borra."/>
-                    <RadioButton x:Name="ToolColocar" Style="{StaticResource MapToolRadioStyle}" Content="Colocar objeto" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" FontSize="10" Margin="0,0,2,0" MinHeight="22" Padding="6,2" ToolTip="Colocar objeto — usa la definición activa (ver Inspector / resumen del mapa)."/>
-                    <RadioButton x:Name="ToolZona" Style="{StaticResource MapToolRadioStyle}" Content="Zona" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" FontSize="10" Margin="0,0,2,0" MinHeight="22" Padding="6,2" ToolTip="Zona — triggers, copiar y pegar región."/>
-                    <RadioButton x:Name="ToolMedir" Style="{StaticResource MapToolRadioStyle}" Content="Medir" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" FontSize="10" Margin="0,0,2,0" MinHeight="22" Padding="6,2" ToolTip="Medir — dos clics para distancia en casillas."/>
-                    <RadioButton x:Name="ToolPixelEdit" Style="{StaticResource MapToolRadioStyle}" Content="Píxeles" GroupName="Tool" Checked="Tool_OnChecked" Foreground="#e6edf3" FontSize="10" Margin="0,0,8,0" MinHeight="22" Padding="6,2" ToolTip="Editar píxel a píxel el arte del tile en la celda."/>
+                    <RadioButton x:Name="ToolSeleccionar" Style="{StaticResource MapToolRadioStyle}" GroupName="Tool" IsChecked="True" Checked="Tool_OnChecked" Margin="0,0,1,0"
+                                 ToolTip="Selección (marco) — objetos o rectángulo de tiles en el mapa; Supr borra la selección.">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Text="&#xE762;" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </RadioButton>
+                    <RadioButton x:Name="ToolColocar" Style="{StaticResource MapToolRadioStyle}" GroupName="Tool" Checked="Tool_OnChecked" Margin="0,0,1,0"
+                                 ToolTip="Colocar objeto — usa la definición activa (Inspector / resumen del mapa).">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Text="&#xE81D;" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </RadioButton>
+                    <RadioButton x:Name="ToolZona" Style="{StaticResource MapToolRadioStyle}" GroupName="Tool" Checked="Tool_OnChecked" Margin="0,0,1,0"
+                                 ToolTip="Zona — triggers, copiar y pegar región de tiles.">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Text="&#xE81E;" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </RadioButton>
+                    <RadioButton x:Name="ToolMedir" Style="{StaticResource MapToolRadioStyle}" GroupName="Tool" Checked="Tool_OnChecked" Margin="0,0,1,0"
+                                 ToolTip="Medir — dos clics para distancia en casillas.">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Text="&#xECC6;" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </RadioButton>
+                    <RadioButton x:Name="ToolPixelEdit" Style="{StaticResource MapToolRadioStyle}" GroupName="Tool" Checked="Tool_OnChecked" Margin="0,0,6,0"
+                                 ToolTip="Píxeles — editar el arte del tile en la celda (editor por celda).">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Text="&#xEA80;" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </RadioButton>
                     <Separator/>
-                    <!-- Visualización / máscaras + tamaño del pincel -->
-                    <TextBlock Text="Vista" VerticalAlignment="Center" Foreground="#6e7681" FontSize="10" Margin="0,0,4,0"/>
-                    <Button x:Name="BtnVisual" Content="▦" Width="28" Height="22" Padding="0" ToolTip="Vista, máscaras y tamaño del pincel" Click="BtnVisual_OnClick" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"/>
+                    <!-- Vista / máscaras / brocha -->
+                    <Button x:Name="BtnVisual" Width="28" Height="26" Padding="0" ToolTip="Vista, máscaras y tamaño del pincel" Click="BtnVisual_OnClick" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="15" Text="&#xE890;" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#e6edf3"/>
+                    </Button>
                     <Popup x:Name="PopupVisual" PlacementTarget="{Binding ElementName=BtnVisual}" Placement="Bottom" StaysOpen="False">
                         <Border Background="#161b22" BorderBrush="#30363d" BorderThickness="1" Padding="10,8">
                             <StackPanel MinWidth="200">
@@ -253,27 +288,16 @@
                         </Border>
                     </Popup>
                     <Separator/>
-                    <!-- Tile a pintar (la capa activa es la del panel Capas) -->
-                    <TextBlock Text="Tile" VerticalAlignment="Center" Foreground="#6e7681" FontSize="10" Margin="0,0,6,0"/>
-                    <Border x:Name="TilePreview" Width="24" Height="24" Margin="2,0" Background="#505050" BorderBrush="#30363d" BorderThickness="1" ToolTip="Vista previa del tipo de tile"/>
-                    <ComboBox x:Name="CmbTileType" Width="88" SelectedIndex="0" SelectionChanged="CmbTileType_OnSelectionChanged"
-                              Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" ToolTip="Tipo de tile a colocar con el pincel (elige capa en el panel Capas)">
-                        <ComboBoxItem Content="Suelo" Foreground="#e6edf3"/>
-                        <ComboBoxItem Content="Pared" Foreground="#e6edf3"/>
-                        <ComboBoxItem Content="Objeto" Foreground="#e6edf3"/>
-                        <ComboBoxItem Content="Especial" Foreground="#e6edf3"/>
-                    </ComboBox>
-                    <StackPanel x:Name="PaletteTiles" Orientation="Horizontal" Margin="4,0,0,0">
-                        <Border x:Name="PaletteSuelo" Background="#505050" Width="20" Height="20" Margin="1" Cursor="Hand" MouseLeftButtonDown="PaletteTile_StartDrag" Tag="0" ToolTip="Suelo"/>
-                        <Border x:Name="PalettePared" Background="#78503c" Width="20" Height="20" Margin="1" Cursor="Hand" MouseLeftButtonDown="PaletteTile_StartDrag" Tag="1" ToolTip="Pared"/>
-                        <Border x:Name="PaletteObjeto" Background="#5a5a78" Width="20" Height="20" Margin="1" Cursor="Hand" MouseLeftButtonDown="PaletteTile_StartDrag" Tag="2" ToolTip="Objeto"/>
-                        <Border x:Name="PaletteEspecial" Background="#643c64" Width="20" Height="20" Margin="1" Cursor="Hand" MouseLeftButtonDown="PaletteTile_StartDrag" Tag="3" ToolTip="Especial"/>
-                    </StackPanel>
+                    <TextBlock x:Name="ToolbarMapTileHint" Text="Pincel: elige el tile en la pestaña «Tiles» (panel inferior)." VerticalAlignment="Center" Foreground="#8b949e" FontSize="10" Margin="0,0,8,0" MaxWidth="280" TextWrapping="Wrap"/>
                     <Separator/>
                     <!-- Zoom -->
-                    <Button x:Name="BtnZoomOut" Content="−" Width="26" Height="22" Padding="0" Click="BtnZoom_OnClick" Tag="-" ToolTip="Alejar (también Ctrl+rueda del ratón)"/>
+                    <Button x:Name="BtnZoomOut" Width="26" Height="22" Padding="0" Click="BtnZoom_OnClick" Tag="-" ToolTip="Alejar (también Ctrl+rueda del ratón)" Background="#21262d" BorderBrush="#30363d">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="12" Text="&#xE949;" Foreground="#e6edf3" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Button>
                     <TextBlock x:Name="TxtZoom" Text="100%" VerticalAlignment="Center" Margin="6,0" MinWidth="36" Foreground="#8b949e" FontSize="10"/>
-                    <Button x:Name="BtnZoomIn" Content="+" Width="26" Height="22" Padding="0" Click="BtnZoom_OnClick" Tag="+" ToolTip="Acercar (también Ctrl+rueda del ratón)"/>
+                    <Button x:Name="BtnZoomIn" Width="26" Height="22" Padding="0" Click="BtnZoom_OnClick" Tag="+" ToolTip="Acercar (también Ctrl+rueda del ratón)" Background="#21262d" BorderBrush="#30363d">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="12" Text="&#xE948;" Foreground="#e6edf3" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Button>
                     <Button x:Name="BtnGoToOrigin" Content="Centro mapa" MinWidth="88" Height="26" Margin="8,0,0,0" Padding="8,2" FontSize="11" FontWeight="SemiBold" ToolTip="Centro geométrico del mapa finito (marco azul) y scroll. Mapas infinitos: cámara en (0,0) mundo." Click="BtnGoToOrigin_OnClick" Background="#21262d" Foreground="#58a6ff" BorderBrush="#388bfd"/>
                     <Button x:Name="BtnVisorMundoZero" Content="Mundo 0,0" MinWidth="88" Height="26" Margin="4,0,0,0" Padding="8,2" FontSize="11" FontWeight="SemiBold" ToolTip="Alinea el visor para que la esquina superior izquierda del área de juego (marco) coincida con la casilla mundo (0,0)." Click="BtnVisorMundoZero_OnClick" Background="#21262d" Foreground="#58a6ff" BorderBrush="#388bfd"/>
                     <Separator/>
@@ -289,8 +313,12 @@
                     <Button x:Name="BtnDuplicateZone" Content="Dup" Width="32" Height="22" Margin="1,0" ToolTip="Duplicar zona" Click="BtnDuplicateZone_OnClick" Visibility="Collapsed"/>
                     <Separator/>
                     <!-- Undo/Redo -->
-                    <Button x:Name="BtnUndo" Content="↶" Width="26" Height="22" Padding="0" ToolTip="Deshacer (Ctrl+Z)" Click="MenuDeshacer_OnClick"/>
-                    <Button x:Name="BtnRedo" Content="↷" Width="26" Height="22" Padding="0" ToolTip="Rehacer (Ctrl+Y o Ctrl+Mayús+Z)" Click="MenuRehacer_OnClick"/>
+                    <Button x:Name="BtnUndo" Width="26" Height="22" Padding="0" ToolTip="Deshacer (Ctrl+Z)" Click="MenuDeshacer_OnClick">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="14" Text="&#xE10E;" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#e6edf3"/>
+                    </Button>
+                    <Button x:Name="BtnRedo" Width="26" Height="22" Padding="0" ToolTip="Rehacer (Ctrl+Y o Ctrl+Mayús+Z)" Click="MenuRehacer_OnClick">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="14" Text="&#xE10D;" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#e6edf3"/>
+                    </Button>
                 </ToolBar>
             </ToolBarTray>
             </Border>
@@ -327,7 +355,7 @@
             </Grid.ColumnDefinitions>
             <!-- Panel izquierdo: Tabs de Scene arriba, luego Jerarquía, Explorador abajo -->
             <Border x:Name="PanelJerarquia" Grid.Column="0" Background="#161b22" BorderBrush="#30363d" BorderThickness="0,0,1,0" Padding="0">
-                <Grid>
+                <Grid x:Name="GridLeftColumnRoot">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition x:Name="RowPlayHierarchy" Height="Auto" MaxHeight="140"/>
@@ -376,6 +404,77 @@
                     <local:MapHierarchyPanel x:Name="MapHierarchy" Grid.Row="2"/>
                     <GridSplitter x:Name="SplitterJerarquiaExplorer" Grid.Row="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="#30363d" ResizeDirection="Rows" ShowsPreview="False"/>
                     <local:ProjectExplorerPanel x:Name="ProjectExplorer" Grid.Row="4"/>
+                    <TabControl x:Name="LeftBottomTabs" Grid.Row="4" Visibility="Collapsed" Background="#161b22" BorderThickness="0" Padding="0">
+                        <TabControl.Resources>
+                            <Style TargetType="TabItem">
+                                <Setter Property="Foreground" Value="#e6edf3"/>
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Padding" Value="10,6"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="TabItem">
+                                            <Border x:Name="Bd" Background="#21262d" BorderBrush="#30363d" BorderThickness="1" CornerRadius="4,4,0,0" Padding="{TemplateBinding Padding}" Margin="0,0,4,0">
+                                                <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                  TextElement.Foreground="#e6edf3"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="#30363d"/>
+                                                    <Setter TargetName="Bd" Property="BorderBrush" Value="#58a6ff"/>
+                                                    <Setter Property="TextElement.Foreground" Value="#f0f6fc"/>
+                                                </Trigger>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="#2d333b"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </TabControl.Resources>
+                        <TabItem Header="Explorador">
+                            <Border x:Name="BorderLeftExplorerHost" Background="#161b22"/>
+                        </TabItem>
+                        <TabItem Header="Tiles">
+                            <Grid Background="#161b22">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <StackPanel Grid.Row="0" Margin="6,6,6,4">
+                                    <TextBlock Text="Tileset (catálogo)" Foreground="#8b949e" FontSize="10" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="CmbTilesetCatalog" MinHeight="26"
+                                              Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                              SelectionChanged="CmbTilesetCatalog_OnSelectionChanged"/>
+                                </StackPanel>
+                                <CheckBox x:Name="ChkFreeAtlasBrush" Grid.Row="1" Margin="8,0,8,0" Content="Recorte libre (atlas por píxeles)" Foreground="#e6edf3" FontSize="11"
+                                          ToolTip="Si está activo, arrastra en la vista del atlas para elegir un rectángulo fuente (subrect). También puedes usar Alt+arrastre en la rejilla."
+                                          Checked="ChkFreeAtlasBrush_OnChanged" Unchecked="ChkFreeAtlasBrush_OnChanged"/>
+                                <Border x:Name="BorderAtlasFreePick" Grid.Row="2" Margin="6,4,6,4" Height="140" Background="#0d1117" BorderBrush="#30363d" BorderThickness="1" CornerRadius="4" Visibility="Collapsed"
+                                        ToolTip="Arrastra para definir el recorte en píxeles de la textura.">
+                                    <Grid x:Name="GridAtlasFreePickHost" ClipToBounds="True"
+                                          MouseLeftButtonDown="GridAtlasFreePickHost_OnMouseLeftButtonDown" MouseMove="GridAtlasFreePickHost_OnMouseMove" MouseLeftButtonUp="GridAtlasFreePickHost_OnMouseLeftButtonUp" MouseLeave="GridAtlasFreePickHost_OnMouseLeave">
+                                        <Image x:Name="ImgAtlasFull" Stretch="Uniform" RenderOptions.BitmapScalingMode="NearestNeighbor" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                        <Rectangle x:Name="RectAtlasSelectionOverlay" Stroke="#58a6ff" StrokeThickness="1" Fill="#203880ff" Visibility="Collapsed" IsHitTestVisible="False"/>
+                                    </Grid>
+                                </Border>
+                                <Grid Grid.Row="3" MinHeight="80">
+                                    <ScrollViewer x:Name="ScrollMapTilePicker" Margin="0,2,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Background="#161b22">
+                                        <ItemsControl x:Name="CatalogTilePickerItems">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel Orientation="Horizontal" Margin="4"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                    <TextBlock x:Name="TxtMapTilePickerEmpty" Margin="8" TextWrapping="Wrap" Foreground="#8b949e" FontSize="11" VerticalAlignment="Top" Visibility="Collapsed" IsHitTestVisible="False"/>
+                                </Grid>
+                            </Grid>
+                        </TabItem>
+                    </TabControl>
                 </Grid>
             </Border>
             <GridSplitter x:Name="SplitterJerarquia" Grid.Column="1" Width="4" HorizontalAlignment="Stretch" Background="#30363d"/>
@@ -462,11 +561,11 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition x:Name="RowLayersPanel" Height="200" MinHeight="100"/>
-                        <RowDefinition Height="4"/>
+                        <RowDefinition x:Name="RowLayersSplitter" Height="4"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <Border Grid.Row="0" Background="#21262d" Padding="10,8" BorderBrush="#30363d" BorderThickness="0,0,0,1">
-                        <TextBlock Text="Capas · Inspector" FontWeight="SemiBold" FontSize="13" Foreground="#e6edf3"/>
+                    <Border x:Name="BorderLayersPanelSectionTitle" Grid.Row="0" Background="#21262d" Padding="10,8" BorderBrush="#30363d" BorderThickness="0,0,0,1">
+                        <TextBlock Text="Capas" FontWeight="SemiBold" FontSize="13" Foreground="#e6edf3"/>
                     </Border>
                     <local:LayersPanel x:Name="LayersPanel" Grid.Row="1"/>
                     <GridSplitter x:Name="SplitterLayersInspector" Grid.Row="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="#30363d" ResizeDirection="Rows" ShowsPreview="False"/>
@@ -495,7 +594,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock x:Name="TxtStatusBar" Text="X: 0  Y: 0  Chunk: (0,0)  |  Seleccionar" Foreground="#8b949e" FontSize="11" VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="1" Text="Atajos: 1-5 herramientas · Ctrl+Z/Y · Del · Rueda=zoom · Clic central=pan · WASD=desplazar" Foreground="#6e7681" FontSize="10" VerticalAlignment="Center" Margin="16,0,0,0"/>
+                    <TextBlock Grid.Column="1" Text="Atajos: 1-6 herramientas · Ctrl+Z/Y · Del · Rueda=zoom · Clic medio en mapa=muestrear tile · Clic central=pan marco · WASD=desplazar" Foreground="#6e7681" FontSize="10" VerticalAlignment="Center" Margin="16,0,0,0"/>
                 </Grid>
                 <Border Grid.Row="1" x:Name="LogBar" Background="#0d1117" Padding="6,3" Margin="0,4,0,0" BorderBrush="#30363d" BorderThickness="0,1,0,0" Visibility="Collapsed"
                         MouseLeftButtonDown="LogBar_MouseLeftButtonDown" Cursor="Hand">

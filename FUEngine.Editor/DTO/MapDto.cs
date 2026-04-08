@@ -65,6 +65,10 @@ public class TileDto
     public string? TilesetPath { get; set; }
     public int CatalogGridTileWidth { get; set; }
     public int CatalogGridTileHeight { get; set; }
+    public int AtlasSubRectX { get; set; }
+    public int AtlasSubRectY { get; set; }
+    public int AtlasSubRectW { get; set; }
+    public int AtlasSubRectH { get; set; }
     public string? OverlayBase64 { get; set; }
     public int OverlayWidth { get; set; }
     public int OverlayHeight { get; set; }

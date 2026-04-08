@@ -158,7 +158,7 @@ public class PaintTileBatchCommand : IEditorCommand
 {
     private readonly TileMap _map;
     private readonly int _layerIndex;
-    private readonly List<(int x, int y, TileData? previous, TileData @new)> _changes = new();
+    private readonly List<(int x, int y, TileData? previous, TileData? @new)> _changes = new();
 
     public PaintTileBatchCommand(TileMap map, int layerIndex)
     {
@@ -166,9 +166,9 @@ public class PaintTileBatchCommand : IEditorCommand
         _layerIndex = layerIndex;
     }
 
-    public void Add(int x, int y, TileData? previous, TileData newTile)
+    public void Add(int x, int y, TileData? previous, TileData? newTile)
     {
-        _changes.Add((x, y, previous?.Clone(), newTile.Clone()));
+        _changes.Add((x, y, previous?.Clone(), newTile?.Clone()));
     }
 
     public int Count => _changes.Count;
@@ -176,7 +176,12 @@ public class PaintTileBatchCommand : IEditorCommand
     public void Execute()
     {
         foreach (var (x, y, _, @new) in _changes)
-            _map.SetTile(_layerIndex, x, y, @new!.Clone());
+        {
+            if (@new == null)
+                _map.RemoveTile(_layerIndex, x, y);
+            else
+                _map.SetTile(_layerIndex, x, y, @new.Clone());
+        }
     }
 
     public void Undo()

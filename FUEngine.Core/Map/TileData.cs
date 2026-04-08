@@ -35,6 +35,12 @@ public class TileData
     /// <summary>Alto en píxeles de una celda en el atlas.</summary>
     public int CatalogGridTileHeight { get; set; }
 
+    /// <summary>Recorte opcional dentro del PNG del atlas (píxeles). Si <see cref="AtlasSubRectW"/> y <see cref="AtlasSubRectH"/> son &gt; 0, sustituye al recorte por rejilla de <see cref="CatalogTileId"/>.</summary>
+    public int AtlasSubRectX { get; set; }
+    public int AtlasSubRectY { get; set; }
+    public int AtlasSubRectW { get; set; }
+    public int AtlasSubRectH { get; set; }
+
     /// <summary>Overlay editable a nivel píxel (mismas dimensiones que el tile). Se dibuja encima de la base.</summary>
     public TilePixelOverlay? PixelOverlay { get; set; }
 
@@ -55,6 +61,10 @@ public class TileData
             TilesetPath = TilesetPath,
             CatalogGridTileWidth = CatalogGridTileWidth,
             CatalogGridTileHeight = CatalogGridTileHeight,
+            AtlasSubRectX = AtlasSubRectX,
+            AtlasSubRectY = AtlasSubRectY,
+            AtlasSubRectW = AtlasSubRectW,
+            AtlasSubRectH = AtlasSubRectH,
             PixelOverlay = PixelOverlay?.Clone()
         };
     }

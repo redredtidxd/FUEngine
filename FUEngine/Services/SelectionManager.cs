@@ -29,18 +29,24 @@ public class SelectionManager
     #region Inspector context (Tile / Animation / Layer)
     private InspectorContextKind _inspectorContextKind = InspectorContextKind.None;
     private int? _inspectorContextTileId;
+    private string? _inspectorContextTilesetRelPath;
     private AnimationDefinition? _inspectorContextAnimation;
     private MapLayerDescriptor? _inspectorContextLayer;
 
     public InspectorContextKind InspectorContextKind => _inspectorContextKind;
     public int? InspectorContextTileId => _inspectorContextKind == InspectorContextKind.Tile ? _inspectorContextTileId : null;
+    /// <summary>Ruta relativa al proyecto del JSON del tileset del contexto del catálogo (Inspector de tile).</summary>
+    public string? InspectorContextTilesetRelPath => _inspectorContextKind == InspectorContextKind.Tile ? _inspectorContextTilesetRelPath : null;
     public AnimationDefinition? InspectorContextAnimation => _inspectorContextKind == InspectorContextKind.Animation ? _inspectorContextAnimation : null;
     public MapLayerDescriptor? InspectorContextLayer => _inspectorContextKind == InspectorContextKind.Layer ? _inspectorContextLayer : null;
 
-    public void SetInspectorContextTile(int? tileId)
+    public void SetInspectorContextTile(int? tileId, string? tilesetPathRelative = null)
     {
         _inspectorContextKind = tileId.HasValue ? InspectorContextKind.Tile : InspectorContextKind.None;
         _inspectorContextTileId = tileId;
+        _inspectorContextTilesetRelPath = tileId.HasValue && !string.IsNullOrWhiteSpace(tilesetPathRelative)
+            ? tilesetPathRelative.Replace('\\', '/').Trim()
+            : null;
         _inspectorContextAnimation = null;
         _inspectorContextLayer = null;
         SelectionChanged?.Invoke(this, EventArgs.Empty);
@@ -51,6 +57,7 @@ public class SelectionManager
         _inspectorContextKind = anim != null ? InspectorContextKind.Animation : InspectorContextKind.None;
         _inspectorContextAnimation = anim;
         _inspectorContextTileId = null;
+        _inspectorContextTilesetRelPath = null;
         _inspectorContextLayer = null;
         SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -60,6 +67,7 @@ public class SelectionManager
         _inspectorContextKind = layer != null ? InspectorContextKind.Layer : InspectorContextKind.None;
         _inspectorContextLayer = layer;
         _inspectorContextTileId = null;
+        _inspectorContextTilesetRelPath = null;
         _inspectorContextAnimation = null;
         SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -69,6 +77,7 @@ public class SelectionManager
         if (_inspectorContextKind == InspectorContextKind.None) return;
         _inspectorContextKind = InspectorContextKind.None;
         _inspectorContextTileId = null;
+        _inspectorContextTilesetRelPath = null;
         _inspectorContextAnimation = null;
         _inspectorContextLayer = null;
     }
