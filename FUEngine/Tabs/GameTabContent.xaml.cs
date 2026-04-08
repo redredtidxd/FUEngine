@@ -40,6 +40,7 @@ public partial class GameTabContent : System.Windows.Controls.UserControl, IDisp
     private GameObject? _contextMenuTarget;
     private TextureAssetCache? _textureCache;
     private readonly PlayKeyboardSnapshot _playKeyboard = new();
+    private string? _lastAccessibilityHoverLinkId;
     private const int MaxTabLogEntries = 150;
 
     /// <summary>Si está activo y corriendo, el hot reload de scripts afecta solo a este tab.</summary>
@@ -330,6 +331,7 @@ public partial class GameTabContent : System.Windows.Controls.UserControl, IDisp
         var uiBackend = _runner.GetUiBackend();
         if (uiBackend != null)
         {
+            uiBackend.ClearTextLinkHits();
             foreach (var entry in uiBackend.GetLayoutEntries(vw, vh))
             {
                 var vr = entry.ViewportRect;
@@ -356,21 +358,56 @@ public partial class GameTabContent : System.Windows.Controls.UserControl, IDisp
                 Canvas.SetTop(uiRect, vr.Y);
                 canvas.Children.Add(uiRect);
 
-                if (!string.IsNullOrEmpty(entry.Element.Text) && vr.Width > 8)
+                var hasText = !string.IsNullOrEmpty(entry.Element.Text) || !string.IsNullOrEmpty(entry.Element.LocalizationKey);
+                if (entry.Element.Kind is UIElementKind.Text or UIElementKind.Button &&
+                    hasText && vr.Width > 4 && _project != null)
                 {
-                    var uiText = new TextBlock
+                    var ppd = VisualTreeHelper.GetDpi(canvas).PixelsPerDip;
+                    var loc = _runner.GetLocalizationRuntime();
+                    var resolvedTw = UiTextResolve.Resolve(entry.Element, _project.ProjectDirectory, loc).Typewriter;
+                    var textBuild = UiTextRenderer.Build(new UiTextRenderer.RenderArgs
                     {
-                        Text = entry.Element.Text,
-                        FontSize = 10,
-                        Foreground = new SolidColorBrush(Colors.White),
-                        IsHitTestVisible = false,
-                        MaxWidth = vr.Width - 8,
-                        TextWrapping = TextWrapping.NoWrap,
-                        TextTrimming = TextTrimming.CharacterEllipsis
-                    };
-                    Canvas.SetLeft(uiText, vr.X + 4);
-                    Canvas.SetTop(uiText, vr.Y + 4);
-                    canvas.Children.Add(uiText);
+                        Element = entry.Element,
+                        CanvasRect = entry.CanvasRect,
+                        ProjectRoot = _project.ProjectDirectory,
+                        PixelsPerDip = ppd,
+                        GameTimeSeconds = _runner.GameTimeSeconds,
+                        Localization = loc,
+                        VisiblePlainCharCount = _runner.UiTypewriter.GetVisiblePlainLength(entry.CanvasId, entry.Element, _project.ProjectDirectory, loc),
+                        CharRevealGameTimes = _runner.UiTypewriter.GetCharRevealTimes(entry.CanvasId, entry.Element, _project.ProjectDirectory, loc),
+                        TypewriterFadeInActive = resolvedTw?.Enabled == true && resolvedTw.FadeInPerChar,
+                        FadeInDurationSeconds = resolvedTw?.FadeInDurationSeconds ?? 0.08
+                    });
+                    if (textBuild != null)
+                    {
+                        var fe = textBuild.Root;
+                        fe.IsHitTestVisible = false;
+                        var cw = Math.Max(1, entry.CanvasRect.Width);
+                        var ch = Math.Max(1, entry.CanvasRect.Height);
+                        fe.Width = cw;
+                        fe.Height = ch;
+                        fe.LayoutTransform = new ScaleTransform(vr.Width / cw, vr.Height / ch);
+                        Canvas.SetLeft(fe, vr.X);
+                        Canvas.SetTop(fe, vr.Y);
+                        canvas.Children.Add(fe);
+                        if (!string.IsNullOrWhiteSpace(entry.Element.Id) && textBuild.LinkRects.Count > 0)
+                        {
+                            var pad = UiTextRenderer.InnerPadding;
+                            var sc = textBuild.ContentLayoutScale;
+                            var hits = new List<UiTextLinkHit>(textBuild.LinkRects.Count);
+                            foreach (var lr in textBuild.LinkRects)
+                            {
+                                hits.Add(new UiTextLinkHit(lr.LinkId, new UIRect
+                                {
+                                    X = entry.CanvasRect.X + pad + lr.X * sc,
+                                    Y = entry.CanvasRect.Y + pad + lr.Y * sc,
+                                    Width = lr.Width * sc,
+                                    Height = lr.Height * sc
+                                }));
+                            }
+                            uiBackend.SetTextLinkHits(entry.CanvasId, entry.Element.Id, hits);
+                        }
+                    }
                 }
             }
         }
@@ -431,10 +468,24 @@ public partial class GameTabContent : System.Windows.Controls.UserControl, IDisp
         var pos = e.GetPosition(GameViewportCanvas);
         _playKeyboard.MouseX = pos.X;
         _playKeyboard.MouseY = pos.Y;
-        _runner.GetUiBackend()?.DispatchPointerEvent(
-            pos.X, pos.Y,
-            GameViewportCanvas.ActualWidth, GameViewportCanvas.ActualHeight,
-            "hover");
+        var vw = GameViewportCanvas.ActualWidth;
+        var vh = GameViewportCanvas.ActualHeight;
+        var ui = _runner.GetUiBackend();
+        ui?.DispatchPointerEvent(pos.X, pos.Y, vw, vh, "hover");
+
+        if (EngineSettings.Load().UiAccessibilityTtsEnabled &&
+            ui != null &&
+            ui.TryHitTest(pos.X, pos.Y, vw, vh, out var hit) &&
+            !string.IsNullOrEmpty(hit.TextLinkId))
+        {
+            if (!string.Equals(_lastAccessibilityHoverLinkId, hit.TextLinkId, StringComparison.Ordinal))
+            {
+                _lastAccessibilityHoverLinkId = hit.TextLinkId;
+                _runner.AccessibilityTts?.Speak($"Enlace: {hit.TextLinkId}", interruptPrevious: true);
+            }
+        }
+        else
+            _lastAccessibilityHoverLinkId = null;
     }
 
     /// <summary>Envía evento de puntero a la UI (hit-test + bindings). Devuelve true si la UI consumió el input (BlocksInput).</summary>

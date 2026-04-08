@@ -54,6 +54,10 @@ public class EngineSettings
     [JsonPropertyName("hardwareAccelerationEnabled")]
     public bool HardwareAccelerationEnabled { get; set; } = true;
 
+    /// <summary>Si true, en Play se puede usar síntesis de voz (Windows) al completar typewriter y al pasar el ratón sobre enlaces de texto rico.</summary>
+    [JsonPropertyName("uiAccessibilityTtsEnabled")]
+    public bool UiAccessibilityTtsEnabled { get; set; }
+
     /// <summary>Id de acción → texto mostrado (ej. Ctrl+S). Solo claves conocidas en <see cref="EditorShortcutBindings"/>.</summary>
     [JsonPropertyName("shortcutBindings")]
     public Dictionary<string, string> ShortcutBindings { get; set; } = new();

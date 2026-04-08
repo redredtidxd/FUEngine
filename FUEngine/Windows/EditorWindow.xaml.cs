@@ -109,7 +109,8 @@ public partial class EditorWindow : Window
         { "PaintCreator", "Paint Creator" },
         { "PaintEditor", "Paint Editor" },
         { "CollisionsEditor", "Editor de colisiones" },
-        { "ScriptableTile", "Tile por script" }
+        { "ScriptableTile", "Tile por script" },
+        { "Localization", "Localización (i18n)" }
     };
 
     /// <summary>Icono (emoji o texto) por kind para menú y cabecera de tab.</summary>
@@ -130,7 +131,8 @@ public partial class EditorWindow : Window
         { "PaintCreator", "\uD83D\uDD8C" },
         { "PaintEditor", "\uD83D\uDD8C" },
         { "CollisionsEditor", "\uD83D\uDD12" },
-        { "ScriptableTile", "\uD83D\uDDA8" }
+        { "ScriptableTile", "\uD83D\uDDA8" },
+        { "Localization", "\U0001F310" }
     };
 
     /// <summary>Categoría del menú "+" por kind (Proyecto, Contenido, Multimedia, Debug).</summary>
@@ -150,11 +152,12 @@ public partial class EditorWindow : Window
         { "PaintCreator", "Contenido" },
         { "PaintEditor", "Contenido" },
         { "CollisionsEditor", "Contenido" },
-        { "ScriptableTile", "Contenido" }
+        { "ScriptableTile", "Contenido" },
+        { "Localization", "Proyecto" }
     };
 
     /// <summary>Orden de kinds opcionales para el menú (por categoría y luego orden fijo).</summary>
-    private static readonly string[] OptionalTabKindsOrder = { "Scripts", "Explorador", "Tiles", "Animaciones", "Seeds", "TileCreator", "TileEditor", "PaintCreator", "PaintEditor", "CollisionsEditor", "ScriptableTile", "Audio", "Consola", "Juego", "Debug" };
+    private static readonly string[] OptionalTabKindsOrder = { "Scripts", "Explorador", "Localization", "Tiles", "Animaciones", "Seeds", "TileCreator", "TileEditor", "PaintCreator", "PaintEditor", "CollisionsEditor", "ScriptableTile", "Audio", "Consola", "Juego", "Debug" };
     private bool _gridVisible = true;
     private bool _snapToGrid = true;
     private System.Windows.Media.Color _gridColor = System.Windows.Media.Color.FromRgb(0x30, 0x36, 0x3d);
@@ -431,7 +434,8 @@ public partial class EditorWindow : Window
             { "PaintCreator", _ => new PaintCreatorTabContent() },
             { "PaintEditor", _ => new PaintEditorTabContent() },
             { "CollisionsEditor", _ => new CollisionsEditorTabContent() },
-            { "ScriptableTile", _ => new ScriptableTileTabContent() }
+            { "ScriptableTile", _ => new ScriptableTileTabContent() },
+            { "Localization", _ => new LocalizationTabContent() }
         };
         Loaded += (_, __) =>
         {
@@ -4198,7 +4202,7 @@ public partial class EditorWindow : Window
             var canvasId = kind.Length > 3 ? kind.Substring(3) : "";
             var canvas = GetCurrentUIRoot().GetCanvas(canvasId);
             var uiTab = new UITabContent();
-            uiTab.SetCanvas(canvas ?? new UICanvas { Id = canvasId, Name = canvasId }, GetCurrentUIRoot);
+            uiTab.SetCanvas(canvas ?? new UICanvas { Id = canvasId, Name = canvasId }, GetCurrentUIRoot, _project.ProjectDirectory);
             uiTab.ElementSelected += (_, selectedElement) =>
             {
                 var selectedCanvas = canvas ?? FindCanvasForElement(selectedElement);
@@ -4232,6 +4236,11 @@ public partial class EditorWindow : Window
             scriptsContent.SetProjectDirectory(_project.ProjectDirectory ?? "");
             scriptsContent.ScriptSaved += OnLuaScriptSaved;
             scriptsContent.DirtyChanged += (_, isDirty) => UpdateTabHeaderDirty(tabItem, kind, isDirty);
+        }
+        if (kind == "Localization" && content is LocalizationTabContent locTab)
+        {
+            locTab.SetProjectDirectory(_project.ProjectDirectory ?? "");
+            locTab.DirtyChanged += (_, isDirty) => UpdateTabHeaderDirty(tabItem, kind, isDirty);
         }
         if (kind == "Juego" && content is GameTabContent gameTab)
         {

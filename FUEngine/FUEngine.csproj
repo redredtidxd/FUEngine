@@ -28,6 +28,7 @@
     <PackageReference Include="AvalonEdit" Version="6.3.1.120" />
     <PackageReference Include="DiscordRichPresence" Version="1.6.1.70" />
     <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="System.Speech" Version="8.0.0" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\Lua.xshd">
@@ -36,25 +37,7 @@
     <None Include="Resources\Lua.xshd" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Link="Resources\Lua.xshd" />
     <!-- Cosecha amplia: casi cualquier archivo no-fuente del proyecto entra en output/publish.
          Excluimos código, metadatos de build y el recurso Lua.xshd que ya tiene tratamiento especial. -->
-    <Content Include="**\*"
-             Exclude="
-               Resources\Lua.xshd;
-               **\bin\**;
-               **\obj\**;
-               **\*.cs;
-               **\*.xaml;
-               **\*.csproj;
-               **\*.targets;
-               **\*.props;
-               **\*.sln;
-               **\*.user;
-               **\*.suo;
-               **\*.editorconfig;
-               **\*.md;
-               **\*.pdb;
-               **\*.config;
-               **\*.manifest;
-               Resources\fuengine.ico">
+    <Content Include="**\*" Exclude="&#xD;&#xA;               Resources\Lua.xshd;&#xD;&#xA;               **\bin\**;&#xD;&#xA;               **\obj\**;&#xD;&#xA;               **\*.cs;&#xD;&#xA;               **\*.xaml;&#xD;&#xA;               **\*.csproj;&#xD;&#xA;               **\*.targets;&#xD;&#xA;               **\*.props;&#xD;&#xA;               **\*.sln;&#xD;&#xA;               **\*.user;&#xD;&#xA;               **\*.suo;&#xD;&#xA;               **\*.editorconfig;&#xD;&#xA;               **\*.md;&#xD;&#xA;               **\*.pdb;&#xD;&#xA;               **\*.config;&#xD;&#xA;               **\*.manifest;&#xD;&#xA;               Resources\fuengine.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>

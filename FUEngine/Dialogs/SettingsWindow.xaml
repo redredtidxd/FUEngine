@@ -33,6 +33,8 @@
                               ToolTip="Hub: pantalla de inicio. Último proyecto: abre el más reciente si existe. Nuevo proyecto: muestra el asistente de creación."/>
                     <CheckBox x:Name="ChkHardwareAcceleration" Content="Aceleración por hardware (renderizado WPF)" Foreground="#e6edf3" Margin="0,0,0,12"
                               ToolTip="Desactívalo si la interfaz va entrecortada en equipos antiguos (usa renderizado por software)."/>
+                    <CheckBox x:Name="ChkUiAccessibilityTts" Content="Accesibilidad: leer UI en voz alta en Play (typewriter y enlaces, Windows)" Foreground="#e6edf3" Margin="0,0,0,12"
+                              ToolTip="Usa la API de voz del sistema (System.Speech) solo durante la ejecución en el tab Juego o ventana de juego."/>
                     <TextBlock Text="Servicios externos" Foreground="#e6edf3" FontWeight="SemiBold" Margin="0,8,0,6"
                                ToolTip="Integraciones opcionales con herramientas fuera del motor."/>
                     <TextBlock Text="Integración con IA (ruta)" Foreground="#8b949e" Margin="0,0,0,4"

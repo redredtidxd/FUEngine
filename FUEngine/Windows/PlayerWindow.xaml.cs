@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using FUEngine.Core;
 using FUEngine.Editor;
@@ -132,6 +134,7 @@ public partial class PlayerWindow : Window
         var ui = _runner.GetUiBackend();
         if (ui != null)
         {
+            ui.ClearTextLinkHits();
             foreach (var entry in ui.GetLayoutEntries(vw, vh))
             {
                 var vr = entry.ViewportRect;
@@ -156,6 +159,58 @@ public partial class PlayerWindow : Window
                 System.Windows.Controls.Canvas.SetLeft(uiRect, vr.X);
                 System.Windows.Controls.Canvas.SetTop(uiRect, vr.Y);
                 GameCanvas.Children.Add(uiRect);
+
+                var hasText = !string.IsNullOrEmpty(entry.Element.Text) || !string.IsNullOrEmpty(entry.Element.LocalizationKey);
+                if (entry.Element.Kind is UIElementKind.Text or UIElementKind.Button &&
+                    hasText && vr.Width > 4 && _project != null)
+                {
+                    var ppd = VisualTreeHelper.GetDpi(GameCanvas).PixelsPerDip;
+                    var loc = _runner.GetLocalizationRuntime();
+                    var resolvedTw = UiTextResolve.Resolve(entry.Element, _project.ProjectDirectory, loc).Typewriter;
+                    var textBuild = UiTextRenderer.Build(new UiTextRenderer.RenderArgs
+                    {
+                        Element = entry.Element,
+                        CanvasRect = entry.CanvasRect,
+                        ProjectRoot = _project.ProjectDirectory,
+                        PixelsPerDip = ppd,
+                        GameTimeSeconds = _runner.GameTimeSeconds,
+                        Localization = loc,
+                        VisiblePlainCharCount = _runner.UiTypewriter.GetVisiblePlainLength(entry.CanvasId, entry.Element, _project.ProjectDirectory, loc),
+                        CharRevealGameTimes = _runner.UiTypewriter.GetCharRevealTimes(entry.CanvasId, entry.Element, _project.ProjectDirectory, loc),
+                        TypewriterFadeInActive = resolvedTw?.Enabled == true && resolvedTw.FadeInPerChar,
+                        FadeInDurationSeconds = resolvedTw?.FadeInDurationSeconds ?? 0.08
+                    });
+                    if (textBuild != null)
+                    {
+                        var fe = textBuild.Root;
+                        fe.IsHitTestVisible = false;
+                        var cw = Math.Max(1, entry.CanvasRect.Width);
+                        var ch = Math.Max(1, entry.CanvasRect.Height);
+                        fe.Width = cw;
+                        fe.Height = ch;
+                        fe.LayoutTransform = new ScaleTransform(vr.Width / cw, vr.Height / ch);
+                        System.Windows.Controls.Canvas.SetLeft(fe, vr.X);
+                        System.Windows.Controls.Canvas.SetTop(fe, vr.Y);
+                        GameCanvas.Children.Add(fe);
+                        if (!string.IsNullOrWhiteSpace(entry.Element.Id) && textBuild.LinkRects.Count > 0)
+                        {
+                            var pad = UiTextRenderer.InnerPadding;
+                            var sc = textBuild.ContentLayoutScale;
+                            var hits = new List<UiTextLinkHit>(textBuild.LinkRects.Count);
+                            foreach (var lr in textBuild.LinkRects)
+                            {
+                                hits.Add(new UiTextLinkHit(lr.LinkId, new UIRect
+                                {
+                                    X = entry.CanvasRect.X + pad + lr.X * sc,
+                                    Y = entry.CanvasRect.Y + pad + lr.Y * sc,
+                                    Width = lr.Width * sc,
+                                    Height = lr.Height * sc
+                                }));
+                            }
+                            ui.SetTextLinkHits(entry.CanvasId, entry.Element.Id, hits);
+                        }
+                    }
+                }
             }
         }
 

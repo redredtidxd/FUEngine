@@ -462,8 +462,17 @@ public class PhysicsApi
 public class UiApi
 {
     private UIRuntimeBackend? _backend;
+    private IUiLocaleProvider? _locale;
 
     public void SetBackend(UIRuntimeBackend? backend) => _backend = backend;
+
+    public void SetLocaleProvider(IUiLocaleProvider? provider) => _locale = provider;
+
+    /// <summary>Fuerza el idioma activo (p. ej. <c>es</c>, <c>de</c> o nombre de cultura).</summary>
+    public void setLocale(string? code) => _locale?.SetLocale(code);
+
+    /// <summary>Código de idioma activo (dos letras) o cadena vacía.</summary>
+    public string getLocale() => _locale?.GetLocale() ?? "";
 
     public void show(string id) => _backend?.Show(id ?? "");
     public void hide(string id) => _backend?.Hide(id ?? "");
@@ -482,6 +491,14 @@ public class UiApi
     public void bind(string canvasId, string elementId, string eventName, object? callback)
     {
         _backend?.Bind(canvasId ?? "", elementId ?? "", eventName ?? "", callback);
+    }
+
+    /// <summary>Asigna el texto mostrado de un elemento Text o Button.</summary>
+    public void setText(string canvasId, string elementId, string? text)
+    {
+        var el = _backend?.GetElement(canvasId ?? "", elementId ?? "");
+        if (el == null) return;
+        el.Text = text ?? "";
     }
 }
 

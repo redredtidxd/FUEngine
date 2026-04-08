@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.Windows.Shapes;
 using Brushes = System.Windows.Media.Brushes;
 using FUEngine.Core;
+using FUEngine.Rendering;
 
 namespace FUEngine;
 
@@ -14,6 +15,7 @@ public partial class UITabContent : System.Windows.Controls.UserControl
 {
     private UICanvas? _canvas;
     private Func<UIRoot>? _getUIRoot;
+    private string? _projectDirectory;
     private FUEngine.Core.UIElement? _selectedElement;
     private readonly ObservableCollection<UIElementListItem> _elementsFlat = new();
 
@@ -23,10 +25,11 @@ public partial class UITabContent : System.Windows.Controls.UserControl
         ElementsList.ItemsSource = _elementsFlat;
     }
 
-    public void SetCanvas(UICanvas canvas, Func<UIRoot> getUIRoot)
+    public void SetCanvas(UICanvas canvas, Func<UIRoot> getUIRoot, string? projectDirectory = null)
     {
         _canvas = canvas;
         _getUIRoot = getUIRoot;
+        _projectDirectory = projectDirectory;
         _selectedElement = null;
         TxtCanvasName.Text = string.IsNullOrWhiteSpace(canvas.Name) ? canvas.Id : canvas.Name;
         TxtResolution.Text = $"{canvas.ResolutionWidth}×{canvas.ResolutionHeight}";
@@ -168,6 +171,35 @@ public partial class UITabContent : System.Windows.Controls.UserControl
         Canvas.SetLeft(text, x + 2);
         Canvas.SetTop(text, Math.Max(0, y - 14));
         DesignSurface.Children.Add(text);
+
+        var hasText = !string.IsNullOrEmpty(e.Text) || !string.IsNullOrEmpty(e.LocalizationKey);
+        if (e.Kind is UIElementKind.Text or UIElementKind.Button &&
+            hasText && resolved.Width > 2 && resolved.Height > 2 &&
+            !string.IsNullOrEmpty(_projectDirectory))
+        {
+            var textBuild = UiTextRenderer.Build(new UiTextRenderer.RenderArgs
+            {
+                Element = e,
+                CanvasRect = resolved,
+                ProjectRoot = _projectDirectory,
+                PixelsPerDip = 1,
+                GameTimeSeconds = 0,
+                Localization = null,
+                VisiblePlainCharCount = int.MaxValue
+            });
+            if (textBuild != null)
+            {
+                var textFe = textBuild.Root;
+                textFe.IsHitTestVisible = false;
+                textFe.Width = resolved.Width;
+                textFe.Height = resolved.Height;
+                textFe.LayoutTransform = new ScaleTransform(scale, scale);
+                Canvas.SetLeft(textFe, x);
+                Canvas.SetTop(textFe, y);
+                DesignSurface.Children.Add(textFe);
+            }
+        }
+
         foreach (var child in e.Children)
             DrawElement(child, resolved, scale, offsetX, offsetY);
     }

@@ -74,6 +74,12 @@
                         <TextBlock Text="Contenido" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
                         <TextBlock Text="Text" Foreground="#8b949e" FontSize="11" Margin="0,2,0,2"/>
                         <TextBox x:Name="TxtText" Padding="8,6" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,6" TextChanged="TxtText_OnTextChanged"/>
+                        <TextBlock Text="Clave i18n (vacío = usar Text tal cual; si hay clave, Play usa Data/localization.json)" Foreground="#8b949e" FontSize="11" Margin="0,2,0,2"/>
+                        <TextBox x:Name="TxtLocalizationKey" Padding="8,6" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,6" TextChanged="TxtLocalizationKey_OnTextChanged"/>
+                        <TextBlock Text="Perfil tipografía (.fuetextstyle, ruta relativa al proyecto)" Foreground="#8b949e" FontSize="11" Margin="0,2,0,2"/>
+                        <TextBox x:Name="TxtTextStyleProfile" Padding="8,6" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,6" TextChanged="TxtTextStyleProfile_OnTextChanged"/>
+                        <TextBlock Text="Perfil typewriter (.fuetypewriter)" Foreground="#8b949e" FontSize="11" Margin="0,2,0,2"/>
+                        <TextBox x:Name="TxtTypewriterProfile" Padding="8,6" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,6" TextChanged="TxtTypewriterProfile_OnTextChanged"/>
                         <TextBlock Text="ImagePath" Foreground="#8b949e" FontSize="11" Margin="0,2,0,2"/>
                         <TextBox x:Name="TxtImagePath" Padding="8,6" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,6" TextChanged="TxtImagePath_OnTextChanged"/>
                         <TextBlock x:Name="TxtOverridesInfo" Text="Overrides: 0" Foreground="#8b949e" FontSize="11" Margin="0,0,0,6"/>
@@ -83,6 +89,126 @@
                         </StackPanel>
                     </StackPanel>
                 </Border>
+
+                <StackPanel x:Name="PanelTextTypography" Visibility="Collapsed" Margin="0,0,0,0">
+                    <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                        <Expander Header="Texto · Anclaje y pivote" IsExpanded="True" Foreground="#e6edf3">
+                            <StackPanel Margin="0,8,0,0">
+                                <TextBlock Text="Preset de anclaje (9 posiciones). Opcional: sincroniza Min/Max de Anchors." Foreground="#8b949e" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                                <UniformGrid x:Name="GridAnchorPresets" Rows="3" Columns="3" Width="120" Height="120" HorizontalAlignment="Left"/>
+                                <Button x:Name="BtnSyncTextAnchorsFromPreset" Content="Aplicar preset a Anchors (Min/Max)" Padding="8,4" Margin="0,8,0,8" Background="#21262d" Foreground="#58a6ff" BorderBrush="#30363d" Click="BtnSyncTextAnchorsFromPreset_OnClick"/>
+                                <TextBlock Text="Pivote del bloque de texto (origen local respecto al rectángulo interno)" Foreground="#8b949e" FontSize="11" Margin="0,0,0,4"/>
+                                <ComboBox x:Name="CmbTextPivotPreset" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" SelectionChanged="CmbTextPivotPreset_OnSelectionChanged"/>
+                            </StackPanel>
+                        </Expander>
+                    </Border>
+                    <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                        <Expander Header="Texto · Propiedades base" IsExpanded="True" Foreground="#e6edf3">
+                            <StackPanel Margin="0,8,0,0">
+                                <TextBlock Text="Fuente (nombre sistema o ruta Assets/... .ttf)" Foreground="#8b949e" FontSize="11" Margin="0,0,0,2"/>
+                                <ComboBox x:Name="CmbFontFamily" IsEditable="True" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,4"
+                                          DropDownOpened="CmbFontFamily_OnDropDownOpened" LostFocus="CmbFontFamily_OnLostFocus"/>
+                                <Button x:Name="BtnBrowseFont" Content="Cargar .ttf / .otf al proyecto" Padding="8,4" Margin="0,0,0,8" Background="#21262d" Foreground="#58a6ff" BorderBrush="#30363d" Click="BtnBrowseFont_OnClick"/>
+                                <TextBlock Text="Tamaño" Foreground="#8b949e" FontSize="11"/>
+                                <TextBox x:Name="TxtFontSize" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,2,0,4" TextChanged="TextStyleField_OnChanged"/>
+                                <TextBlock Text="Unidad" Foreground="#8b949e" FontSize="11"/>
+                                <ComboBox x:Name="CmbFontUnit" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,2,0,6" SelectionChanged="CmbFontUnit_OnSelectionChanged"/>
+                                <TextBlock Text="Color (#RRGGBB o #AARRGGBB)" Foreground="#8b949e" FontSize="11"/>
+                                <TextBox x:Name="TxtTextColor" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,2,0,4" TextChanged="TextStyleField_OnChanged"/>
+                                <TextBlock Text="Opacidad" Foreground="#8b949e" FontSize="11"/>
+                                <Slider x:Name="SliderTextOpacity" Minimum="0" Maximum="1" TickFrequency="0.05" IsSnapToTickEnabled="False" Margin="0,2,0,2" ValueChanged="SliderTextOpacity_OnValueChanged"/>
+                                <TextBlock Text="Alineación" Foreground="#8b949e" FontSize="11" Margin="0,4,0,2"/>
+                                <ComboBox x:Name="CmbTextAlign" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,6" SelectionChanged="CmbTextAlign_OnSelectionChanged"/>
+                                <CheckBox x:Name="ChkKerning" Content="Kerning (desactivar para look retro / grid)" Foreground="#e6edf3" Margin="0,2,0,0" Checked="ChkKerning_OnChanged" Unchecked="ChkKerning_OnChanged"/>
+                            </StackPanel>
+                        </Expander>
+                    </Border>
+                    <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                        <Expander Header="Texto · Estética avanzada" IsExpanded="False" Foreground="#e6edf3">
+                            <StackPanel Margin="0,8,0,0">
+                                <TextBlock Text="Contorno · grosor" Foreground="#8b949e" FontSize="11"/>
+                                <Slider x:Name="SliderOutline" Minimum="0" Maximum="6" TickFrequency="0.25" Margin="0,2,0,2" ValueChanged="SliderOutline_OnValueChanged"/>
+                                <TextBlock Text="Contorno · color" Foreground="#8b949e" FontSize="11"/>
+                                <TextBox x:Name="TxtOutlineColor" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,2,0,6" TextChanged="TextStyleField_OnChanged"/>
+                                <TextBlock Text="Sombra · offset X / Y" Foreground="#8b949e" FontSize="11"/>
+                                <Grid Margin="0,2,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="TxtShadowX" Grid.Column="0" Padding="6,4" Margin="0,0,4,0" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="TextStyleField_OnChanged"/>
+                                    <TextBox x:Name="TxtShadowY" Grid.Column="1" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="TextStyleField_OnChanged"/>
+                                </Grid>
+                                <TextBlock Text="Sombra · color" Foreground="#8b949e" FontSize="11"/>
+                                <TextBox x:Name="TxtShadowColor" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,2,0,4" TextChanged="TextStyleField_OnChanged"/>
+                                <TextBlock Text="Sombra · difuminado (blur)" Foreground="#8b949e" FontSize="11"/>
+                                <Slider x:Name="SliderShadowBlur" Minimum="0" Maximum="24" Margin="0,2,0,6" ValueChanged="SliderShadowBlur_OnValueChanged"/>
+                                <TextBlock Text="Interlineado (×)" Foreground="#8b949e" FontSize="11"/>
+                                <TextBox x:Name="TxtLineSpacing" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,2,0,4" TextChanged="TextLayoutField_OnChanged"/>
+                                <TextBlock Text="Espaciado letras (px lógicos)" Foreground="#8b949e" FontSize="11"/>
+                                <TextBox x:Name="TxtLetterSpacing" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,2,0,4" TextChanged="TextStyleField_OnChanged"/>
+                                <CheckBox x:Name="ChkRichText" Content="Rich text (&lt;b&gt;, &lt;i&gt;, &lt;color&gt;, &lt;size&gt;, &lt;link=id&gt;, &lt;icon=nombre/&gt;)" Foreground="#e6edf3" Checked="ChkRichText_OnChanged" Unchecked="ChkRichText_OnChanged"/>
+                            </StackPanel>
+                        </Expander>
+                    </Border>
+                    <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                        <Expander Header="Texto · Efectos por glifo (Play)" IsExpanded="False" Foreground="#e6edf3">
+                            <StackPanel Margin="0,8,0,0">
+                                <CheckBox x:Name="ChkGeShake" Content="Temblor (shake)" Foreground="#e6edf3" Checked="ChkGlyphFx_OnChanged" Unchecked="ChkGlyphFx_OnChanged"/>
+                                <TextBlock Text="Intensidad temblor (px)" Foreground="#8b949e" FontSize="11" Margin="0,4,0,2"/>
+                                <Slider x:Name="SliderGeShake" Minimum="0" Maximum="8" Margin="0,0,0,6" ValueChanged="SliderGlyphFx_OnValueChanged"/>
+                                <CheckBox x:Name="ChkGeWave" Content="Onda (wave)" Foreground="#e6edf3" Checked="ChkGlyphFx_OnChanged" Unchecked="ChkGlyphFx_OnChanged"/>
+                                <TextBlock Text="Amplitud onda (px)" Foreground="#8b949e" FontSize="11" Margin="0,4,0,2"/>
+                                <Slider x:Name="SliderGeWaveAmp" Minimum="0" Maximum="16" Margin="0,0,0,4" ValueChanged="SliderGlyphFx_OnValueChanged"/>
+                                <TextBlock Text="Frecuencia onda" Foreground="#8b949e" FontSize="11"/>
+                                <TextBox x:Name="TxtGeWaveFreq" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,2,0,6" TextChanged="GlyphFxText_OnChanged"/>
+                                <CheckBox x:Name="ChkGeRainbow" Content="Arcoíris (matiz cíclico)" Foreground="#e6edf3" Checked="ChkGlyphFx_OnChanged" Unchecked="ChkGlyphFx_OnChanged"/>
+                                <TextBlock Text="Ciclos arcoíris / segundo" Foreground="#8b949e" FontSize="11"/>
+                                <Slider x:Name="SliderGeRainbow" Minimum="0" Maximum="2" TickFrequency="0.05" Margin="0,2,0,0" ValueChanged="SliderGlyphFx_OnValueChanged"/>
+                            </StackPanel>
+                        </Expander>
+                    </Border>
+                    <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                        <Expander Header="Texto · Ajuste y guiones" IsExpanded="False" Foreground="#e6edf3">
+                            <StackPanel Margin="0,8,0,0">
+                                <CheckBox x:Name="ChkWordWrap" Content="Word wrap (ajustar al ancho)" Foreground="#e6edf3" Checked="ChkWordWrap_OnChanged" Unchecked="ChkWordWrap_OnChanged"/>
+                                <CheckBox x:Name="ChkHyphenation" Content="Dividir palabras con guion al límite del contenedor" Foreground="#e6edf3" Margin="0,6,0,0" Checked="ChkHyphenation_OnChanged" Unchecked="ChkHyphenation_OnChanged"/>
+                                <TextBlock Text="Mín. caracteres antes del guion" Foreground="#8b949e" FontSize="11" Margin="0,6,0,2"/>
+                                <TextBox x:Name="TxtHyphenMin" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="TextLayoutField_OnChanged"/>
+                                <TextBlock Text="Desbordamiento" Foreground="#8b949e" FontSize="11" Margin="0,8,0,2"/>
+                                <ComboBox x:Name="CmbOverflow" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" SelectionChanged="CmbOverflow_OnSelectionChanged"/>
+                            </StackPanel>
+                        </Expander>
+                    </Border>
+                    <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                        <Expander Header="Texto · Máquina de escribir" IsExpanded="False" Foreground="#e6edf3">
+                            <StackPanel Margin="0,8,0,0">
+                                <CheckBox x:Name="ChkTwEnabled" Content="Activar typewriter en Play" Foreground="#e6edf3" Checked="ChkTw_OnChanged" Unchecked="ChkTw_OnChanged"/>
+                                <TextBlock Text="Caracteres por segundo" Foreground="#8b949e" FontSize="11" Margin="0,8,0,2"/>
+                                <Slider x:Name="SliderTwCps" Minimum="1" Maximum="120" Margin="0,0,0,4" ValueChanged="SliderTwCps_OnValueChanged"/>
+                                <CheckBox x:Name="ChkTwFade" Content="Fade-in por letra" Foreground="#e6edf3" Margin="0,4,0,0" Checked="ChkTw_OnChanged" Unchecked="ChkTw_OnChanged"/>
+                                <TextBlock Text="Duración fade (s)" Foreground="#8b949e" FontSize="11" Margin="0,6,0,2"/>
+                                <TextBox x:Name="TxtTwFadeDur" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="TypewriterField_OnChanged"/>
+                                <CheckBox x:Name="ChkTwPause" Content="Pausas por puntuación" Foreground="#e6edf3" Margin="0,8,0,0" Checked="ChkTw_OnChanged" Unchecked="ChkTw_OnChanged"/>
+                                <TextBlock Text="Pausa tras , (s)" Foreground="#8b949e" FontSize="11" Margin="0,6,0,2"/>
+                                <TextBox x:Name="TxtTwPauseComma" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="TypewriterField_OnChanged"/>
+                                <TextBlock Text="Pausa tras . (s)" Foreground="#8b949e" FontSize="11" Margin="0,4,0,2"/>
+                                <TextBox x:Name="TxtTwPausePeriod" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="TypewriterField_OnChanged"/>
+                                <TextBlock Text="Pausa tras ? (s)" Foreground="#8b949e" FontSize="11" Margin="0,4,0,2"/>
+                                <TextBox x:Name="TxtTwPauseQuestion" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="TypewriterField_OnChanged"/>
+                                <TextBlock Text="Pausa tras ! (s)" Foreground="#8b949e" FontSize="11" Margin="0,4,0,2"/>
+                                <TextBox x:Name="TxtTwPauseExcl" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="TypewriterField_OnChanged"/>
+                                <TextBlock Text="Sonido (.wav / .ogg, ruta relativa)" Foreground="#8b949e" FontSize="11" Margin="0,8,0,2"/>
+                                <TextBox x:Name="TxtTwSoundPath" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,4" TextChanged="TypewriterField_OnChanged"/>
+                                <Button x:Name="BtnBrowseTwSound" Content="Examinar sonido" Padding="8,4" Background="#21262d" Foreground="#58a6ff" BorderBrush="#30363d" Click="BtnBrowseTwSound_OnClick"/>
+                                <TextBlock Text="Cuándo reproducir" Foreground="#8b949e" FontSize="11" Margin="0,8,0,2"/>
+                                <ComboBox x:Name="CmbTwSoundTrigger" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,4" SelectionChanged="CmbTwSoundTrigger_OnSelectionChanged"/>
+                                <TextBlock Text="Volumen sonido" Foreground="#8b949e" FontSize="11"/>
+                                <Slider x:Name="SliderTwSoundVol" Minimum="0" Maximum="2" Margin="0,2,0,0" ValueChanged="SliderTwSoundVol_OnValueChanged"/>
+                            </StackPanel>
+                        </Expander>
+                    </Border>
+                </StackPanel>
             </StackPanel>
         </StackPanel>
     </ScrollViewer>

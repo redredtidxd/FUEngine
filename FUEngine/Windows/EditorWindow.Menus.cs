@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Windows;
 using FUEngine.Help;
 using System.Windows.Controls;
@@ -392,6 +393,39 @@ public partial class EditorWindow
         {
             EndModalDiscordPresence();
         }
+    }
+
+    private void MenuGenerarAtlasSdf_OnClick(object sender, RoutedEventArgs e)
+    {
+        var root = _project.ProjectDirectory;
+        if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+        {
+            System.Windows.MessageBox.Show(this, "No hay proyecto o la carpeta del proyecto no es válida.", "Atlas SDF", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var fonts = UiFontManager.FindProjectFontRelativePaths(root);
+        if (fonts.Count == 0)
+        {
+            System.Windows.MessageBox.Show(this, "No se encontraron archivos .ttf ni .otf bajo Assets/.", "Atlas SDF", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var msg = $"Se encontraron {fonts.Count} fuente(s) en Assets/. ¿Generar atlas SDF para todas?\n\nSalida: Assets/Generated/FontSDF/<nombre>/";
+        if (System.Windows.MessageBox.Show(this, msg, "Atlas SDF", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+
+        var sb = new StringBuilder();
+        foreach (var rel in fonts)
+        {
+            if (UiFontManager.TryGenerateSdfAtlasForFont(root, rel, null, out var outDir, out var err))
+                sb.AppendLine(outDir);
+            else
+                sb.AppendLine($"{rel}: error — {err}");
+        }
+
+        EditorLog.Info("Atlas SDF: generación por lote finalizada.", "Proyecto");
+        System.Windows.MessageBox.Show(this, sb.ToString().TrimEnd(), "Atlas SDF", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     private void MenuAjustesProyectoManifest_OnClick(object sender, RoutedEventArgs e) => FocusProjectManifestInExplorer();

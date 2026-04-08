@@ -70,10 +70,17 @@ public static class UICanvasSerialization
             AnchorMaxX = e.Anchors.MaxX,
             AnchorMaxY = e.Anchors.MaxY,
             Text = e.Text,
+            LocalizationKey = e.LocalizationKey,
+            TextStyleProfilePath = e.TextStyleProfilePath,
+            TypewriterProfilePath = e.TypewriterProfilePath,
+            TextAnchor = e.TextAnchor != null ? CloneTextAnchor(e.TextAnchor) : null,
             ImagePath = e.ImagePath,
             SeedId = e.SeedId,
             PropertyOverrides = e.PropertyOverrides.Count > 0 ? new Dictionary<string, string>(e.PropertyOverrides) : null,
             BlocksInput = e.BlocksInput,
+            TextStyle = e.TextStyle,
+            TextLayout = e.TextLayout,
+            Typewriter = e.Typewriter,
             Children = e.Children.Select(ElementToDto).ToList()
         };
     }
@@ -87,15 +94,30 @@ public static class UICanvasSerialization
             Rect = new UIRect { X = d.X, Y = d.Y, Width = d.Width, Height = d.Height },
             Anchors = new UIAnchors { MinX = d.AnchorMinX, MinY = d.AnchorMinY, MaxX = d.AnchorMaxX, MaxY = d.AnchorMaxY },
             Text = d.Text ?? "",
+            LocalizationKey = d.LocalizationKey ?? "",
+            TextStyleProfilePath = d.TextStyleProfilePath ?? "",
+            TypewriterProfilePath = d.TypewriterProfilePath ?? "",
             ImagePath = d.ImagePath ?? "",
             SeedId = d.SeedId ?? "",
             BlocksInput = d.BlocksInput
         };
         if (d.PropertyOverrides != null)
             e.PropertyOverrides = new Dictionary<string, string>(d.PropertyOverrides);
+        e.TextStyle = d.TextStyle != null ? CloneTextStyle(d.TextStyle) : null;
+        e.TextLayout = d.TextLayout != null ? CloneTextLayout(d.TextLayout) : null;
+        e.Typewriter = d.Typewriter != null ? CloneTypewriter(d.Typewriter) : null;
+        e.TextAnchor = d.TextAnchor != null ? CloneTextAnchor(d.TextAnchor) : null;
         e.Children.AddRange((d.Children ?? new List<UIElementDto>()).Select(ElementFromDto));
         return e;
     }
+
+    private static UITextAnchorSettings CloneTextAnchor(UITextAnchorSettings a) => a.Clone();
+
+    private static UITextStyle CloneTextStyle(UITextStyle s) => s.Clone();
+
+    private static UITextLayoutSettings CloneTextLayout(UITextLayoutSettings s) => s.Clone();
+
+    private static UITypewriterSettings CloneTypewriter(UITypewriterSettings s) => s.Clone();
 
     public class UICanvasDto
     {
@@ -120,10 +142,17 @@ public static class UICanvasSerialization
         public double AnchorMaxX { get; set; }
         public double AnchorMaxY { get; set; }
         public string? Text { get; set; }
+        public string? LocalizationKey { get; set; }
+        public string? TextStyleProfilePath { get; set; }
+        public string? TypewriterProfilePath { get; set; }
+        public UITextAnchorSettings? TextAnchor { get; set; }
         public string? ImagePath { get; set; }
         public string? SeedId { get; set; }
         public Dictionary<string, string>? PropertyOverrides { get; set; }
         public bool BlocksInput { get; set; } = true;
+        public UITextStyle? TextStyle { get; set; }
+        public UITextLayoutSettings? TextLayout { get; set; }
+        public UITypewriterSettings? Typewriter { get; set; }
         public List<UIElementDto>? Children { get; set; }
     }
 }

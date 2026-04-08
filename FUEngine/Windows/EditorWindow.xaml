@@ -104,6 +104,7 @@
                 <MenuItem Header="Editor avanzado del proyecto…" Click="MenuEditorProyectoAvanzado_OnClick" ToolTip="Chunks, rutas, escenas y opciones detalladas"/>
                 <MenuItem Header="Configurar chunks (en editor avanzado)…" Click="MenuConfigurarChunks_OnClick"/>
                 <MenuItem Header="Gestionar scripts" Click="MenuGestionarScripts_OnClick" ToolTip="Abre la pestaña Scripts"/>
+                <MenuItem Header="Generar atlas SDF de fuentes…" Click="MenuGenerarAtlasSdf_OnClick" ToolTip="Raster + SDF para cada .ttf/.otf bajo Assets/ (salida en Assets/Generated/FontSDF/)"/>
                 <Separator/>
                 <MenuItem Header="Explorar biblioteca global…" Click="MenuAssetsLibrary_OnClick" ToolTip="Copia assets de la biblioteca global al proyecto"/>
                 <Separator/>
@@ -150,6 +151,7 @@
                 <MenuItem Header="Viewport (Mapa)" Tag="Mapa" Click="MenuVentanaTab_OnClick"/>
                 <MenuItem Header="Explorador de archivos (pestaña)" Tag="Explorador" Click="MenuVentanaTab_OnClick"/>
                 <MenuItem Header="Editor de scripts" Tag="Scripts" Click="MenuVentanaTab_OnClick"/>
+                <MenuItem Header="Localización (i18n)" Tag="Localization" Click="MenuVentanaTab_OnClick"/>
                 <MenuItem Header="Consola" Tag="Consola" Click="MenuVentanaTab_OnClick"/>
                 <Separator/>
                 <MenuItem Header="Centro del mapa (cámara)" Click="BtnGoToOrigin_OnClick" ToolTip="Marco azul en el centro geométrico del mapa finito; en infinitos cámara en (0,0) mundo."/>

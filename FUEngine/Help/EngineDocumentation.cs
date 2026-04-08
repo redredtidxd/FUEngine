@@ -191,8 +191,8 @@ end"),
             paragraphs: new[]
             {
                 "**Fila habitual:** Mapa | Consola | Juego (Play embebido) — se pueden ocultar desde **Ver →**.",
-                "**Menú «+» (orden aproximado de tipos):** Scripts, Explorador, Tiles, Animaciones, Seeds, Tile Creator, Tile Editor, Paint Creator, Paint Editor, Editor de colisiones, Tile por script, Audio, Debug — más **Interfaz** (categoría propia): un ítem por cada **Canvas** de la escena (**Interfaz · nombre**), abre el editor visual de UI; **Crear Canvas en la escena** equivale al menú contextual de la jerarquía.",
-                "**Categorías del «+»:** Proyecto (p. ej. Scripts, Explorador), Contenido (Tiles, Animaciones, Seeds, herramientas Creative Suite), **Interfaz** (Canvas de la escena, editor de botones/texto/paneles), Multimedia (Audio), Debug (Consola, Juego, Debug).",
+                "**Menú «+» (orden aproximado de tipos):** Scripts, Explorador, **Localización (i18n)** (tabla **Data/localization.json** + CSV), Tiles, Animaciones, Seeds, Tile Creator, Tile Editor, Paint Creator, Paint Editor, Editor de colisiones, Tile por script, Audio, Debug — más **Interfaz** (categoría propia): un ítem por cada **Canvas** de la escena (**Interfaz · nombre**), abre el editor visual de UI; **Crear Canvas en la escena** equivale al menú contextual de la jerarquía.",
+                "**Categorías del «+»:** Proyecto (p. ej. Scripts, Explorador, **Localización**), Contenido (Tiles, Animaciones, Seeds, herramientas Creative Suite), **Interfaz** (Canvas de la escena, editor de botones/texto/paneles), Multimedia (Audio), Debug (Consola, Juego, Debug).",
                 "**Anatomía mínima del proyecto (carpeta raíz):** **scripts.json** — registro que lee el runtime; el editor lo actualiza al crear/importar scripts por **Explorador** u otros flujos integrados. **Scripts/** — **.lua** (subcarpetas; **require(\"Carpeta/Modulo\")**). **Seeds/** o **.seed**. Escenas y mapas (**Maps**, **Project.FUE**). Detalle en «Archivos JSON del proyecto».",
                 "Nombres mostrados al usuario (ejemplos): Juego como **«Juego (Play embebido)»**, Tile Creator como **«Tile Creator»**, etc. — alineado con `EditorWindow` (TabDisplayNames, OptionalTabKindsOrder)."
             },
@@ -245,8 +245,8 @@ end"),
             porQueImporta: "Los Ids del Canvas y de cada control deben coincidir con **ui.bind** y **ui.show**; el foco decide qué canvas recibe clics.",
             paragraphs: new[]
             {
-                "**Dónde (editor):** clic en la escena en la **Jerarquía** → **Crear / UI** o menú contextual → **UICanvas**. Renombra el **Id** del canvas (único). Añade **Button** u otros controles como hijos; anota sus **Ids**. El texto visible del botón y estilos se editan en el **Inspector** del control (no hace falta Lua solo para el aspecto).",
-                "**Cómo (Lua en Play):** la tabla global **ui** ofrece **show(id)**, **hide(id)**, **setFocus(idCanvas)** y **bind(canvasId, elementId, \"click\", función)**. Registra el **click** en **onStart** del script; el callback recibe el evento cuando el usuario pulsa. Solo el canvas con **foco** recibe clics de ratón en la práctica — usa **setFocus** al abrir un menú.",
+                "**Dónde (editor):** clic en la escena en la **Jerarquía** → **Crear / UI** o menú contextual → **UICanvas**. Renombra el **Id** del canvas (único). Añade **Button** u otros controles como hijos; anota sus **Ids**. Los elementos **Text** y **Button** comparten en el Inspector bloques de tipografía: fuente (sistema o ruta bajo el proyecto, p. ej. **Assets/Fonts** tras cargar **.ttf** / **.otf**), tamaño (píxeles o puntos), color y opacidad, alineación, kerning, contorno y sombra, interlineado y espaciado de letras, **rich text** con **&lt;b&gt;**, **&lt;i&gt;**, **&lt;color=#RRGGBB&gt;**, **&lt;size=n&gt;**, **&lt;link=id&gt;…&lt;/link&gt;** (fragmento clicable), **&lt;icon=Nombre/&gt;** (sprite en **Assets/UI/Icons/Nombre.png** u otras extensiones), ajuste de línea con **word wrap**, **guion automático** al límite del rectángulo (heurística por ancho, no silabario), modo de desbordamiento (recortar, escalar o puntos suspensivos), **máquina de escribir** en Play (velocidad, fade por letra, pausas tras **, . ? !**, sonido **.wav** / **.ogg** relativo al proyecto), **clave i18n** con **Data/localization.json**, perfiles globales **.fuetextstyle** / **.fuetypewriter** (JSON que se fusiona sobre el elemento) y **efectos por glifo** (temblor, onda, arcoíris) en Play. **Anclaje y pivote:** preset 3×3 (sincronizable con **Anchors** Min/Max) y **pivote** del bloque de texto respecto al rectángulo interno (persistido en JSON del canvas como **textAnchor**). **Proyecto → Generar atlas SDF de fuentes** precomputa **PNG+JSON** bajo **Assets/Generated/FontSDF/** para un futuro render por shader (el visor WPF sigue con texto vectorial).",
+                "**Cómo (Lua en Play):** la tabla global **ui** ofrece **show(id)**, **hide(id)**, **setFocus(idCanvas)**, **bind(canvasId, elementId, \"click\", función)**, **bind(..., \"link\", función)** para texto con **&lt;link&gt;** (el callback recibe **canvasId, elementId, eventName, linkId, canvasX, canvasY**), **setText(...)**, **setLocale(código)** y **getLocale()** (idioma activo respecto a **localization.json**). Registra el **click** en **onStart** del script; el callback recibe el evento cuando el usuario pulsa. Solo el canvas con **foco** recibe clics de ratón en la práctica — usa **setFocus** al abrir un menú.",
                 "**Cómo (probar):** inicia **Play** (pestaña **Juego** o ventana Play). **input.isKeyDown** solo refleja el juego en simulación, no el foco del editor en Mapa.",
                 "**Ejemplos (código en la ayuda):** ids `script-ex-escenas-tecla-o-boton-loadscene`, `script-ex-ui-hud-mostrar-ocultar-canvas`, `script-ex-ui-boton-hud-pausar-movimiento` — pestaña **Ejemplos de scripts**. Guía de callbacks: pestaña **Lua** → guía **ui.bind**.",
                 "Referencias cruzadas: tema **«Iluminación, audio y UI»** (panorama); manual **«Scripting Lua — referencia completa de APIs»** para firmas de **ui.***."
@@ -254,7 +254,8 @@ end"),
             bullets: new[]
             {
                 "**game.loadScene** y **audio.play** usan nombres definidos en tu proyecto (escenas, ids de audio); revisa mayúsculas.",
-                "Errores «nil» en **ui**: comprueba que el Canvas exista en la escena guardada y que Play esté iniciado."
+                "Errores «nil» en **ui**: comprueba que el Canvas exista en la escena guardada y que Play esté iniciado.",
+                "El dibujo avanzado de texto UI (rich, typewriter, sombras) aplica al **preview WPF** (pestaña **Juego** y ventana Play). La **build Vulkan** puede no reproducir la misma UI hasta que exista un renderer equivalente."
             }),
 
         new(
@@ -266,7 +267,7 @@ end"),
             {
                 "Archivo: nuevo/abrir proyecto, guardar escena (mapa+objetos+UI), guardar escena como copia, guardar todo, importar assets a Assets/Sprites y Assets/Audio, exportar parcial, salir al Hub o salir del motor.",
                 "Editar: deshacer/rehacer, copiar/pegar/duplicar zonas de tiles, snapshots del mapa, borrar selección, preferencias del editor (tema, idioma, AppData), atajos de teclado.",
-                "Proyecto: ajustes del manifiesto .FUE (Inspector), editor avanzado (chunks, rutas), scripts, biblioteca global, integridad, huérfanos, limpiar caché (Vulkan/Cache en AppData), snapshots, simulación, export build, iniciar/detener/pausar juego.",
+                "Proyecto: ajustes del manifiesto .FUE (Inspector), editor avanzado (chunks, rutas), scripts, **atlas SDF de fuentes** (.ttf/.otf en Assets), biblioteca global, integridad, huérfanos, limpiar caché (Vulkan/Cache en AppData), snapshots, simulación, export build, iniciar/detener/pausar juego.",
                 "Mapa: crear/abrir/duplicar/eliminar/importar escenas, fondo del visor y propiedades del mapa, regenerar colisiones (flujo del editor de colisiones).",
                 "Semillas: crear .seed en Seeds/ y abrir carpeta GlobalTemplates (AppData).",
                 "Ventana: paneles (jerarquía, inspector), pestañas (Mapa, Explorador, Scripts, Consola, Juego), restablecer disposición de pestañas y paneles.",
@@ -1240,9 +1241,10 @@ end"),
             paragraphs: new[]
             {
                 "EngineSettings incluye Language, Theme y UiScalePercent para la aplicación WPF.",
+                "En **General** de preferencias: **Accesibilidad: leer UI en voz alta en Play** activa TTS de Windows al completar el **typewriter** y al pasar el ratón sobre **&lt;link&gt;** (solo durante simulación en pestaña **Juego** o ventana Play).",
                 "Fuentes del editor y colores del tema son locales al IDE.",
                 "El juego en Play usa textos de scripts y datos de UI serializados, no la traducción del editor.",
-                "Para localizar el juego, mantén strings en Lua o JSON de UI por idioma."
+                "Para localizar el juego: **Data/localization.json** y pestaña **Localización (i18n)** (tabla + importar/exportar CSV para traductores)."
             }),
 
         new(

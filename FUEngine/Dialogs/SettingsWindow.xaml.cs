@@ -317,6 +317,7 @@ public partial class SettingsWindow : Window
     {
         if (CmbStartupBehavior != null) CmbStartupBehavior.SelectedIndex = StartupBehaviorIndex(_settings.StartupBehavior);
         if (ChkHardwareAcceleration != null) ChkHardwareAcceleration.IsChecked = _settings.HardwareAccelerationEnabled;
+        if (ChkUiAccessibilityTts != null) ChkUiAccessibilityTts.IsChecked = _settings.UiAccessibilityTtsEnabled;
         if (TxtAiPath != null) TxtAiPath.Text = _settings.AiIntegrationPath ?? "";
 
         if (CmbTheme != null) CmbTheme.SelectedItem = _settings.Theme ?? "Oscuro";
@@ -436,6 +437,7 @@ public partial class SettingsWindow : Window
     {
         if (CmbStartupBehavior != null) _settings.StartupBehavior = StartupBehaviorFromIndex(CmbStartupBehavior.SelectedIndex);
         if (ChkHardwareAcceleration != null) _settings.HardwareAccelerationEnabled = ChkHardwareAcceleration.IsChecked != false;
+        if (ChkUiAccessibilityTts != null) _settings.UiAccessibilityTtsEnabled = ChkUiAccessibilityTts.IsChecked == true;
         if (TxtAiPath != null) _settings.AiIntegrationPath = TxtAiPath.Text?.Trim() ?? "";
 
         if (CmbTheme != null) _settings.Theme = CmbTheme.SelectedItem?.ToString() ?? "Oscuro";

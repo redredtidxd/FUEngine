@@ -42,7 +42,7 @@ public partial class EditorWindow
         if (_selection.SelectedUICanvas != null || _selection.SelectedUIElement != null)
         {
             var uiPanel = GetOrCreateUIElementPanel();
-            uiPanel.SetTarget(_selection.SelectedUICanvas, _selection.SelectedUIElement, GetCurrentUIRoot());
+            uiPanel.SetTarget(_selection.SelectedUICanvas, _selection.SelectedUIElement, GetCurrentUIRoot(), _project.ProjectDirectory);
             InspectorPanel.Content = uiPanel;
             return;
         }

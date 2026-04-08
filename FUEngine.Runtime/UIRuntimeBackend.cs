@@ -14,6 +14,7 @@ public sealed class UIRuntimeBackend
     private const int MaxStateStackDepth = 16;
 
     private readonly UIRoot? _root;
+    private readonly Dictionary<string, List<UiTextLinkHit>> _textLinkHits = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _visible = new(StringComparer.OrdinalIgnoreCase);
     private readonly Stack<UiRuntimeStateSnapshot> _stateStack = new();
     private Dictionary<string, object>? _bindings;
@@ -27,6 +28,22 @@ public sealed class UIRuntimeBackend
         _root = root;
         EnsureDefaultVisibleCanvases();
     }
+
+    /// <summary>Borra regiones de hipervínculos de texto; llamar al inicio del frame de UI antes de volver a registrar.</summary>
+    public void ClearTextLinkHits() => _textLinkHits.Clear();
+
+    /// <summary>Registra rectángulos en coordenadas de canvas lógico (misma escala que <see cref="UILayoutEntry.CanvasRect"/>).</summary>
+    public void SetTextLinkHits(string canvasId, string elementId, IReadOnlyList<UiTextLinkHit> hits)
+    {
+        if (string.IsNullOrWhiteSpace(canvasId) || string.IsNullOrWhiteSpace(elementId)) return;
+        var k = TextLinkStorageKey(canvasId, elementId);
+        _textLinkHits.Remove(k);
+        if (hits == null || hits.Count == 0) return;
+        _textLinkHits[k] = new List<UiTextLinkHit>(hits);
+    }
+
+    private static string TextLinkStorageKey(string canvasId, string elementId) =>
+        string.Create(CultureInfo.InvariantCulture, $"{canvasId}|{elementId}");
 
     /// <summary>Si no hay visibilidad explícita todavía, marca visibles todos los canvas y enfoca el superior.</summary>
     public void EnsureDefaultVisibleCanvases()
@@ -175,8 +192,9 @@ public sealed class UIRuntimeBackend
             if (!TryHitTestElements(canvas.Children, canvasX, canvasY, rootRect, out var element, out var elementRect))
                 continue;
 
+            var linkId = TryPickTextLinkId(canvas.Id, element.Id ?? "", canvasX, canvasY) ?? "";
             var viewportRect = CanvasRectToViewportRect(elementRect, t);
-            hit = new UIHitResult(canvas.Id, element.Id ?? "", element, elementRect, viewportRect, canvasX, canvasY);
+            hit = new UIHitResult(canvas.Id, element.Id ?? "", element, elementRect, viewportRect, canvasX, canvasY, linkId);
             return true;
         }
         return false;
@@ -198,6 +216,27 @@ public sealed class UIRuntimeBackend
     private void DispatchBinding(UIHitResult hit, string eventName)
     {
         if (_bindings == null || string.IsNullOrWhiteSpace(eventName)) return;
+
+        if (!string.IsNullOrEmpty(hit.TextLinkId) &&
+            (string.Equals(eventName, "click", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(eventName, "pressed", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(eventName, "released", StringComparison.OrdinalIgnoreCase)))
+        {
+            var linkKey = BuildBindingKey(hit.CanvasId, hit.ElementId, "link");
+            if (_bindings.TryGetValue(linkKey, out var linkCb))
+            {
+                try
+                {
+                    InvokeLinkCallback(linkCb, hit, eventName);
+                }
+                catch (Exception ex)
+                {
+                    CallbackError?.Invoke(hit.CanvasId, hit.ElementId, eventName, ex.Message);
+                }
+                return;
+            }
+        }
+
         var key = BuildBindingKey(hit.CanvasId, hit.ElementId, eventName);
         if (!_bindings.TryGetValue(key, out var callback)) return;
 
@@ -209,6 +248,34 @@ public sealed class UIRuntimeBackend
         {
             CallbackError?.Invoke(hit.CanvasId, hit.ElementId, eventName, ex.Message);
         }
+    }
+
+    private static void InvokeLinkCallback(object callback, UIHitResult hit, string eventName)
+    {
+        if (callback is LuaFunction luaFn)
+        {
+            luaFn.Call(hit.CanvasId, hit.ElementId, eventName, hit.TextLinkId, hit.CanvasX, hit.CanvasY);
+            return;
+        }
+        if (callback is Action<string, string, string, string, double, double> a6)
+        {
+            a6(hit.CanvasId, hit.ElementId, eventName, hit.TextLinkId, hit.CanvasX, hit.CanvasY);
+            return;
+        }
+        InvokeCallback(callback, hit, eventName);
+    }
+
+    private string? TryPickTextLinkId(string canvasId, string elementId, double canvasX, double canvasY)
+    {
+        if (!_textLinkHits.TryGetValue(TextLinkStorageKey(canvasId, elementId), out var list) || list.Count == 0)
+            return null;
+        for (var i = list.Count - 1; i >= 0; i--)
+        {
+            var h = list[i];
+            if (Contains(h.Rect, canvasX, canvasY))
+                return h.LinkId;
+        }
+        return null;
     }
 
     private static void InvokeCallback(object callback, UIHitResult hit, string eventName)
@@ -358,7 +425,11 @@ public readonly record struct UIHitResult(
     UIRect CanvasRect,
     UIRect ViewportRect,
     double CanvasX,
-    double CanvasY)
+    double CanvasY,
+    string TextLinkId = "")
 {
     public bool BlocksInput => Element.BlocksInput;
 }
+
+/// <summary>Golpe de puntero sobre un fragmento <c>&lt;link&gt;</c> en texto UI (coordenadas canvas).</summary>
+public readonly record struct UiTextLinkHit(string LinkId, UIRect Rect);

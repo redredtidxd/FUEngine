@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 
 namespace FUEngine.Core;
 
@@ -14,7 +15,16 @@ public static class UIPrefabPolicy
         "Kind",
         "Rect.X", "Rect.Y", "Rect.Width", "Rect.Height",
         "Anchors.MinX", "Anchors.MinY", "Anchors.MaxX", "Anchors.MaxY",
-        "Text", "ImagePath", "BlocksInput"
+        "Text", "ImagePath", "BlocksInput",
+        "LocalizationKey", "TextStyleProfilePath", "TypewriterProfilePath",
+        "TextAnchorJson",
+        "TextStyleJson", "TextLayoutJson", "TypewriterJson"
+    };
+
+    private static readonly JsonSerializerOptions PrefabJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = false
     };
 
     /// <summary>Busca el prefab (elemento fuente) correspondiente al SeedId de la instancia.</summary>
@@ -48,6 +58,13 @@ public static class UIPrefabPolicy
         instance.Text = prefab.Text;
         instance.ImagePath = prefab.ImagePath;
         instance.BlocksInput = prefab.BlocksInput;
+        instance.LocalizationKey = prefab.LocalizationKey;
+        instance.TextStyleProfilePath = prefab.TextStyleProfilePath;
+        instance.TypewriterProfilePath = prefab.TypewriterProfilePath;
+        instance.TextAnchor = prefab.TextAnchor?.Clone();
+        instance.TextStyle = prefab.TextStyle?.Clone();
+        instance.TextLayout = prefab.TextLayout?.Clone();
+        instance.Typewriter = prefab.Typewriter?.Clone();
 
         instance.Id = oldId;
         instance.SeedId = oldSeedId;
@@ -166,12 +183,47 @@ public static class UIPrefabPolicy
             case "Text":
                 target.Text = value ?? "";
                 break;
+            case "LocalizationKey":
+                target.LocalizationKey = value ?? "";
+                break;
+            case "TextStyleProfilePath":
+                target.TextStyleProfilePath = value ?? "";
+                break;
+            case "TypewriterProfilePath":
+                target.TypewriterProfilePath = value ?? "";
+                break;
+            case "TextAnchorJson":
+                target.TextAnchor = TryDeserialize(value, static () => new UITextAnchorSettings());
+                break;
             case "ImagePath":
                 target.ImagePath = value ?? "";
                 break;
             case "BlocksInput":
                 if (bool.TryParse(value, out var blocks)) target.BlocksInput = blocks;
                 break;
+            case "TextStyleJson":
+                target.TextStyle = TryDeserialize(value, static () => new UITextStyle());
+                break;
+            case "TextLayoutJson":
+                target.TextLayout = TryDeserialize(value, static () => new UITextLayoutSettings());
+                break;
+            case "TypewriterJson":
+                target.Typewriter = TryDeserialize(value, static () => new UITypewriterSettings());
+                break;
+        }
+    }
+
+    private static T? TryDeserialize<T>(string? json, Func<T> defaultFactory) where T : class
+    {
+        if (string.IsNullOrWhiteSpace(json)) return defaultFactory();
+        try
+        {
+            var o = JsonSerializer.Deserialize<T>(json, PrefabJsonOptions);
+            return o ?? defaultFactory();
+        }
+        catch
+        {
+            return defaultFactory();
         }
     }
 
@@ -189,8 +241,15 @@ public static class UIPrefabPolicy
             "Anchors.MaxX" => element.Anchors.MaxX.ToString(CultureInfo.InvariantCulture),
             "Anchors.MaxY" => element.Anchors.MaxY.ToString(CultureInfo.InvariantCulture),
             "Text" => element.Text ?? "",
+            "LocalizationKey" => element.LocalizationKey ?? "",
+            "TextStyleProfilePath" => element.TextStyleProfilePath ?? "",
+            "TypewriterProfilePath" => element.TypewriterProfilePath ?? "",
+            "TextAnchorJson" => JsonSerializer.Serialize(element.TextAnchor ?? new UITextAnchorSettings(), PrefabJsonOptions),
             "ImagePath" => element.ImagePath ?? "",
             "BlocksInput" => element.BlocksInput.ToString(CultureInfo.InvariantCulture),
+            "TextStyleJson" => JsonSerializer.Serialize(element.TextStyle ?? new UITextStyle(), PrefabJsonOptions),
+            "TextLayoutJson" => JsonSerializer.Serialize(element.TextLayout ?? new UITextLayoutSettings(), PrefabJsonOptions),
+            "TypewriterJson" => JsonSerializer.Serialize(element.Typewriter ?? new UITypewriterSettings(), PrefabJsonOptions),
             _ => ""
         };
     }

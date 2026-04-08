@@ -27,6 +27,7 @@ public sealed class PlayModeRunner
     private LuaScriptRuntime? _runtime;
     private WorldContextFromList? _worldContext;
     private UIRuntimeBackend? _uiBackend;
+    private LocalizationRuntime? _localization;
     private ObjectLayer? _activeLayer;
     private readonly List<GameObject> _sceneObjects = new();
     private readonly Dictionary<GameObject, ObjectInstance> _goToInstance = new();
@@ -63,6 +64,7 @@ public sealed class PlayModeRunner
     private List<TriggerZone> _mapTriggerZones = new();
     private readonly HashSet<string> _mapZonesPlayerInside = new();
     private readonly Dictionary<string, GameObject> _mapZoneTickHosts = new();
+    private UiAccessibilityTts? _accessibilityTts;
 
     public PlayModeRunner(ProjectInfo project, ObjectLayer objectLayer, ScriptRegistry scriptRegistry, Action openConsole, UIRoot? uiRoot = null, TileMap? editorTileMapSnapshot = null, PlayKeyboardSnapshot? playKeyboard = null)
     {
@@ -86,6 +88,15 @@ public sealed class PlayModeRunner
     public double GameTimeSeconds => _gameTimeSeconds;
     public double LastDeltaTimeSeconds => _lastDeltaTime;
     public double CurrentFps => _currentFps;
+
+    /// <summary>Máquina de escribir UI durante Play.</summary>
+    public UiTypewriterRuntime UiTypewriter { get; } = new();
+
+    /// <summary>TTS opcional (Windows) cuando <see cref="EngineSettings.UiAccessibilityTtsEnabled"/> está activo.</summary>
+    public UiAccessibilityTts? AccessibilityTts => _accessibilityTts;
+
+    /// <summary>Tablas de <c>Data/localization.json</c> en Play (null si no se inició).</summary>
+    public LocalizationRuntime? GetLocalizationRuntime() => _localization;
 
     /// <summary>
     /// Centro de cámara en casillas mundo para el visor WPF: seguimiento nativo al protagonista, o centro del marco del editor,
@@ -237,6 +248,10 @@ public sealed class PlayModeRunner
         _uiBackend = new UIRuntimeBackend(_uiRoot);
         var uiApi = new UiApi();
         uiApi.SetBackend(_uiBackend);
+        _localization = new LocalizationRuntime();
+        _localization.LoadFromProject(projectDir);
+        _localization.ApplySystemLocale();
+        uiApi.SetLocaleProvider(_localization);
         _runtime.SetUiApi(uiApi);
 
         var adsApi = new SimulatedAdsApi(
@@ -274,6 +289,16 @@ public sealed class PlayModeRunner
         _fpsFrames = 0;
         _fpsAccumTime = 0;
         _gameTimeSeconds = 0;
+        UiTypewriter.Clear();
+        UiTypewriter.TypewriterLineComplete -= OnTypewriterLineCompleteForTts;
+        _accessibilityTts?.Dispose();
+        _accessibilityTts = null;
+        if (EngineSettings.Load().UiAccessibilityTtsEnabled)
+        {
+            _accessibilityTts = new UiAccessibilityTts { IsEnabled = true };
+            _accessibilityTts.EnsureSynthesizer();
+            UiTypewriter.TypewriterLineComplete += OnTypewriterLineCompleteForTts;
+        }
         _warnedNativeInputNoMap = false;
         _warnedNativeInputColliderByInstance.Clear();
         _paused = false;
@@ -1007,6 +1032,8 @@ public sealed class PlayModeRunner
         FlushDestroyQueue();
         _runtime.EndTick();
 
+        UiTypewriter.Tick(delta, _uiRoot, _uiBackend, _gameTimeSeconds, _playAudioEngine, _project.ProjectDirectory, _localization);
+
         if (_playTileMap != null && _project.ChunkStreaming && _project.ChunkUnloadFar && _project.ChunkSize > 0 && _project.ChunkLoadRadius >= 0)
         {
             var (camTx, camTy) = GetCameraTileCenterForStreaming();
@@ -1090,6 +1117,12 @@ public sealed class PlayModeRunner
         _nativeAnimTextureProbe = null;
         _worldContext = null;
         _uiBackend = null;
+        _localization = null;
+        UiTypewriter.TypewriterLineComplete -= OnTypewriterLineCompleteForTts;
+        _accessibilityTts?.Stop();
+        _accessibilityTts?.Dispose();
+        _accessibilityTts = null;
+        UiTypewriter.Clear();
         _sceneObjects.Clear();
         _scriptBindings.Clear();
         _goToInstance.Clear();
@@ -1513,6 +1546,11 @@ public sealed class PlayModeRunner
         if (string.IsNullOrEmpty(message)) return 0;
         var match = Regex.Match(message, @":(\d+):");
         return match.Success && int.TryParse(match.Groups[1].Value, out var line) ? line : 0;
+    }
+
+    private void OnTypewriterLineCompleteForTts(string canvasId, FUEngine.Core.UIElement el, string plain)
+    {
+        _accessibilityTts?.Speak(plain);
     }
 }
 

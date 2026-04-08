@@ -108,6 +108,20 @@ public sealed class PlayNaudioAudioEngine : IDisposable
         PlaySfxFromFile(e.AbsolutePath, e.Volume * mul);
     }
 
+    /// <summary>SFX desde ruta relativa al proyecto (.wav / .ogg). Usado por typewriter UI.</summary>
+    public void PlaySfxFromProjectRelativePath(string relativePath, float volumeMultiplier = 1f)
+    {
+        ThrowIfDisposed();
+        if (string.IsNullOrWhiteSpace(relativePath)) return;
+        var norm = relativePath.Trim().Replace('/', Path.DirectorySeparatorChar);
+        var ext = Path.GetExtension(norm).ToLowerInvariant();
+        if (ext is not (".wav" or ".ogg")) return;
+        var full = Path.GetFullPath(Path.Combine(_projectRoot, norm));
+        if (!File.Exists(full)) return;
+        var mul = volumeMultiplier > 0 ? volumeMultiplier : 1f;
+        PlaySfxFromFile(full, mul);
+    }
+
     public void StopMusic(double fadeSeconds = 0)
     {
         ThrowIfDisposed();

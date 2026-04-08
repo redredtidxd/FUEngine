@@ -59,9 +59,16 @@ public class UIRoot
             Rect = e.Rect,
             Anchors = e.Anchors,
             Text = e.Text,
+            LocalizationKey = e.LocalizationKey,
+            TextStyleProfilePath = e.TextStyleProfilePath,
+            TypewriterProfilePath = e.TypewriterProfilePath,
             ImagePath = e.ImagePath,
             SeedId = e.SeedId,
-            BlocksInput = e.BlocksInput
+            BlocksInput = e.BlocksInput,
+            TextStyle = e.TextStyle?.Clone(),
+            TextLayout = e.TextLayout?.Clone(),
+            Typewriter = e.Typewriter?.Clone(),
+            TextAnchor = e.TextAnchor?.Clone()
         };
         foreach (var kv in e.PropertyOverrides)
             copy.PropertyOverrides[kv.Key] = kv.Value;

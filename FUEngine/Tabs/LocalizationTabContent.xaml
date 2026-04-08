@@ -1,0 +1,38 @@
+<UserControl x:Class="FUEngine.LocalizationTabContent"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#0d1117">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <ToolBar Grid.Row="0" Background="#161b22" Foreground="#e6edf3" Margin="0,0,0,8">
+            <Button Content="Recargar" Click="BtnReload_OnClick" Padding="10,4" Margin="0,0,6,0"/>
+            <Button Content="Guardar JSON" Click="BtnSaveJson_OnClick" Padding="10,4" Margin="0,0,6,0"/>
+            <Separator/>
+            <Button Content="Importar CSV…" Click="BtnImportCsv_OnClick" Padding="10,4" Margin="0,0,6,0"/>
+            <Button Content="Exportar CSV…" Click="BtnExportCsv_OnClick" Padding="10,4" Margin="0,0,6,0"/>
+            <Separator/>
+            <TextBlock Text="defaultLocale" VerticalAlignment="Center" Margin="8,0,4,0" Foreground="#8b949e" FontSize="11"/>
+            <TextBox x:Name="TxtDefaultLocale" Width="52" VerticalAlignment="Center" Padding="4,2" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" LostFocus="LocaleField_OnLostFocus"/>
+            <TextBlock Text="fallbackLocale" VerticalAlignment="Center" Margin="12,0,4,0" Foreground="#8b949e" FontSize="11"/>
+            <TextBox x:Name="TxtFallbackLocale" Width="52" VerticalAlignment="Center" Padding="4,2" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" LostFocus="LocaleField_OnLostFocus"/>
+            <Separator/>
+            <Button Content="Nueva clave" Click="BtnAddRow_OnClick" Padding="10,4" Margin="0,0,6,0"/>
+            <Button Content="Eliminar fila" Click="BtnRemoveRow_OnClick" Padding="10,4"/>
+        </ToolBar>
+        <DataGrid x:Name="GridLoc" Grid.Row="1"
+                  AutoGenerateColumns="True"
+                  CanUserAddRows="False"
+                  Background="#0d1117"
+                  Foreground="#e6edf3"
+                  BorderBrush="#30363d"
+                  RowBackground="#0d1117"
+                  AlternatingRowBackground="#161b22"
+                  GridLinesVisibility="Horizontal"
+                  HorizontalGridLinesBrush="#30363d"
+                  HeadersVisibility="Column"
+                  CellEditEnding="GridLoc_OnCellEditEnding"/>
+    </Grid>
+</UserControl>
