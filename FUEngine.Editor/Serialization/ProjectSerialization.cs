@@ -145,7 +145,9 @@ public static class ProjectSerialization
         }
         catch (Exception ex)
         {
-            throw new InvalidOperationException($"No se pudo leer el archivo del proyecto: {ex.Message}", ex);
+            var readErr = $"No se pudo leer el archivo del proyecto: {ex.Message}";
+            EditorJsonLoadDiagnostics.ReportJsonError?.Invoke(readErr, "Proyecto", path);
+            throw new InvalidOperationException(readErr, ex);
         }
         ProjectDto? dto;
         try
@@ -154,10 +156,16 @@ public static class ProjectSerialization
         }
         catch (JsonException ex)
         {
-            throw new InvalidOperationException($"JSON del proyecto inválido (línea {ex.LineNumber}, posición {ex.BytePositionInLine}): {ex.Message}", ex);
+            var msg = $"JSON del proyecto inválido o corrupto (línea {ex.LineNumber}, posición {ex.BytePositionInLine}): {ex.Message}";
+            EditorJsonLoadDiagnostics.ReportJsonError?.Invoke(msg, "Proyecto", path);
+            throw new InvalidOperationException(msg, ex);
         }
         if (dto == null)
-            throw new InvalidOperationException("El archivo del proyecto está vacío o mal formado.");
+        {
+            var msg = "El archivo del proyecto está vacío o mal formado.";
+            EditorJsonLoadDiagnostics.ReportJsonError?.Invoke(msg, "Proyecto", path);
+            throw new InvalidOperationException(msg);
+        }
         var dir = Path.GetDirectoryName(path);
         if (string.IsNullOrWhiteSpace(dir))
             dir = Path.GetDirectoryName(Path.GetFullPath(path)) ?? "";

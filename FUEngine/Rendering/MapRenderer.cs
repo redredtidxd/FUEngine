@@ -44,6 +44,7 @@ public sealed class MapRenderer
         if (ctx.ShowColliders)
             DrawCollisionOverlay(canvas, ctx, tileSize);
         DrawObjects(canvas, ctx, tileSize);
+        DrawClickInteractableOverlays(canvas, ctx, tileSize);
         DrawTriggers(canvas, ctx, tileSize);
         DrawSelectionOverlay(canvas, ctx, tileSize);
         DrawToolOverlays(canvas, ctx, tileSize);
@@ -886,6 +887,99 @@ public sealed class MapRenderer
                 };
                 Canvas.SetLeft(rect, ToCanvasX(ctx, (int)inst.X));
                 Canvas.SetTop(rect, ToCanvasY(ctx, (int)inst.Y));
+                canvas.Children.Add(rect);
+            }
+        }
+    }
+
+    /// <summary>Área clicable <see cref="ObjectInstance.ClickInteractableEnabled"/> en editor (alineada con hit-test en Play).</summary>
+    private void DrawClickInteractableOverlays(Canvas canvas, MapRenderContext ctx, double tileSize)
+    {
+        if (ctx.Project == null) return;
+        GetClampedTileRangeForDrawing(canvas, ctx, tileSize, out int tMinTx, out int tMinTy, out int tMaxTx, out int tMaxTy);
+        double minWx = tMinTx;
+        double maxWx = tMaxTx + 2;
+        double minWy = tMinTy;
+        double maxWy = tMaxTy + 2;
+
+        var fillBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(90, 0xa3, 0x71, 0xf7));
+        var strokeBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(200, 0xc9, 0xa8, 0xff));
+
+        foreach (var inst in ctx.ObjectLayer.Instances)
+        {
+            if (!inst.ClickInteractableEnabled) continue;
+            var def = ctx.ObjectLayer.GetDefinition(inst.DefinitionId);
+            var wTiles = def?.Width ?? 1;
+            var hTiles = def?.Height ?? 1;
+            if (!ctx.Project.Infinite)
+            {
+                int ox = ctx.Project.MapBoundsOriginWorldTileX;
+                int oy = ctx.Project.MapBoundsOriginWorldTileY;
+                int mw = Math.Max(1, ctx.Project.MapWidth);
+                int mh = Math.Max(1, ctx.Project.MapHeight);
+                if (inst.X + wTiles <= ox || inst.X >= ox + mw || inst.Y + hTiles <= oy || inst.Y >= oy + mh) continue;
+            }
+            if (inst.X + wTiles < minWx || inst.X > maxWx) continue;
+            if (inst.Y + hTiles < minWy || inst.Y > maxWy) continue;
+
+            double cxW = inst.X + inst.ClickInteractableOffsetXTiles;
+            double cyW = inst.Y + inst.ClickInteractableOffsetYTiles;
+            double sx = Math.Abs(inst.ScaleX) > 1e-6 ? inst.ScaleX : 1.0;
+            double sy = Math.Abs(inst.ScaleY) > 1e-6 ? inst.ScaleY : 1.0;
+            double canvasCx = (cxW - ctx.CanvasMinWx) * tileSize;
+            double canvasCy = (cyW - ctx.CanvasMinWy) * tileSize;
+
+            bool circle = string.Equals(inst.ClickInteractableShape, "Circle", StringComparison.OrdinalIgnoreCase);
+            bool pixelPerfect = string.Equals(inst.ClickInteractableShape, "PixelPerfect", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(inst.ClickInteractableShape, "Pixel", StringComparison.OrdinalIgnoreCase);
+            if (circle)
+            {
+                double rTiles = inst.ClickInteractableCircleRadiusTiles > 0 ? inst.ClickInteractableCircleRadiusTiles : 0.5;
+                double rm = Math.Max(Math.Abs(sx), Math.Abs(sy));
+                double d = 2.0 * rTiles * rm * tileSize;
+                var ell = new System.Windows.Shapes.Ellipse
+                {
+                    Width = d,
+                    Height = d,
+                    Fill = fillBrush,
+                    Stroke = strokeBrush,
+                    StrokeThickness = 1.5,
+                    IsHitTestVisible = false,
+                    RenderTransformOrigin = new System.Windows.Point(0.5, 0.5),
+                    RenderTransform = new RotateTransform(inst.Rotation)
+                };
+                Canvas.SetLeft(ell, canvasCx - d * 0.5);
+                Canvas.SetTop(ell, canvasCy - d * 0.5);
+                canvas.Children.Add(ell);
+            }
+            else
+            {
+                double bw, bh;
+                if (pixelPerfect && def != null)
+                {
+                    bw = Math.Max(1e-4, def.Width * Math.Abs(sx)) * tileSize;
+                    bh = Math.Max(1e-4, def.Height * Math.Abs(sy)) * tileSize;
+                }
+                else
+                {
+                    bw = Math.Max(1e-4, inst.ClickInteractableBoxWidthTiles * Math.Abs(sx)) * tileSize;
+                    bh = Math.Max(1e-4, inst.ClickInteractableBoxHeightTiles * Math.Abs(sy)) * tileSize;
+                }
+                var rect = new Rectangle
+                {
+                    Width = bw,
+                    Height = bh,
+                    Fill = fillBrush,
+                    Stroke = strokeBrush,
+                    StrokeThickness = 1.5,
+                    IsHitTestVisible = false,
+                    RenderTransformOrigin = new System.Windows.Point(0.5, 0.5),
+                    RenderTransform = new RotateTransform(inst.Rotation)
+                };
+                if (pixelPerfect)
+                    rect.StrokeDashArray = new DoubleCollection { 4, 3 };
+                Canvas.SetLeft(rect, canvasCx - bw * 0.5);
+                Canvas.SetTop(rect, canvasCy - bh * 0.5);
                 canvas.Children.Add(rect);
             }
         }

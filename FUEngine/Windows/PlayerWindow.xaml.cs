@@ -28,6 +28,67 @@ public partial class PlayerWindow : Window
         InitializeComponent();
     }
 
+    private bool DispatchViewportPointer(double x, double y, string eventName)
+    {
+        var ui = _runner?.GetUiBackend();
+        if (ui == null) return false;
+        return ui.DispatchPointerEvent(x, y, GameCanvas.ActualWidth, GameCanvas.ActualHeight, eventName);
+    }
+
+    private void PlayerCanvas_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (_runner == null || !_runner.IsRunning) return;
+        var p = e.GetPosition(GameCanvas);
+        _playKeyboard.MouseX = p.X;
+        _playKeyboard.MouseY = p.Y;
+        double vw = GameCanvas.ActualWidth, vh = GameCanvas.ActualHeight;
+        if (vw <= 0 || vh <= 0) return;
+        var ui = _runner.GetUiBackend();
+        bool uiBlocks = ui != null && ui.DispatchPointerEvent(p.X, p.Y, vw, vh, "hover");
+        if (uiBlocks)
+        {
+            _runner.ClearClickInteractWorldHover();
+            GameCanvas.Cursor = null;
+        }
+        else
+        {
+            bool hand = _runner.UpdateClickInteractHover(p.X, p.Y, vw, vh, isMouse: true, isTouch: false);
+            GameCanvas.Cursor = hand ? System.Windows.Input.Cursors.Hand : null;
+        }
+    }
+
+    private void PlayerCanvas_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (_runner == null || !_runner.IsRunning) return;
+        var p = e.GetPosition(GameCanvas);
+        _playKeyboard.MouseLeft = true;
+        _playKeyboard.MouseX = p.X;
+        _playKeyboard.MouseY = p.Y;
+        double vw = GameCanvas.ActualWidth, vh = GameCanvas.ActualHeight;
+        bool consumed = DispatchViewportPointer(p.X, p.Y, "pressed");
+        if (!consumed) consumed = DispatchViewportPointer(p.X, p.Y, "click");
+        if (!consumed && _runner.TryDispatchClickInteractPointerDown(p.X, p.Y, vw, vh, isMouse: true, isTouch: false))
+            consumed = true;
+        if (consumed) e.Handled = true;
+    }
+
+    private void PlayerCanvas_MouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (_runner == null || !_runner.IsRunning) return;
+        var p = e.GetPosition(GameCanvas);
+        _playKeyboard.MouseLeft = false;
+        _playKeyboard.MouseX = p.X;
+        _playKeyboard.MouseY = p.Y;
+        bool consumed = DispatchViewportPointer(p.X, p.Y, "released");
+        if (!consumed)
+        {
+            double vw = GameCanvas.ActualWidth, vh = GameCanvas.ActualHeight;
+            if (_runner.TryDispatchClickInteractPointerUp(p.X, p.Y, vw, vh, isMouse: true, isTouch: false))
+                consumed = true;
+        }
+        if (consumed) e.Handled = true;
+    }
+
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
         try
@@ -72,14 +133,9 @@ public partial class PlayerWindow : Window
             _renderTimer.Start();
 
             GameCanvas.SizeChanged += (_, _) => RenderFrame();
-            GameCanvas.MouseMove += (_, me) =>
-            {
-                var p = me.GetPosition(GameCanvas);
-                _playKeyboard.MouseX = p.X;
-                _playKeyboard.MouseY = p.Y;
-            };
-            GameCanvas.MouseLeftButtonDown += (_, _) => _playKeyboard.MouseLeft = true;
-            GameCanvas.MouseLeftButtonUp += (_, _) => _playKeyboard.MouseLeft = false;
+            GameCanvas.MouseMove += PlayerCanvas_MouseMove;
+            GameCanvas.MouseLeftButtonDown += PlayerCanvas_MouseLeftButtonDown;
+            GameCanvas.MouseLeftButtonUp += PlayerCanvas_MouseLeftButtonUp;
             RenderFrame();
         }
         catch (Exception ex)

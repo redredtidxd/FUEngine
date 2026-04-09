@@ -152,6 +152,7 @@ public static class LuaScriptVariableParser
 
     /// <summary>
     /// Primero <see cref="ParseInspectorProps"/>; luego asignaciones globales de <see cref="Parse"/> sin pisar nombres ya definidos por <c>@prop</c>.
+    /// Las asignaciones en la raíz con comentario final <c>-- [Editable]</c> se incluyen igual que las demás globales (el comentario es documentación explícita).
     /// </summary>
     public static List<(string Name, string Type, string DefaultValue)> ParseMergedForInspector(string luaCode)
     {

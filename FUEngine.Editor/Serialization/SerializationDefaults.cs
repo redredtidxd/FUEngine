@@ -12,6 +12,8 @@ public static class SerializationDefaults
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        ReferenceHandler = ReferenceHandler.IgnoreCycles
+        ReferenceHandler = ReferenceHandler.IgnoreCycles,
+        // Claves desconocidas en JSON antiguo no rompen la carga (campos nuevos en código / viejos en disco).
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip
     };
 }

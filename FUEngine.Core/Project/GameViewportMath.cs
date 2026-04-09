@@ -175,4 +175,46 @@ public static class GameViewportMath
         p.EditorViewportCenterWorldX = cx;
         p.EditorViewportCenterWorldY = cy;
     }
+
+    /// <summary>Escala y offsets del visor Play embebido (alineado con el render WPF del mundo).</summary>
+    public static void GetPlayEmbeddedViewportTransform(
+        ProjectInfo project,
+        double viewportW,
+        double viewportH,
+        double cameraWorldX,
+        double cameraWorldY,
+        out int tileSize,
+        out double scale,
+        out double offsetX,
+        out double offsetY)
+    {
+        tileSize = Math.Max(1, project.TileSize > 0 ? project.TileSize : 32);
+        GetEffectiveResolutionPixels(project, out int effW, out int effH, viewportW, viewportH, 1.0);
+        const double pad = 0;
+        double availW = Math.Max(1, viewportW - pad * 2);
+        double availH = Math.Max(1, viewportH - pad * 2);
+        double rawScale = Math.Min(availW / Math.Max(effW, 1), availH / Math.Max(effH, 1));
+        double sc = project.PixelPerfect
+            ? (Math.Floor(rawScale) >= 1 ? Math.Floor(rawScale) : rawScale)
+            : rawScale;
+        scale = Math.Clamp(sc, 0.2, 64.0);
+        double scaledW = effW * scale;
+        double scaledH = effH * scale;
+        double letterX = (viewportW - scaledW) / 2.0;
+        double letterY = (viewportH - scaledH) / 2.0;
+        offsetX = letterX + scaledW / 2.0 - cameraWorldX * tileSize * scale;
+        offsetY = letterY + scaledH / 2.0 - cameraWorldY * tileSize * scale;
+    }
+
+    /// <summary>Píxeles del canvas de juego → coordenadas mundo en casillas (fraccionarias).</summary>
+    public static void ViewportPixelsToWorldTile(
+        double pixelX, double pixelY,
+        int tileSize, double scale, double offsetX, double offsetY,
+        out double worldX, out double worldY)
+    {
+        double denom = tileSize * scale;
+        if (Math.Abs(denom) < 1e-9) denom = 1;
+        worldX = (pixelX - offsetX) / denom;
+        worldY = (pixelY - offsetY) / denom;
+    }
 }

@@ -144,7 +144,25 @@ public static class ObjectsSerialization
                 HealthEnabled = i.HealthEnabled,
                 HealthMax = i.HealthMax,
                 HealthCurrent = i.HealthCurrent,
-                HealthInvulnerable = i.HealthInvulnerable
+                HealthInvulnerable = i.HealthInvulnerable,
+                ClickInteractableEnabled = i.ClickInteractableEnabled,
+                ClickInteractableInteractEnabled = i.ClickInteractableInteractEnabled,
+                ClickInteractableShape = string.IsNullOrEmpty(i.ClickInteractableShape) ? null : i.ClickInteractableShape,
+                ClickInteractableBoxWidthTiles = i.ClickInteractableBoxWidthTiles,
+                ClickInteractableBoxHeightTiles = i.ClickInteractableBoxHeightTiles,
+                ClickInteractableCircleRadiusTiles = i.ClickInteractableCircleRadiusTiles,
+                ClickInteractableOffsetXTiles = i.ClickInteractableOffsetXTiles,
+                ClickInteractableOffsetYTiles = i.ClickInteractableOffsetYTiles,
+                ClickInteractableHoverEffect = i.ClickInteractableHoverEffect,
+                ClickInteractableInputFilter = string.IsNullOrEmpty(i.ClickInteractableInputFilter) ? null : i.ClickInteractableInputFilter,
+                ClickInteractableMaxDistanceFromPlayerTiles = i.ClickInteractableMaxDistanceFromPlayerTiles,
+                ClickInteractZPriority = i.ClickInteractZPriority,
+                ClickInteractableRequireLineOfSight = i.ClickInteractableRequireLineOfSight,
+                ClickInteractOnPressScale = i.ClickInteractOnPressScale,
+                ClickInteractHoverTintHex = string.IsNullOrEmpty(i.ClickInteractHoverTintHex) ? null : i.ClickInteractHoverTintHex,
+                ClickInteractableScriptIdOnClick = i.ClickInteractableScriptIdOnClick,
+                ClickInteractableScriptIdOnPointerEnter = i.ClickInteractableScriptIdOnPointerEnter,
+                ClickInteractableScriptIdOnPointerExit = i.ClickInteractableScriptIdOnPointerExit
             };
     }
 
@@ -251,7 +269,25 @@ public static class ObjectsSerialization
                 HealthCurrent = i.HealthEnabled
                     ? (i.HealthCurrent <= 0 ? (i.HealthMax <= 0 ? 100f : i.HealthMax) : i.HealthCurrent)
                     : Math.Max(0f, i.HealthCurrent),
-                HealthInvulnerable = i.HealthInvulnerable
+                HealthInvulnerable = i.HealthInvulnerable,
+                ClickInteractableEnabled = i.ClickInteractableEnabled,
+                ClickInteractableInteractEnabled = i.ClickInteractableInteractEnabled ?? true,
+                ClickInteractableShape = string.IsNullOrWhiteSpace(i.ClickInteractableShape) ? "Box" : i.ClickInteractableShape!,
+                ClickInteractableBoxWidthTiles = i.ClickInteractableBoxWidthTiles <= 0 ? 1f : i.ClickInteractableBoxWidthTiles,
+                ClickInteractableBoxHeightTiles = i.ClickInteractableBoxHeightTiles <= 0 ? 1f : i.ClickInteractableBoxHeightTiles,
+                ClickInteractableCircleRadiusTiles = i.ClickInteractableCircleRadiusTiles <= 0 ? 0.5f : i.ClickInteractableCircleRadiusTiles,
+                ClickInteractableOffsetXTiles = i.ClickInteractableOffsetXTiles,
+                ClickInteractableOffsetYTiles = i.ClickInteractableOffsetYTiles,
+                ClickInteractableHoverEffect = i.ClickInteractableHoverEffect,
+                ClickInteractableInputFilter = string.IsNullOrWhiteSpace(i.ClickInteractableInputFilter) ? "Both" : i.ClickInteractableInputFilter!,
+                ClickInteractableMaxDistanceFromPlayerTiles = i.ClickInteractableMaxDistanceFromPlayerTiles,
+                ClickInteractZPriority = i.ClickInteractZPriority,
+                ClickInteractableRequireLineOfSight = i.ClickInteractableRequireLineOfSight,
+                ClickInteractOnPressScale = i.ClickInteractOnPressScale <= 0 || i.ClickInteractOnPressScale >= 1f ? 1f : i.ClickInteractOnPressScale,
+                ClickInteractHoverTintHex = string.IsNullOrWhiteSpace(i.ClickInteractHoverTintHex) ? null : i.ClickInteractHoverTintHex!.Trim(),
+                ClickInteractableScriptIdOnClick = i.ClickInteractableScriptIdOnClick,
+                ClickInteractableScriptIdOnPointerEnter = i.ClickInteractableScriptIdOnPointerEnter,
+                ClickInteractableScriptIdOnPointerExit = i.ClickInteractableScriptIdOnPointerExit
             };
     }
 }

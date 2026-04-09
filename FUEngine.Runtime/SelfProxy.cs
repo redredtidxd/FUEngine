@@ -19,10 +19,14 @@ public sealed class SelfProxy
     private readonly Func<GameObject, string, bool>? _playAnimationClip;
     private readonly Action<GameObject>? _stopAnimation;
     private InspectorPropertiesProxy? _inspectorProperties;
+    private SelfComponentsProxy? _components;
+    /// <summary>(scriptPath, functionName, args) → resultado Lua o nil si falla (mensaje vía callback del runtime).</summary>
+    private readonly Func<string, string, object[]?, object?>? _callScriptBridge;
 
     public SelfProxy(GameObject gameObject, string? instanceId = null,
         Func<GameObject, string?, string?, SelfProxy>? createProxyFor = null, WorldApi? worldApi = null,
-        Func<GameObject, string, bool>? playAnimationClip = null, Action<GameObject>? stopAnimation = null)
+        Func<GameObject, string, bool>? playAnimationClip = null, Action<GameObject>? stopAnimation = null,
+        Func<string, string, object[]?, object?>? callScriptBridge = null)
     {
         _gameObject = gameObject ?? throw new ArgumentNullException(nameof(gameObject));
         _instanceId = instanceId ?? gameObject.Name;
@@ -30,6 +34,7 @@ public sealed class SelfProxy
         _worldApi = worldApi;
         _playAnimationClip = playAnimationClip;
         _stopAnimation = stopAnimation;
+        _callScriptBridge = callScriptBridge;
     }
 
     public string id => _instanceId;
@@ -65,6 +70,16 @@ public sealed class SelfProxy
 
     /// <summary>Proxy tipo tabla para propiedades de Inspector (Lua: <c>self.properties["x"] = 10</c>, tinte, etc.).</summary>
     public InspectorPropertiesProxy properties => _inspectorProperties ??= new InspectorPropertiesProxy(_gameObject);
+
+    /// <summary>
+    /// Llama una función global en la instancia Lua del <paramref name="scriptPath"/> asignado a <b>este</b> objeto (ruta relativa al proyecto, p. ej. <c>Scripts/TicTacToe.lua</c>).
+    /// Para leer variables de otro objeto: <c>world.findObject("Tablero").properties["clave"]</c>.
+    /// </summary>
+    public object? callScript(string scriptPath, string functionName, params object[] args) =>
+        _callScriptBridge?.Invoke(scriptPath ?? "", functionName ?? "", args);
+
+    /// <summary>Acceso a componentes del mismo objeto: <c>self.components["ClickInteractable"]</c> (añade sufijo <c>Component</c> si falta).</summary>
+    public SelfComponentsProxy components => _components ??= new SelfComponentsProxy(_gameObject, tn => getComponent(tn));
 
     public void destroy()
     {
@@ -200,12 +215,61 @@ public sealed class SelfProxy
         return new ComponentProxy(c, scriptInstance);
     }
 
-    /// <summary>Añade un componente por nombre de tipo. Requiere factory en el motor; si no hay, retorna false.</summary>
+    /// <summary>
+    /// Añade un componente por nombre (aliases tipo Unity: SpriteRenderer, BoxCollider, Rigidbody…).
+    /// No crea <see cref="ScriptComponent"/> desde Lua (usa el Inspector / asignación de scripts).
+    /// </summary>
     public bool addComponent(string typeName)
     {
-        // El motor puede inyectar un factory vía IComponentFactory; por ahora stub
-        _ = typeName;
-        return false;
+        var raw = (typeName ?? "").Trim();
+        if (raw.Length == 0) return false;
+        var key = CanonicalComponentKey(raw);
+        if (key.Length == 0) return false;
+        if (key is "script" or "scriptcomponent" or "luascript")
+            return false;
+
+        return key switch
+        {
+            "spriterenderer" or "sprite" or "spritecomponent" => TryAddComponentOnce(() => new SpriteComponent()),
+            "boxcollider" or "boxcollider2d" or "collider" or "collidercomponent" => TryAddCollider(ColliderShapeKind.Box),
+            "circlecollider" or "circlecollider2d" => TryAddCollider(ColliderShapeKind.Circle),
+            "rigidbody" or "rigidbody2d" or "rigidbodycomponent" => TryAddComponentOnce(() => new RigidbodyComponent()),
+            "health" or "healthcomponent" => TryAddComponentOnce(() => new HealthComponent()),
+            "audiosource" or "audiosourcecomponent" => TryAddComponentOnce(() => new AudioSourceComponent()),
+            "clickinteractable" or "clickinteract" or "clickinteractablecomponent" => TryAddComponentOnce(() => new ClickInteractableComponent()),
+            "proximity" or "proximitysensor" or "proximitysensorcomponent" => TryAddComponentOnce(() => new ProximitySensorComponent()),
+            "cameratarget" or "cameratargetcomponent" => TryAddComponentOnce(() => new CameraTargetComponent()),
+            "pointlight" or "light" or "lightcomponent" => TryAddComponentOnce(() => new LightComponent()),
+            "particles" or "particleemitter" or "particleemittercomponent" => TryAddComponentOnce(() => new ParticleEmitterComponent()),
+            _ => false
+        };
+    }
+
+    private static string CanonicalComponentKey(string raw)
+    {
+        Span<char> buf = stackalloc char[raw.Length];
+        var n = 0;
+        foreach (var c in raw)
+        {
+            if (c is ' ' or '_' or '-') continue;
+            buf[n++] = char.ToLowerInvariant(c);
+        }
+
+        return new string(buf[..n]);
+    }
+
+    private bool TryAddComponentOnce<T>(Func<T> factory) where T : Component
+    {
+        if (_gameObject.GetComponent<T>() != null) return false;
+        _gameObject.AddComponent(factory());
+        return true;
+    }
+
+    private bool TryAddCollider(ColliderShapeKind shape)
+    {
+        if (_gameObject.GetComponent<ColliderComponent>() != null) return false;
+        _gameObject.AddComponent(new ColliderComponent { Shape = shape });
+        return true;
     }
 
     /// <summary>Quita un componente por nombre de tipo.</summary>
@@ -261,7 +325,7 @@ public sealed class SelfProxy
     {
         if (_createProxyFor != null)
             return _createProxyFor(go, go.Name, null);
-        return new SelfProxy(go, go.Name, null, _worldApi, _playAnimationClip, _stopAnimation);
+        return new SelfProxy(go, go.Name, null, _worldApi, _playAnimationClip, _stopAnimation, _callScriptBridge);
     }
 
     internal GameObject GameObject => _gameObject;

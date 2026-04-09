@@ -110,6 +110,39 @@ public class ObjectInstance
     public float HealthCurrent { get; set; } = 100f;
     public bool HealthInvulnerable { get; set; }
 
+    /// <summary>Área clicable en mundo (Play); ver <see cref="ClickInteractableComponent"/>.</summary>
+    public bool ClickInteractableEnabled { get; set; }
+
+    /// <summary>Si false, el área no recibe puntero (puerta bloqueada, etc.).</summary>
+    public bool ClickInteractableInteractEnabled { get; set; } = true;
+
+    public string ClickInteractableShape { get; set; } = "Box";
+    public float ClickInteractableBoxWidthTiles { get; set; } = 1f;
+    public float ClickInteractableBoxHeightTiles { get; set; } = 1f;
+    public float ClickInteractableCircleRadiusTiles { get; set; } = 0.5f;
+    public float ClickInteractableOffsetXTiles { get; set; }
+    public float ClickInteractableOffsetYTiles { get; set; }
+    public bool ClickInteractableHoverEffect { get; set; }
+    /// <summary>Mouse, Touch o Both (JSON camelCase: clickInteractableInputFilter).</summary>
+    public string ClickInteractableInputFilter { get; set; } = "Both";
+    public float ClickInteractableMaxDistanceFromPlayerTiles { get; set; }
+
+    /// <summary>Orden de prioridad del rayo de clic (mayor = encima).</summary>
+    public int ClickInteractZPriority { get; set; }
+
+    /// <summary>Bloquear clic si un tile con colisión corta la línea protagonista → punto.</summary>
+    public bool ClickInteractableRequireLineOfSight { get; set; }
+
+    /// <summary>Escala temporal al pulsar (1 = sin efecto; p. ej. 0,94).</summary>
+    public float ClickInteractOnPressScale { get; set; } = 1f;
+
+    /// <summary>Tinte en hover (#RRGGBB); reservado para feedback visual avanzado.</summary>
+    public string? ClickInteractHoverTintHex { get; set; }
+
+    public string? ClickInteractableScriptIdOnClick { get; set; }
+    public string? ClickInteractableScriptIdOnPointerEnter { get; set; }
+    public string? ClickInteractableScriptIdOnPointerExit { get; set; }
+
     public bool GetColision(ObjectDefinition definition)
     {
         return ColisionOverride ?? definition.Colision;

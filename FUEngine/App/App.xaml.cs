@@ -29,6 +29,8 @@ public partial class App : System.Windows.Application
     private void App_OnStartup(object sender, StartupEventArgs e)
     {
         ServiceLocator.Register<IEditorLog>(new EditorLogServiceAdapter());
+        EditorJsonLoadDiagnostics.ReportJsonError = static (message, category, filePath) =>
+            ServiceLocator.TryGet<IEditorLog>()?.Error(message, category, filePath, null);
         RegisterGlobalExceptionHandlers();
         FUEngineAppPaths.EnsureLayout();
 

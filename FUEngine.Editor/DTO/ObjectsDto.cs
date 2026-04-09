@@ -104,6 +104,26 @@ public class ObjectInstanceDto
     public float HealthMax { get; set; } = 100f;
     public float HealthCurrent { get; set; } = 100f;
     public bool HealthInvulnerable { get; set; }
+
+    public bool ClickInteractableEnabled { get; set; }
+    /// <summary>Null en JSON antiguo = true (responde al puntero).</summary>
+    public bool? ClickInteractableInteractEnabled { get; set; }
+    public string? ClickInteractableShape { get; set; }
+    public float ClickInteractableBoxWidthTiles { get; set; } = 1f;
+    public float ClickInteractableBoxHeightTiles { get; set; } = 1f;
+    public float ClickInteractableCircleRadiusTiles { get; set; } = 0.5f;
+    public float ClickInteractableOffsetXTiles { get; set; }
+    public float ClickInteractableOffsetYTiles { get; set; }
+    public bool ClickInteractableHoverEffect { get; set; }
+    public string? ClickInteractableInputFilter { get; set; }
+    public float ClickInteractableMaxDistanceFromPlayerTiles { get; set; }
+    public int ClickInteractZPriority { get; set; }
+    public bool ClickInteractableRequireLineOfSight { get; set; }
+    public float ClickInteractOnPressScale { get; set; } = 1f;
+    public string? ClickInteractHoverTintHex { get; set; }
+    public string? ClickInteractableScriptIdOnClick { get; set; }
+    public string? ClickInteractableScriptIdOnPointerEnter { get; set; }
+    public string? ClickInteractableScriptIdOnPointerExit { get; set; }
 }
 
 public class ScriptInstancePropertySetDto

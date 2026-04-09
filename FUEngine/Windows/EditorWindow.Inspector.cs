@@ -122,6 +122,7 @@ public partial class EditorWindow
                 _ = GetCurrentDebugRunner()?.TrySetLiveScriptVariable(instId, sid, key, ty, val);
             }
             : null;
+        objPanel.EnsureLuaScriptRegistered = TryEnsureLuaRegisteredAndSyncUi;
         objPanel.SetTarget(_selection.SelectedObject, _objectLayer);
         InspectorPanel.Content = objPanel;
     }
@@ -346,5 +347,91 @@ public partial class EditorWindow
         _cachedQuickPanel.RequestShowInFolder += Quick_RequestShowInFolder;
         _cachedQuickPanel.RequestDelete += Quick_RequestDelete;
         return _cachedQuickPanel;
+    }
+
+    private string? TryEnsureLuaRegisteredAndSyncUi(string luaAbsolutePath)
+    {
+        if (string.IsNullOrEmpty(_project.ProjectDirectory)) return null;
+        if (!ScriptRegistryProjectWriter.TryRegisterLuaFile(_project.ProjectDirectory, luaAbsolutePath, out var id, out _, out var err))
+        {
+            if (!string.IsNullOrEmpty(err))
+                EditorLog.Toast(err, LogLevel.Warning, "scripts.json");
+            return null;
+        }
+
+        if (ReloadScriptRegistryFromDisk())
+        {
+            SyncScriptRegistryToGameTabs();
+            RefreshScriptsTabList(null);
+            ProjectExplorer?.RefreshTree();
+            _cachedObjectPanel?.SetAvailableScripts(_scriptRegistry.GetAll().Select(s => (s.Id, s.Nombre, s.Path)));
+        }
+
+        return id;
+    }
+
+    private void MapHierarchy_OnRequestLuaScriptHierarchyDrop(object? sender, (ObjectInstance? Target, string LuaAbsolutePath) e)
+    {
+        if (string.IsNullOrEmpty(e.LuaAbsolutePath) || !File.Exists(e.LuaAbsolutePath)) return;
+        if (e.Target != null)
+        {
+            AttachLuaScriptToObjectInstance(e.Target, e.LuaAbsolutePath);
+            return;
+        }
+
+        CreateEmptyObjectWithLuaScript(e.LuaAbsolutePath);
+    }
+
+    private void AttachLuaScriptToObjectInstance(ObjectInstance inst, string luaAbsolutePath)
+    {
+        var id = TryEnsureLuaRegisteredAndSyncUi(luaAbsolutePath);
+        if (string.IsNullOrEmpty(id)) return;
+
+        inst.ScriptIds ??= new List<string>();
+        if (!inst.ScriptIds.Contains(id))
+            inst.ScriptIds.Add(id);
+        if (inst.ScriptIds.Count == 1)
+            inst.ScriptIdOverride = id;
+        inst.ScriptProperties ??= new List<ScriptInstancePropertySet>();
+        if (inst.ScriptProperties.All(sp => sp.ScriptId != id))
+            inst.ScriptProperties.Add(new ScriptInstancePropertySet { ScriptId = id, Properties = new List<ScriptPropertyEntry>() });
+
+        var warn = TryReadLuaLifecycleWarning(luaAbsolutePath);
+        if (!string.IsNullOrEmpty(warn))
+            EditorLog.Toast(warn, LogLevel.Warning, "Lua");
+
+        ProjectExplorer?.SetModified(GetCurrentSceneObjectsPath(), true);
+        RefreshMapHierarchy();
+        DrawMap();
+        RefreshInspector();
+    }
+
+    private void CreateEmptyObjectWithLuaScript(string luaAbsolutePath)
+    {
+        var defId = (_objectLayer.Definitions?.Keys?.FirstOrDefault()) ?? "";
+        if (string.IsNullOrEmpty(defId)) defId = "default";
+        var inst = new ObjectInstance
+        {
+            DefinitionId = defId,
+            X = 0,
+            Y = 0,
+            Nombre = Path.GetFileNameWithoutExtension(luaAbsolutePath)
+        };
+        _history.Push(new AddObjectCommand(_objectLayer, inst));
+        ProjectExplorer?.SetModified(GetCurrentSceneObjectsPath(), true);
+        AttachLuaScriptToObjectInstance(inst, luaAbsolutePath);
+    }
+
+    private static string? TryReadLuaLifecycleWarning(string path)
+    {
+        try
+        {
+            var code = File.ReadAllText(path, System.Text.Encoding.UTF8);
+            return LuaScriptPlayabilityHeuristic.TryGetLifecycleWarning(code);
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

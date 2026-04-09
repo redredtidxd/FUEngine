@@ -345,12 +345,14 @@ public partial class EditorWindow : Window
             MapHierarchy.LayerVisibilityToggled += MapHierarchy_OnLayerVisibilityToggled;
             MapHierarchy.TriggerSelected += MapHierarchy_OnTriggerSelected;
             MapHierarchy.RequestCreateObject += MapHierarchy_OnRequestCreateObject;
+            MapHierarchy.RequestCreateClickTrigger += MapHierarchy_OnRequestCreateClickTrigger;
             MapHierarchy.RequestDuplicateObject += MapHierarchy_OnRequestDuplicateObject;
             MapHierarchy.RequestDeleteObject += MapHierarchy_OnRequestDeleteObject;
             MapHierarchy.RequestRenameObject += MapHierarchy_OnRequestRenameObject;
             MapHierarchy.RequestAddLayer += MapHierarchy_OnRequestAddLayer;
             MapHierarchy.RequestRefresh += MapHierarchy_OnRequestRefresh;
             MapHierarchy.RequestInstantiateAsset += MapHierarchy_OnRequestInstantiateAsset;
+            MapHierarchy.RequestLuaScriptHierarchyDrop += MapHierarchy_OnRequestLuaScriptHierarchyDrop;
             MapHierarchy.RequestReorderLayers += MapHierarchy_OnRequestReorderLayers;
             MapHierarchy.RequestCreateUICanvas += MapHierarchy_OnRequestCreateUICanvas;
             MapHierarchy.RequestCreateUIElement += MapHierarchy_OnRequestCreateUIElement;
@@ -1484,6 +1486,22 @@ public partial class EditorWindow : Window
             Destructible = false,
             Width = 1,
             Height = 1
+        });
+    }
+
+    private void EnsureClickTriggerDefinition()
+    {
+        if (_objectLayer.GetDefinition(ClickTriggerBuiltIns.DefinitionId) != null) return;
+        _objectLayer.RegisterDefinition(new ObjectDefinition
+        {
+            Id = ClickTriggerBuiltIns.DefinitionId,
+            Nombre = "Click trigger",
+            Colision = false,
+            Interactivo = false,
+            Destructible = false,
+            Width = 1,
+            Height = 1,
+            SpritePath = null
         });
     }
 
@@ -2734,6 +2752,35 @@ public partial class EditorWindow : Window
         RefreshInspector();
     }
 
+    private void MapHierarchy_OnRequestCreateClickTrigger(object? sender, EventArgs e)
+    {
+        if (_objectLayer == null || _project == null) return;
+        EnsureClickTriggerDefinition();
+        double bx = 0, by = 0;
+        if (!_project.Infinite)
+            GameViewportMath.GetFiniteMapCenterWorldTile(_project, out bx, out by);
+        var inst = new ObjectInstance
+        {
+            InstanceId = Guid.NewGuid().ToString("N"),
+            DefinitionId = ClickTriggerBuiltIns.DefinitionId,
+            X = bx,
+            Y = by,
+            Nombre = "Click trigger",
+            Visible = true,
+            ClickInteractableEnabled = true,
+            ClickInteractableShape = "Box",
+            ClickInteractableBoxWidthTiles = 2f,
+            ClickInteractableBoxHeightTiles = 2f,
+            LayerOrder = 8
+        };
+        _history.Push(new AddObjectCommand(_objectLayer, inst));
+        _selection.SetObjectSelection(inst);
+        ProjectExplorer.SetModified(GetCurrentSceneObjectsPath(), true);
+        RefreshMapHierarchy();
+        DrawMap();
+        RefreshInspector();
+    }
+
     private void MapHierarchy_OnRequestDuplicateObject(object? sender, ObjectInstance instance)
     {
         var clone = new ObjectInstance
@@ -2765,7 +2812,25 @@ public partial class EditorWindow : Window
             PointLightEnabled = instance.PointLightEnabled,
             PointLightRadius = instance.PointLightRadius,
             PointLightIntensity = instance.PointLightIntensity,
-            PointLightColorHex = instance.PointLightColorHex
+            PointLightColorHex = instance.PointLightColorHex,
+            ClickInteractableEnabled = instance.ClickInteractableEnabled,
+            ClickInteractableInteractEnabled = instance.ClickInteractableInteractEnabled,
+            ClickInteractableShape = instance.ClickInteractableShape,
+            ClickInteractableBoxWidthTiles = instance.ClickInteractableBoxWidthTiles,
+            ClickInteractableBoxHeightTiles = instance.ClickInteractableBoxHeightTiles,
+            ClickInteractableCircleRadiusTiles = instance.ClickInteractableCircleRadiusTiles,
+            ClickInteractableOffsetXTiles = instance.ClickInteractableOffsetXTiles,
+            ClickInteractableOffsetYTiles = instance.ClickInteractableOffsetYTiles,
+            ClickInteractableHoverEffect = instance.ClickInteractableHoverEffect,
+            ClickInteractableInputFilter = instance.ClickInteractableInputFilter,
+            ClickInteractableMaxDistanceFromPlayerTiles = instance.ClickInteractableMaxDistanceFromPlayerTiles,
+            ClickInteractZPriority = instance.ClickInteractZPriority,
+            ClickInteractableRequireLineOfSight = instance.ClickInteractableRequireLineOfSight,
+            ClickInteractOnPressScale = instance.ClickInteractOnPressScale,
+            ClickInteractHoverTintHex = instance.ClickInteractHoverTintHex,
+            ClickInteractableScriptIdOnClick = instance.ClickInteractableScriptIdOnClick,
+            ClickInteractableScriptIdOnPointerEnter = instance.ClickInteractableScriptIdOnPointerEnter,
+            ClickInteractableScriptIdOnPointerExit = instance.ClickInteractableScriptIdOnPointerExit
         };
         _history.Push(new AddObjectCommand(_objectLayer, clone));
         ProjectExplorer.SetModified(GetCurrentSceneObjectsPath(), true);

@@ -33,6 +33,7 @@ public sealed class LuaScriptRuntime
     private GameApi? _gameApi;
     private PhysicsApi? _physicsApi;
     private AdsApi? _adsApi;
+    private ClickInteractApi _clickInteractApi = new();
     private readonly AudioApi? _audioApi;
     private readonly DebugDrawApi _debugDraw = new();
     private readonly Dictionary<string, object> _requireModuleCache = new(StringComparer.OrdinalIgnoreCase);
@@ -106,6 +107,9 @@ public sealed class LuaScriptRuntime
     public InputApi? GetInputApi() => _inputApi;
     public void SetInputApi(InputApi api) => _inputApi = api;
     public void SetUiApi(UiApi api) => _uiApi = api;
+
+    /// <summary>API <c>clickInteract.bind</c> para <see cref="ClickInteractableComponent"/>.</summary>
+    public void SetClickInteractApi(ClickInteractApi? api) => _clickInteractApi = api ?? new ClickInteractApi();
     public void SetGameApi(GameApi api) => _gameApi = api;
 
     public void SetPhysicsApi(PhysicsApi api) => _physicsApi = api;
@@ -136,8 +140,21 @@ public sealed class LuaScriptRuntime
         _stopAnimation = stopClip;
     }
 
-    private SelfProxy CreateProxy(GameObject go, string? instanceId, string? unusedLegacyTag = null) =>
-        new SelfProxy(go, instanceId ?? go.Name, CreateProxy, _worldApi, _playAnimationClip, _stopAnimation);
+    private SelfProxy CreateProxy(GameObject go, string? instanceId, string? unusedLegacyTag = null)
+    {
+        object? CallScriptBridge(string scriptPath, string functionName, object[]? luaArgs)
+        {
+            if (!TryInvokeScriptFunctionOnObject(go, scriptPath, functionName, out var res, out var err, luaArgs ?? Array.Empty<object>()))
+            {
+                var msg = string.IsNullOrEmpty(err) ? "Fallo desconocido." : err;
+                PrintOutput?.Invoke("[callScript] " + msg);
+                return null;
+            }
+            return res;
+        }
+
+        return new SelfProxy(go, instanceId ?? go.Name, CreateProxy, _worldApi, _playAnimationClip, _stopAnimation, CallScriptBridge);
+    }
 
     /// <summary>Carga el código del script (path relativo al proyecto).</summary>
     public string LoadScriptSource(string relativePath)
@@ -160,7 +177,7 @@ public sealed class LuaScriptRuntime
         var source = _loader.LoadSource(scriptPath);
         var env = _environment.CreateInstanceEnvironment();
         var selfProxy = CreateProxy(gameObject, instanceId, tag);
-        ScriptBindings.PopulateEnvironment(env, selfProxy, _worldApi, _inputApi, _timeApi, _audioApi, _uiApi, _gameApi, _debugDraw, _physicsApi, _adsApi, _logApi);
+        ScriptBindings.PopulateEnvironment(env, selfProxy, _worldApi, _inputApi, _timeApi, _audioApi, _uiApi, _gameApi, _debugDraw, _physicsApi, _adsApi, _logApi, _clickInteractApi);
         LuaRequireSupport.InjectRequire(_environment.State, env, _loader, _requireModuleCache);
 
         _environment.State["__scriptSource"] = source;
@@ -233,7 +250,7 @@ public sealed class LuaScriptRuntime
         var source = _loader.LoadSource(scriptPath);
         var env = _environment.CreateInstanceEnvironment();
         var layerProxy = new LayerProxy(layerDescriptor, layerIndex);
-        ScriptBindings.PopulateLayerEnvironment(env, layerProxy, _worldApi, _inputApi, _timeApi, _audioApi, _uiApi, _gameApi, _debugDraw, _physicsApi, _adsApi, _logApi);
+        ScriptBindings.PopulateLayerEnvironment(env, layerProxy, _worldApi, _inputApi, _timeApi, _audioApi, _uiApi, _gameApi, _debugDraw, _physicsApi, _adsApi, _logApi, _clickInteractApi);
         LuaRequireSupport.InjectRequire(_environment.State, env, _loader, _requireModuleCache);
 
         _environment.State["__scriptSource"] = source;
@@ -632,6 +649,59 @@ public sealed class LuaScriptRuntime
     {
         if (gameObject == null || _disposed) return Array.Empty<ScriptInstance>();
         return _instancesByObject.TryGetValue(gameObject, out var list) ? list : Array.Empty<ScriptInstance>();
+    }
+
+    /// <summary>
+    /// Invoca una función global en la instancia del <paramref name="relativeScriptPath"/> sobre <paramref name="target"/> (mismo criterio de ruta que <see cref="ScriptLoader"/>).
+    /// Usado desde Lua por <see cref="SelfProxy.callScript"/>.
+    /// </summary>
+    public bool TryInvokeScriptFunctionOnObject(GameObject? target, string relativeScriptPath, string functionName, out object? result, out string? error, params object[] args)
+    {
+        result = null;
+        error = null;
+        if (_disposed || target == null || target.PendingDestroy || !target.RuntimeActive)
+        {
+            error = "Objeto inválido, destruido o inactivo.";
+            return false;
+        }
+
+        var norm = ScriptLoader.NormalizeRelativePath(relativeScriptPath);
+        if (string.IsNullOrEmpty(norm))
+        {
+            error = "Ruta de script vacía.";
+            return false;
+        }
+
+        var fn = (functionName ?? "").Trim();
+        if (fn.Length == 0)
+        {
+            error = "Nombre de función vacío.";
+            return false;
+        }
+
+        if (!_instancesByObject.TryGetValue(target, out var list) || list.Count == 0)
+        {
+            error = "El objeto no tiene scripts en ejecución.";
+            return false;
+        }
+
+        ScriptInstance? inst = null;
+        foreach (var i in list)
+        {
+            if (string.Equals(ScriptLoader.NormalizeRelativePath(i.ScriptPath), norm, StringComparison.OrdinalIgnoreCase))
+            {
+                inst = i;
+                break;
+            }
+        }
+
+        if (inst == null)
+        {
+            error = $"No hay instancia del script «{norm}» en este objeto.";
+            return false;
+        }
+
+        return inst.TryInvoke(fn, out result, out error, args ?? Array.Empty<object>());
     }
 
     public void Dispose()

@@ -182,6 +182,43 @@
                             <TextBlock Text="AudioSource (metadatos; reproducir con audio.play)" FontWeight="SemiBold" Foreground="#e6edf3" Margin="0,4,0,4"/>
                             <CheckBox x:Name="ChkAudioSource" Content="Habilitar" Foreground="#e6edf3" Margin="0,2,0,4" Checked="EngineComponents_Any" Unchecked="EngineComponents_Any"/>
                             <TextBox x:Name="TxtAudioClipId" Padding="6,4" Margin="0,0,0,8" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                            <TextBlock Text="Clic / tap en mundo (viewport Play)" FontWeight="SemiBold" Foreground="#e6edf3" Margin="0,4,0,4"/>
+                            <CheckBox x:Name="ChkClickInteractable" Content="Área clicable (ClickInteractable)" Foreground="#e6edf3" Margin="0,2,0,4" Checked="EngineComponents_Any" Unchecked="EngineComponents_Any" ToolTip="Hit-test en coordenadas mundo; Z-prioridad y LayerOrder en Play. Lua: clickInteract.bind y hooks onWorldPointer*."/>
+                            <CheckBox x:Name="ChkClickInteractEnabled" Content="Responder al puntero (Enabled)" Foreground="#e6edf3" Margin="0,0,0,4" Checked="EngineComponents_Any" Unchecked="EngineComponents_Any" ToolTip="Desmarcar para bloquear clic/hover sin quitar el componente."/>
+                            <TextBlock Text="Forma del área" Foreground="#8b949e" FontSize="11"/>
+                            <ComboBox x:Name="CmbClickInteractShape" Padding="6,4" Margin="0,2,0,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" SelectionChanged="EngineComponents_Any"/>
+                            <TextBlock Text="Caja: ancho × alto (casillas)" Foreground="#8b949e" FontSize="11"/>
+                            <Grid Margin="0,2,0,4">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <TextBox x:Name="TxtClickBoxW" Grid.Column="0" Padding="6,4" Margin="0,0,4,0" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                                <TextBox x:Name="TxtClickBoxH" Grid.Column="1" Padding="6,4" Margin="4,0,0,0" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                            </Grid>
+                            <TextBlock Text="Círculo: radio (casillas)" Foreground="#8b949e" FontSize="11"/>
+                            <TextBox x:Name="TxtClickCircleR" Padding="6,4" Margin="0,2,0,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                            <TextBlock Text="Offset centro X / Y (casillas)" Foreground="#8b949e" FontSize="11"/>
+                            <Grid Margin="0,2,0,4">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <TextBox x:Name="TxtClickOffX" Grid.Column="0" Padding="6,4" Margin="0,0,4,0" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                                <TextBox x:Name="TxtClickOffY" Grid.Column="1" Padding="6,4" Margin="4,0,0,0" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                            </Grid>
+                            <CheckBox x:Name="ChkClickHover" Content="Hover: cursor mano (solo PC con puntero)" Foreground="#e6edf3" Margin="0,2,0,4" Checked="EngineComponents_Any" Unchecked="EngineComponents_Any"/>
+                            <TextBlock Text="Entrada" Foreground="#8b949e" FontSize="11"/>
+                            <ComboBox x:Name="CmbClickInputFilter" Padding="6,4" Margin="0,2,0,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" SelectionChanged="EngineComponents_Any"/>
+                            <TextBlock Text="Distancia máx. al jugador (casillas; 0 = sin límite)" Foreground="#8b949e" FontSize="11"/>
+                            <TextBox x:Name="TxtClickMaxDist" Padding="6,4" Margin="0,2,0,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                            <TextBlock Text="Z-prioridad del rayo (mayor = encima al solaparse)" Foreground="#8b949e" FontSize="11"/>
+                            <TextBox x:Name="TxtClickZPriority" Padding="6,4" Margin="0,2,0,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                            <CheckBox x:Name="ChkClickRequireLos" Content="Línea de visión (tiles con colisión bloquean el clic)" Foreground="#e6edf3" Margin="0,2,0,4" Checked="EngineComponents_Any" Unchecked="EngineComponents_Any"/>
+                            <TextBlock Text="Escala al pulsar (1 = sin efecto; ej. 0,94)" Foreground="#8b949e" FontSize="11"/>
+                            <TextBox x:Name="TxtClickOnPressScale" Padding="6,4" Margin="0,2,0,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                            <TextBlock Text="Tinte hover (#RRGGBB, opcional; reservado visor)" Foreground="#8b949e" FontSize="11"/>
+                            <TextBox x:Name="TxtClickHoverTint" Padding="6,4" Margin="0,2,0,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                            <TextBlock Text="Script id opcional (onClick)" Foreground="#8b949e" FontSize="11"/>
+                            <TextBox x:Name="TxtClickScriptOnClick" Padding="6,4" Margin="0,2,0,2" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                            <TextBlock Text="Script id (pointer enter)" Foreground="#8b949e" FontSize="11"/>
+                            <TextBox x:Name="TxtClickScriptEnter" Padding="6,4" Margin="0,2,0,2" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
+                            <TextBlock Text="Script id (pointer exit)" Foreground="#8b949e" FontSize="11"/>
+                            <TextBox x:Name="TxtClickScriptExit" Padding="6,4" Margin="0,2,0,8" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
                             <TextBlock Text="Partículas (datos; visor próximo)" FontWeight="SemiBold" Foreground="#e6edf3" Margin="0,4,0,4"/>
                             <CheckBox x:Name="ChkParticleEmitter" Content="Habilitar ParticleEmitter" Foreground="#e6edf3" Margin="0,2,0,4" Checked="EngineComponents_Any" Unchecked="EngineComponents_Any"/>
                             <TextBox x:Name="TxtParticleTexture" Padding="6,4" Margin="0,0,0,0" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" TextChanged="EngineComponents_Any"/>
@@ -219,15 +256,17 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <ComboBox x:Name="CmbScriptAdd" Grid.Column="0" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,4,0"/>
-                                <Button x:Name="BtnAddScript" Grid.Column="1" Content="Agregar" Padding="6,4" Background="#238636" Foreground="White" BorderThickness="0" Click="BtnAddScript_OnClick"/>
+                                <Button x:Name="BtnAddScript" Grid.Column="1" Content="Agregar" Padding="6,4" Margin="0,0,4,0" Background="#238636" Foreground="White" BorderThickness="0" Click="BtnAddScript_OnClick"/>
+                                <Button x:Name="BtnAddScriptFromFile" Grid.Column="2" Content="+" Padding="10,4" MinWidth="36" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnAddScriptFromFile_OnClick" ToolTip="Añadir script desde archivo .lua (se registra en scripts.json si hace falta)"/>
                             </Grid>
                             <Button x:Name="BtnRemoveScript" Content="Quitar script seleccionado" Padding="6,4" Margin="0,4,0,0" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Click="BtnRemoveScript_OnClick"/>
                         </StackPanel>
                     </Border>
                 </Expander>
-                <Expander x:Name="ExpanderScriptProps" Header="Variables de script (@prop / globales)" IsExpanded="True" Foreground="#e6edf3" Margin="0,0,0,4">
+                <Expander x:Name="ExpanderScriptProps" Header="Variables de script (@prop, -- [Editable], globales)" IsExpanded="True" Foreground="#e6edf3" Margin="0,0,0,4">
                     <Expander.HeaderTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding}" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12"/>

@@ -448,6 +448,13 @@ public partial class GameTabContent : System.Windows.Controls.UserControl, IDisp
         _playKeyboard.MouseY = pos.Y;
         bool consumed = DispatchViewportPointerEvent(pos.X, pos.Y, "pressed");
         if (!consumed) consumed = DispatchViewportPointerEvent(pos.X, pos.Y, "click");
+        if (!consumed)
+        {
+            var vw = GameViewportCanvas.ActualWidth;
+            var vh = GameViewportCanvas.ActualHeight;
+            if (_runner.TryDispatchClickInteractPointerDown(pos.X, pos.Y, vw, vh, isMouse: true, isTouch: false))
+                consumed = true;
+        }
         if (consumed) e.Handled = true;
     }
 
@@ -459,6 +466,13 @@ public partial class GameTabContent : System.Windows.Controls.UserControl, IDisp
         _playKeyboard.MouseX = pos.X;
         _playKeyboard.MouseY = pos.Y;
         bool consumed = DispatchViewportPointerEvent(pos.X, pos.Y, "released");
+        if (!consumed)
+        {
+            var vw = GameViewportCanvas.ActualWidth;
+            var vh = GameViewportCanvas.ActualHeight;
+            if (_runner.TryDispatchClickInteractPointerUp(pos.X, pos.Y, vw, vh, isMouse: true, isTouch: false))
+                consumed = true;
+        }
         if (consumed) e.Handled = true;
     }
 
@@ -471,7 +485,17 @@ public partial class GameTabContent : System.Windows.Controls.UserControl, IDisp
         var vw = GameViewportCanvas.ActualWidth;
         var vh = GameViewportCanvas.ActualHeight;
         var ui = _runner.GetUiBackend();
-        ui?.DispatchPointerEvent(pos.X, pos.Y, vw, vh, "hover");
+        bool uiBlocks = ui != null && ui.DispatchPointerEvent(pos.X, pos.Y, vw, vh, "hover");
+        if (uiBlocks)
+        {
+            _runner.ClearClickInteractWorldHover();
+            GameViewportCanvas.Cursor = null;
+        }
+        else
+        {
+            bool hand = _runner.UpdateClickInteractHover(pos.X, pos.Y, vw, vh, isMouse: true, isTouch: false);
+            GameViewportCanvas.Cursor = hand ? System.Windows.Input.Cursors.Hand : null;
+        }
 
         if (EngineSettings.Load().UiAccessibilityTtsEnabled &&
             ui != null &&

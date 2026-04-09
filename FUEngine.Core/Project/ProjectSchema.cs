@@ -6,5 +6,5 @@ namespace FUEngine.Core;
 public static class ProjectSchema
 {
     /// <summary>Valor que escribe el motor actual en proyectos nuevos y tras migración.</summary>
-    public const int CurrentFormatVersion = 1;
+    public const int CurrentFormatVersion = 2;
 }

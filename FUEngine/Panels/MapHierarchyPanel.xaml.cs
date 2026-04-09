@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -67,6 +69,8 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
 {
     public event EventHandler<ObjectInstance?>? ObjectSelected;
     public event EventHandler<TriggerZone?>? TriggerSelected;
+    /// <summary>Crear objeto «Click trigger» en la capa de objetos (definición interna + área clicable).</summary>
+    public event EventHandler? RequestCreateClickTrigger;
     public event EventHandler? RequestCreateUICanvas;
     public event EventHandler<(UICanvas canvas, UIElementCore? parent, UIElementKind kind)>? RequestCreateUIElement;
     public event EventHandler<UICanvas?>? UICanvasSelected;
@@ -161,10 +165,12 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
             {
                 var def = layer.GetDefinition(inst.DefinitionId);
                 var name = string.IsNullOrWhiteSpace(inst.Nombre) ? (def?.Nombre ?? inst.InstanceId) : inst.Nombre;
+                var isClickTrig = inst.ClickInteractableEnabled ||
+                    string.Equals(inst.DefinitionId, ClickTriggerBuiltIns.DefinitionId, StringComparison.OrdinalIgnoreCase);
                 sceneRoot.Children.Add(new MapHierarchyItem
                 {
                     DisplayName = name,
-                    Icon = "◆",
+                    Icon = isClickTrig ? "👆" : "◆",
                     NodeKind = MapHierarchyNodeKind.ObjectInstance,
                     ObjectInstance = inst
                 });
@@ -514,6 +520,7 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
                 break;
             case MapHierarchyNodeKind.TriggersFolder:
                 AddMenuItem(menu, "Nuevo Trigger Zone", (s, _) => OnRequestCreateTrigger());
+                AddMenuItem(menu, "Nuevo Click Trigger", (s, _) => OnRequestCreateClickTrigger());
                 break;
             case MapHierarchyNodeKind.TriggerZone:
                 AddMenuItem(menu, "Duplicar", (s, _) => OnRequestDuplicateTrigger(item));
@@ -648,6 +655,8 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
         RequestRefresh?.Invoke(this, EventArgs.Empty);
     }
 
+    private void OnRequestCreateClickTrigger() => RequestCreateClickTrigger?.Invoke(this, EventArgs.Empty);
+
     private void OnRequestDuplicateObject(MapHierarchyItem item)
     {
         if (item.ObjectInstance == null || _objectLayer == null) return;
@@ -754,6 +763,8 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
     public event EventHandler<ObjectInstance>? RequestDeleteObject;
     public event EventHandler<ObjectInstance>? RequestRenameObject;
     public event EventHandler<string>? RequestInstantiateAsset;
+    /// <summary>Objeto concreto o null si se debe crear un objeto vacío y adjuntar el .lua (soltar sobre capa/carpeta/objetos).</summary>
+    public event EventHandler<(ObjectInstance? TargetObject, string LuaAbsolutePath)>? RequestLuaScriptHierarchyDrop;
     public event EventHandler<(int layerIndex, bool visible)>? LayerVisibilityToggled;
     public event EventHandler<(int fromIndex, int toIndex)>? RequestReorderLayers;
 
@@ -813,16 +824,41 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
             e.Handled = true;
             return;
         }
-        if (!e.Data.GetDataPresent(ProjectExplorerPanel.DataFormatAssetPath))
+        if (e.Data.GetDataPresent(ProjectExplorerPanel.DataFormatAssetPath))
         {
-            e.Effects = System.Windows.DragDropEffects.None;
+            var path = e.Data.GetData(ProjectExplorerPanel.DataFormatAssetPath) as string;
+            bool ok;
+            if (IsLuaAssetPath(path))
+            {
+                var onObj = target?.NodeKind == MapHierarchyNodeKind.ObjectInstance && target.ObjectInstance != null;
+                ok = onObj || IsHierarchyLuaSpawnTarget(target);
+            }
+            else
+                ok = target != null && IsHierarchyLuaSpawnTarget(target);
+            e.Effects = ok ? System.Windows.DragDropEffects.Copy : System.Windows.DragDropEffects.None;
             e.Handled = true;
             return;
         }
-        var assetOk = target != null && (target.NodeKind == MapHierarchyNodeKind.ObjectsFolder || target.NodeKind == MapHierarchyNodeKind.ObjectLayer);
-        e.Effects = assetOk ? System.Windows.DragDropEffects.Copy : System.Windows.DragDropEffects.None;
+
+        if (e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop) && e.Data.GetData(System.Windows.DataFormats.FileDrop) is string[] files &&
+            files.Any(f => IsLuaAssetPath(f) && File.Exists(f)))
+        {
+            var onObj = target?.NodeKind == MapHierarchyNodeKind.ObjectInstance && target.ObjectInstance != null;
+            var ok = onObj || IsHierarchyLuaSpawnTarget(target);
+            e.Effects = ok ? System.Windows.DragDropEffects.Copy : System.Windows.DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
+
+        e.Effects = System.Windows.DragDropEffects.None;
         e.Handled = true;
     }
+
+    private static bool IsLuaAssetPath(string? p) =>
+        !string.IsNullOrEmpty(p) && p.EndsWith(".lua", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsHierarchyLuaSpawnTarget(MapHierarchyItem? t) =>
+        t != null && (t.NodeKind == MapHierarchyNodeKind.SceneRoot || t.NodeKind == MapHierarchyNodeKind.ObjectsFolder || t.NodeKind == MapHierarchyNodeKind.ObjectLayer);
 
     private void HierarchyTree_OnDrop(object sender, System.Windows.DragEventArgs e)
     {
@@ -839,13 +875,41 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
             e.Handled = true;
             return;
         }
-        if (!e.Data.GetDataPresent(ProjectExplorerPanel.DataFormatAssetPath)) return;
-        var path = e.Data.GetData(ProjectExplorerPanel.DataFormatAssetPath) as string;
-        if (string.IsNullOrEmpty(path) || (target?.NodeKind != MapHierarchyNodeKind.SceneRoot
-            && target?.NodeKind != MapHierarchyNodeKind.ObjectsFolder && target?.NodeKind != MapHierarchyNodeKind.ObjectLayer))
+        if (e.Data.GetDataPresent(ProjectExplorerPanel.DataFormatAssetPath))
+        {
+            var path = e.Data.GetData(ProjectExplorerPanel.DataFormatAssetPath) as string;
+            if (string.IsNullOrEmpty(path) || !File.Exists(path)) { e.Handled = true; return; }
+
+            if (IsLuaAssetPath(path))
+            {
+                if (target?.NodeKind == MapHierarchyNodeKind.ObjectInstance && target.ObjectInstance != null)
+                    RequestLuaScriptHierarchyDrop?.Invoke(this, (target.ObjectInstance, path));
+                else if (IsHierarchyLuaSpawnTarget(target))
+                    RequestLuaScriptHierarchyDrop?.Invoke(this, (null, path));
+                e.Handled = true;
+                return;
+            }
+
+            if (!IsHierarchyLuaSpawnTarget(target)) { e.Handled = true; return; }
+            RequestInstantiateAsset?.Invoke(this, path);
+            e.Handled = true;
             return;
-        RequestInstantiateAsset?.Invoke(this, path);
-        e.Handled = true;
+        }
+
+        if (e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop) && e.Data.GetData(System.Windows.DataFormats.FileDrop) is string[] files)
+        {
+            foreach (var f in files)
+            {
+                if (!IsLuaAssetPath(f) || !File.Exists(f)) continue;
+                if (target?.NodeKind == MapHierarchyNodeKind.ObjectInstance && target.ObjectInstance != null)
+                    RequestLuaScriptHierarchyDrop?.Invoke(this, (target.ObjectInstance, f));
+                else if (IsHierarchyLuaSpawnTarget(target))
+                    RequestLuaScriptHierarchyDrop?.Invoke(this, (null, f));
+                break;
+            }
+
+            e.Handled = true;
+        }
     }
 
     private static MapHierarchyItem? GetHierarchyItemAtPosition(System.Windows.Controls.TreeView tree, System.Windows.Point position)

@@ -34,6 +34,9 @@ public partial class ObjectInspectorPanel : SWC.UserControl
     /// <summary>Escribe en el runtime Lua (instanceId, scriptId, clave, tipo, valor texto).</summary>
     public Action<string, string, string, string, string>? LiveVariableWriter { get; set; }
 
+    /// <summary>Registra el .lua en scripts.json si falta y devuelve el id; actualiza la lista del Inspector.</summary>
+    public Func<string, string?>? EnsureLuaScriptRegistered { get; set; }
+
     public event EventHandler? PropertyChanged;
     public event EventHandler<ObjectInstance>? RequestDuplicate;
     public event EventHandler<ObjectInstance>? RequestDelete;
@@ -49,6 +52,25 @@ public partial class ObjectInspectorPanel : SWC.UserControl
         InitPivotCombo();
         InitLayerOrderCombo();
         InitEngineColliderCombo();
+        InitClickInteractCombos();
+    }
+
+    private void InitClickInteractCombos()
+    {
+        if (CmbClickInteractShape != null)
+        {
+            CmbClickInteractShape.Items.Clear();
+            CmbClickInteractShape.Items.Add(new SWC.ComboBoxItem { Content = "Rectángulo", Tag = "Box" });
+            CmbClickInteractShape.Items.Add(new SWC.ComboBoxItem { Content = "Círculo", Tag = "Circle" });
+            CmbClickInteractShape.Items.Add(new SWC.ComboBoxItem { Content = "Pixel perfect (alpha sprite)", Tag = "PixelPerfect" });
+        }
+        if (CmbClickInputFilter != null)
+        {
+            CmbClickInputFilter.Items.Clear();
+            CmbClickInputFilter.Items.Add(new SWC.ComboBoxItem { Content = "Ratón", Tag = "Mouse" });
+            CmbClickInputFilter.Items.Add(new SWC.ComboBoxItem { Content = "Toque", Tag = "Touch" });
+            CmbClickInputFilter.Items.Add(new SWC.ComboBoxItem { Content = "Ambos", Tag = "Both" });
+        }
     }
 
     private void InitEngineColliderCombo()
@@ -507,6 +529,19 @@ public partial class ObjectInspectorPanel : SWC.UserControl
         AddScriptIdToTarget(id);
     }
 
+    private void BtnAddScriptFromFile_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (_updating || _target == null || string.IsNullOrEmpty(_projectDirectory)) return;
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Añadir script Lua",
+            Filter = "Lua (*.lua)|*.lua|Todos|*.*",
+            InitialDirectory = _projectDirectory
+        };
+        if (dlg.ShowDialog() != true || string.IsNullOrEmpty(dlg.FileName)) return;
+        TryAddScriptFromLuaFile(dlg.FileName);
+    }
+
     private void BtnRemoveScript_OnClick(object sender, RoutedEventArgs e)
     {
         if (_updating || _target == null || LstScripts.SelectedItem is not ListBoxItem li) return;
@@ -568,7 +603,7 @@ public partial class ObjectInspectorPanel : SWC.UserControl
         if (string.IsNullOrEmpty(scriptId) || _target == null)
         {
             if (TxtScriptPropsHint != null)
-                TxtScriptPropsHint.Text = "Seleccione un script. Use -- @prop en el .lua o variables globales en la raíz (sin local). Con Play activo, sincronización en caliente. Tablas del motor: " + string.Join(", ", LuaScriptVariableDiscovery.MotorGlobalNames) + ".";
+                TxtScriptPropsHint.Text = "Seleccione un script. Use -- @prop, variables globales en la raíz (sin local) o documente con -- [Editable] al final de la línea. Con Play activo, sincronización en caliente. Tablas del motor: " + string.Join(", ", LuaScriptVariableDiscovery.MotorGlobalNames) + ".";
             RestartLiveTimer();
             return;
         }
@@ -787,6 +822,52 @@ public partial class ObjectInspectorPanel : SWC.UserControl
         TxtAudioClipId!.Text = instance.AudioClipId ?? "";
         ChkParticleEmitter!.IsChecked = instance.ParticleEmitterEnabled;
         TxtParticleTexture!.Text = instance.ParticleTexturePath ?? "";
+        ChkClickInteractable!.IsChecked = instance.ClickInteractableEnabled;
+        ChkClickInteractEnabled!.IsChecked = instance.ClickInteractableInteractEnabled;
+        var clickShape = (instance.ClickInteractableShape ?? "Box").Trim();
+        if (CmbClickInteractShape != null)
+        {
+            var foundClickShape = false;
+            for (var i = 0; i < CmbClickInteractShape.Items.Count; i++)
+            {
+                if (CmbClickInteractShape.Items[i] is SWC.ComboBoxItem ci && string.Equals(ci.Tag as string, clickShape, StringComparison.OrdinalIgnoreCase))
+                {
+                    CmbClickInteractShape.SelectedIndex = i;
+                    foundClickShape = true;
+                    break;
+                }
+            }
+            if (!foundClickShape) CmbClickInteractShape.SelectedIndex = 0;
+        }
+        TxtClickBoxW!.Text = instance.ClickInteractableBoxWidthTiles.ToString(CultureInfo.InvariantCulture);
+        TxtClickBoxH!.Text = instance.ClickInteractableBoxHeightTiles.ToString(CultureInfo.InvariantCulture);
+        TxtClickCircleR!.Text = instance.ClickInteractableCircleRadiusTiles.ToString(CultureInfo.InvariantCulture);
+        TxtClickOffX!.Text = instance.ClickInteractableOffsetXTiles.ToString(CultureInfo.InvariantCulture);
+        TxtClickOffY!.Text = instance.ClickInteractableOffsetYTiles.ToString(CultureInfo.InvariantCulture);
+        ChkClickHover!.IsChecked = instance.ClickInteractableHoverEffect;
+        var clickIn = (instance.ClickInteractableInputFilter ?? "Both").Trim();
+        if (CmbClickInputFilter != null)
+        {
+            var foundIn = false;
+            for (var i = 0; i < CmbClickInputFilter.Items.Count; i++)
+            {
+                if (CmbClickInputFilter.Items[i] is SWC.ComboBoxItem ci2 && string.Equals(ci2.Tag as string, clickIn, StringComparison.OrdinalIgnoreCase))
+                {
+                    CmbClickInputFilter.SelectedIndex = i;
+                    foundIn = true;
+                    break;
+                }
+            }
+            if (!foundIn) CmbClickInputFilter.SelectedIndex = 2;
+        }
+        TxtClickMaxDist!.Text = instance.ClickInteractableMaxDistanceFromPlayerTiles.ToString(CultureInfo.InvariantCulture);
+        TxtClickZPriority!.Text = instance.ClickInteractZPriority.ToString(CultureInfo.InvariantCulture);
+        ChkClickRequireLos!.IsChecked = instance.ClickInteractableRequireLineOfSight;
+        TxtClickOnPressScale!.Text = instance.ClickInteractOnPressScale.ToString(CultureInfo.InvariantCulture);
+        TxtClickHoverTint!.Text = instance.ClickInteractHoverTintHex ?? "";
+        TxtClickScriptOnClick!.Text = instance.ClickInteractableScriptIdOnClick ?? "";
+        TxtClickScriptEnter!.Text = instance.ClickInteractableScriptIdOnPointerEnter ?? "";
+        TxtClickScriptExit!.Text = instance.ClickInteractableScriptIdOnPointerExit ?? "";
     }
 
     private void EngineComponents_Any(object sender, EventArgs e) => CommitEngineComponentsFromUi();
@@ -837,6 +918,34 @@ public partial class ObjectInspectorPanel : SWC.UserControl
         _target.AudioClipId = string.IsNullOrWhiteSpace(TxtAudioClipId?.Text) ? null : TxtAudioClipId.Text.Trim();
         _target.ParticleEmitterEnabled = ChkParticleEmitter?.IsChecked == true;
         _target.ParticleTexturePath = string.IsNullOrWhiteSpace(TxtParticleTexture?.Text) ? null : TxtParticleTexture.Text.Trim().Replace('\\', '/');
+        _target.ClickInteractableEnabled = ChkClickInteractable?.IsChecked == true;
+        _target.ClickInteractableInteractEnabled = ChkClickInteractEnabled?.IsChecked != false;
+        if (CmbClickInteractShape?.SelectedItem is SWC.ComboBoxItem csh && csh.Tag is string cstag)
+            _target.ClickInteractableShape = cstag;
+        if (float.TryParse(TxtClickBoxW?.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var cbw) && cbw > 0)
+            _target.ClickInteractableBoxWidthTiles = cbw;
+        if (float.TryParse(TxtClickBoxH?.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var cbh) && cbh > 0)
+            _target.ClickInteractableBoxHeightTiles = cbh;
+        if (float.TryParse(TxtClickCircleR?.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var ccr) && ccr > 0)
+            _target.ClickInteractableCircleRadiusTiles = ccr;
+        if (float.TryParse(TxtClickOffX?.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var cox))
+            _target.ClickInteractableOffsetXTiles = cox;
+        if (float.TryParse(TxtClickOffY?.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var coy))
+            _target.ClickInteractableOffsetYTiles = coy;
+        _target.ClickInteractableHoverEffect = ChkClickHover?.IsChecked == true;
+        if (CmbClickInputFilter?.SelectedItem is SWC.ComboBoxItem cif && cif.Tag is string iftag)
+            _target.ClickInteractableInputFilter = iftag;
+        if (float.TryParse(TxtClickMaxDist?.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var cmd) && cmd >= 0)
+            _target.ClickInteractableMaxDistanceFromPlayerTiles = cmd;
+        if (int.TryParse(TxtClickZPriority?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var zpri))
+            _target.ClickInteractZPriority = zpri;
+        _target.ClickInteractableRequireLineOfSight = ChkClickRequireLos?.IsChecked == true;
+        if (float.TryParse(TxtClickOnPressScale?.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var ops))
+            _target.ClickInteractOnPressScale = ops <= 0 || ops >= 1f ? 1f : ops;
+        _target.ClickInteractHoverTintHex = string.IsNullOrWhiteSpace(TxtClickHoverTint?.Text) ? null : TxtClickHoverTint.Text.Trim();
+        _target.ClickInteractableScriptIdOnClick = string.IsNullOrWhiteSpace(TxtClickScriptOnClick?.Text) ? null : TxtClickScriptOnClick.Text.Trim();
+        _target.ClickInteractableScriptIdOnPointerEnter = string.IsNullOrWhiteSpace(TxtClickScriptEnter?.Text) ? null : TxtClickScriptEnter.Text.Trim();
+        _target.ClickInteractableScriptIdOnPointerExit = string.IsNullOrWhiteSpace(TxtClickScriptExit?.Text) ? null : TxtClickScriptExit.Text.Trim();
         PropertyChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -857,6 +966,7 @@ public partial class ObjectInspectorPanel : SWC.UserControl
             new() { Category = "Gameplay", Id = "health", Title = "Health", Description = "Vida máxima / actual.", Enabled = true },
             new() { Category = "Rendering", Id = "camera_target", Title = "CameraTarget", Description = "La cámara sigue este objeto.", Enabled = true },
             new() { Category = "Rendering", Id = "particles", Title = "ParticleEmitter (datos)", Description = "Persistencia; visor ampliación.", Enabled = true },
+            new() { Category = "Gameplay", Id = "click_interact", Title = "Clic en mundo (ClickInteractable)", Description = "Área rect/círculo en viewport; Lua clickInteract.bind.", Enabled = true },
         };
         var w = new AddComponentPickerWindow(items) { Owner = Window.GetWindow(this) };
         if (w.ShowDialog() != true || string.IsNullOrEmpty(w.SelectedId)) return;
@@ -914,12 +1024,21 @@ public partial class ObjectInspectorPanel : SWC.UserControl
                 if (ChkParticleEmitter != null) ChkParticleEmitter.IsChecked = true;
                 ExpanderEngineComponents.IsExpanded = true;
                 break;
+            case "click_interact":
+                if (ChkClickInteractable != null) ChkClickInteractable.IsChecked = true;
+                ExpanderEngineComponents.IsExpanded = true;
+                ChkClickInteractable?.Focus();
+                break;
         }
     }
 
     private void ObjectInspector_OnPreviewDragOver(object sender, System.Windows.DragEventArgs e)
     {
         if (e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop) || e.Data.GetDataPresent(DataFormatObjectInstanceId))
+            e.Effects = System.Windows.DragDropEffects.Copy;
+        else if (e.Data.GetDataPresent(ProjectExplorerPanel.DataFormatAssetPath) &&
+                 e.Data.GetData(ProjectExplorerPanel.DataFormatAssetPath) is string ap &&
+                 ap.EndsWith(".lua", StringComparison.OrdinalIgnoreCase))
             e.Effects = System.Windows.DragDropEffects.Copy;
         else
             e.Effects = System.Windows.DragDropEffects.None;
@@ -939,6 +1058,15 @@ public partial class ObjectInspectorPanel : SWC.UserControl
             e.Handled = true;
             return;
         }
+
+        if (e.Data.GetDataPresent(ProjectExplorerPanel.DataFormatAssetPath) &&
+            e.Data.GetData(ProjectExplorerPanel.DataFormatAssetPath) is string assetPath &&
+            assetPath.EndsWith(".lua", StringComparison.OrdinalIgnoreCase) &&
+            File.Exists(assetPath))
+        {
+            TryAddScriptFromLuaFile(assetPath);
+            e.Handled = true;
+        }
     }
 
     private void TryAddScriptFromLuaFile(string fullPath)
@@ -949,13 +1077,30 @@ public partial class ObjectInspectorPanel : SWC.UserControl
         catch { return; }
         rel = rel.Replace('\\', '/');
         var match = _scripts.FirstOrDefault(s => s.Path != null && s.Path.Replace('\\', '/').Equals(rel, StringComparison.OrdinalIgnoreCase));
-        if (string.IsNullOrEmpty(match.Id))
+        var id = match.Id;
+        if (string.IsNullOrEmpty(id) && EnsureLuaScriptRegistered != null)
+            id = EnsureLuaScriptRegistered(fullPath) ?? "";
+        if (string.IsNullOrEmpty(id))
         {
-            EditorLog.Toast("El .lua no está registrado en scripts.json.", LogLevel.Warning, "Inspector");
+            EditorLog.Toast("No se pudo registrar el .lua en scripts.json o no está en el proyecto.", LogLevel.Warning, "Inspector");
             return;
         }
-        AddScriptIdToTarget(match.Id);
-        EditorLog.Toast("Script añadido: " + match.Nombre, LogLevel.Info, "Inspector");
+
+        try
+        {
+            if (File.Exists(fullPath))
+            {
+                var warn = LuaScriptPlayabilityHeuristic.TryGetLifecycleWarning(File.ReadAllText(fullPath, System.Text.Encoding.UTF8));
+                if (!string.IsNullOrEmpty(warn))
+                    EditorLog.Toast(warn, LogLevel.Warning, "Lua");
+            }
+        }
+        catch { /* ignore */ }
+
+        AddScriptIdToTarget(id);
+        var name = _scripts.FirstOrDefault(s => s.Id == id).Nombre;
+        if (string.IsNullOrEmpty(name)) name = Path.GetFileNameWithoutExtension(fullPath);
+        EditorLog.Toast("Script añadido: " + name, LogLevel.Info, "Inspector");
     }
 
     private void BtnConvertToSeed_OnClick(object sender, RoutedEventArgs e)

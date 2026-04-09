@@ -75,7 +75,7 @@ public static class ScriptBindings
     }
 
     /// <summary>Rellena el entorno con todas las APIs (stubs donde no haya implementación).</summary>
-    public static void PopulateEnvironment(LuaTable env, SelfProxy selfProxy, WorldApi? world = null, InputApi? input = null, TimeApi? time = null, AudioApi? audio = null, UiApi? ui = null, GameApi? game = null, DebugDrawApi? debug = null, PhysicsApi? physics = null, AdsApi? ads = null, LuaLogApi? log = null)
+    public static void PopulateEnvironment(LuaTable env, SelfProxy selfProxy, WorldApi? world = null, InputApi? input = null, TimeApi? time = null, AudioApi? audio = null, UiApi? ui = null, GameApi? game = null, DebugDrawApi? debug = null, PhysicsApi? physics = null, AdsApi? ads = null, LuaLogApi? log = null, ClickInteractApi? clickInteract = null)
     {
         SetSelf(env, selfProxy);
         SetWorld(env, world ?? new WorldApi());
@@ -86,6 +86,7 @@ public static class ScriptBindings
         SetUi(env, ui ?? new UiApi());
         SetGame(env, game ?? new GameApi());
         SetAds(env, ads ?? new AdsApi());
+        env["clickInteract"] = clickInteract ?? new ClickInteractApi();
         if (debug != null)
             SetDebug(env, debug);
         if (log != null)
@@ -94,7 +95,7 @@ public static class ScriptBindings
     }
 
     /// <summary>Entorno para scripts de capa: <c>layer</c> + mismas APIs globales que un script de objeto (sin <c>self</c>).</summary>
-    public static void PopulateLayerEnvironment(LuaTable env, LayerProxy layer, WorldApi? world = null, InputApi? input = null, TimeApi? time = null, AudioApi? audio = null, UiApi? ui = null, GameApi? game = null, DebugDrawApi? debug = null, PhysicsApi? physics = null, AdsApi? ads = null, LuaLogApi? log = null)
+    public static void PopulateLayerEnvironment(LuaTable env, LayerProxy layer, WorldApi? world = null, InputApi? input = null, TimeApi? time = null, AudioApi? audio = null, UiApi? ui = null, GameApi? game = null, DebugDrawApi? debug = null, PhysicsApi? physics = null, AdsApi? ads = null, LuaLogApi? log = null, ClickInteractApi? clickInteract = null)
     {
         env["layer"] = layer;
         SetWorld(env, world ?? new WorldApi());
@@ -105,6 +106,7 @@ public static class ScriptBindings
         SetUi(env, ui ?? new UiApi());
         SetGame(env, game ?? new GameApi());
         SetAds(env, ads ?? new AdsApi());
+        env["clickInteract"] = clickInteract ?? new ClickInteractApi();
         if (debug != null)
             SetDebug(env, debug);
         if (log != null)
@@ -499,6 +501,27 @@ public class UiApi
         var el = _backend?.GetElement(canvasId ?? "", elementId ?? "");
         if (el == null) return;
         el.Text = text ?? "";
+    }
+}
+
+/// <summary>
+/// Enlaza callbacks Lua a <see cref="ClickInteractableComponent"/> por id de instancia.
+/// Eventos: <c>down</c>/<c>up</c>/<c>pointerclick</c> (o <c>pointerdown</c>… en Lua), <c>click</c> (igual que pointerclick), <c>enter</c>/<c>exit</c> (hover PC).
+/// </summary>
+[LuaVisible]
+public sealed class ClickInteractApi
+{
+    private readonly Action<string, string, object?>? _register;
+
+    public ClickInteractApi(Action<string, string, object?>? register = null) => _register = register;
+
+    /// <summary><paramref name="target"/> suele ser <c>self</c> (tabla proxy con <c>id</c>).</summary>
+    public void bind(object? target, string? eventName, object? callback)
+    {
+        var id = target is SelfProxy sp ? sp.id : target?.ToString()?.Trim() ?? "";
+        var ev = (eventName ?? "").Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(ev)) return;
+        _register?.Invoke(id, ev, callback);
     }
 }
 

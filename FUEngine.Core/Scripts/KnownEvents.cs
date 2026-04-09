@@ -53,6 +53,20 @@ public static class KnownEvents
     /// <summary>Cambió el padre de este objeto.</summary>
     public const string OnParentChanged = "onParentChanged";
 
+    /// <summary>Clic o tap en el área <see cref="ClickInteractableComponent"/> (mundo / viewport).</summary>
+    public const string OnWorldClick = "onWorldClick";
+    /// <summary>Ratón entró en el área (PC; ignorado si solo hay toque).</summary>
+    public const string OnWorldPointerEnter = "onWorldPointerEnter";
+    /// <summary>Ratón salió del área.</summary>
+    public const string OnWorldPointerExit = "onWorldPointerExit";
+
+    /// <summary>Puntero presionado sobre el área (antes del soltar).</summary>
+    public const string OnWorldPointerDown = "onWorldPointerDown";
+    /// <summary>Puntero soltado (tras un down en esta instancia).</summary>
+    public const string OnWorldPointerUp = "onWorldPointerUp";
+    /// <summary>Clic completo (down y up dentro del mismo objeto).</summary>
+    public const string OnWorldPointerClick = "onWorldPointerClick";
+
     /// <summary>Todos los IDs de eventos conocidos para el editor y módulos.</summary>
     public static readonly string[] All = new[]
     {
@@ -78,7 +92,13 @@ public static class KnownEvents
         OnZoneExit,
         OnChildAdded,
         OnChildRemoved,
-        OnParentChanged
+        OnParentChanged,
+        OnWorldClick,
+        OnWorldPointerEnter,
+        OnWorldPointerExit,
+        OnWorldPointerDown,
+        OnWorldPointerUp,
+        OnWorldPointerClick
     };
 
     /// <summary>Eventos globales del mundo (día/noche, jugador).</summary>

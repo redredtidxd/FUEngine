@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Threading;
+using NLua;
 using FUEngine.Runtime;
 using FUEngine.Core;
 using FUEngine.Editor;
@@ -65,6 +66,14 @@ public sealed class PlayModeRunner
     private readonly HashSet<string> _mapZonesPlayerInside = new();
     private readonly Dictionary<string, GameObject> _mapZoneTickHosts = new();
     private UiAccessibilityTts? _accessibilityTts;
+    private readonly Dictionary<(string instanceId, string ev), object> _clickInteractLuaBindings = new();
+    private string? _clickInteractHoverInstanceId;
+    private string? _pointerDownClickInstanceId;
+    private GameObject? _pointerDownClickGo;
+    private double _pointerDownGameTime;
+    private GameObject? _clickPressScaledGo;
+    private float _clickPressOrigScaleX = 1f;
+    private float _clickPressOrigScaleY = 1f;
 
     public PlayModeRunner(ProjectInfo project, ObjectLayer objectLayer, ScriptRegistry scriptRegistry, Action openConsole, UIRoot? uiRoot = null, TileMap? editorTileMapSnapshot = null, PlayKeyboardSnapshot? playKeyboard = null)
     {
@@ -253,6 +262,7 @@ public sealed class PlayModeRunner
         _localization.ApplySystemLocale();
         uiApi.SetLocaleProvider(_localization);
         _runtime.SetUiApi(uiApi);
+        _runtime.SetClickInteractApi(new ClickInteractApi(RegisterClickInteractBinding));
 
         var adsApi = new SimulatedAdsApi(
             a => dispatcher.BeginInvoke(a),
@@ -711,7 +721,48 @@ public sealed class PlayModeRunner
             });
         }
 
+        if (inst.ClickInteractableEnabled)
+            go.AddComponent(BuildClickInteractableComponentFromInstance(inst));
+
         return go;
+    }
+
+    private static ClickInteractableComponent BuildClickInteractableComponentFromInstance(ObjectInstance inst)
+    {
+        var input = (inst.ClickInteractableInputFilter ?? "Both").Trim() switch
+        {
+            "Mouse" => ClickInteractableInputKind.Mouse,
+            "Touch" => ClickInteractableInputKind.Touch,
+            _ => ClickInteractableInputKind.Both
+        };
+        var shape = (inst.ClickInteractableShape ?? "Box").Trim() switch
+        {
+            "Circle" => ClickInteractableShapeKind.Circle,
+            "PixelPerfect" or "Pixel" => ClickInteractableShapeKind.PixelPerfect,
+            _ => ClickInteractableShapeKind.Box
+        };
+        float press = inst.ClickInteractOnPressScale;
+        if (press <= 0f || press >= 1f) press = 1f;
+        return new ClickInteractableComponent
+        {
+            InteractEnabled = inst.ClickInteractableInteractEnabled,
+            Shape = shape,
+            BoxWidthTiles = inst.ClickInteractableBoxWidthTiles > 0 ? inst.ClickInteractableBoxWidthTiles : 1f,
+            BoxHeightTiles = inst.ClickInteractableBoxHeightTiles > 0 ? inst.ClickInteractableBoxHeightTiles : 1f,
+            CircleRadiusTiles = inst.ClickInteractableCircleRadiusTiles > 0 ? inst.ClickInteractableCircleRadiusTiles : 0.5f,
+            OffsetXTiles = inst.ClickInteractableOffsetXTiles,
+            OffsetYTiles = inst.ClickInteractableOffsetYTiles,
+            HoverEffect = inst.ClickInteractableHoverEffect,
+            InputFilter = input,
+            MaxDistanceFromPlayerTiles = inst.ClickInteractableMaxDistanceFromPlayerTiles,
+            ClickZPriority = inst.ClickInteractZPriority,
+            RequireLineOfSight = inst.ClickInteractableRequireLineOfSight,
+            OnPressScaleMul = press,
+            HoverTintHex = string.IsNullOrWhiteSpace(inst.ClickInteractHoverTintHex) ? null : inst.ClickInteractHoverTintHex.Trim(),
+            ScriptIdOnClick = inst.ClickInteractableScriptIdOnClick,
+            ScriptIdOnPointerEnter = inst.ClickInteractableScriptIdOnPointerEnter,
+            ScriptIdOnPointerExit = inst.ClickInteractableScriptIdOnPointerExit
+        };
     }
 
     private void TryApplyDefaultAnimationIfAny(GameObject go, ObjectInstance inst)
@@ -973,6 +1024,7 @@ public sealed class PlayModeRunner
         _lastDeltaTime = delta;
         _frameCount++;
         _gameTimeSeconds += delta;
+        MaybeRestoreStaleClickInteractPress();
         _fpsFrames++;
         _fpsAccumTime += delta;
         HashSet<GameObject>? activeForUpdate = null;
@@ -1129,6 +1181,11 @@ public sealed class PlayModeRunner
         _triggerDirectedPairsLastFrame.Clear();
         _runtimeSeeds.Clear();
         _pendingSpawnBinds.Clear();
+        _clickInteractLuaBindings.Clear();
+        _clickInteractHoverInstanceId = null;
+        RestoreClickInteractPressScale();
+        _pointerDownClickInstanceId = null;
+        _pointerDownClickGo = null;
         EditorLog.Info("Modo Play detenido.", "Play");
     }
 
@@ -1511,6 +1568,277 @@ public sealed class PlayModeRunner
         double hitX = originX + ux * bestT;
         double hitY = originY + uy * bestT;
         return new RaycastHitInfo(CreateProxyFor(bestGo), bestT, hitX, hitY);
+    }
+
+    private static string NormalizeClickInteractLuaEvent(string raw)
+    {
+        var ev = (raw ?? "").Trim().ToLowerInvariant();
+        return ev switch
+        {
+            "onpointerdown" or "pointerdown" => "down",
+            "onpointerup" or "pointerup" => "up",
+            "onpointerclick" or "pointerclick" => "pointerclick",
+            _ => ev
+        };
+    }
+
+    private void RegisterClickInteractBinding(string instanceId, string eventName, object? callback)
+    {
+        var ev = NormalizeClickInteractLuaEvent(eventName ?? "");
+        if (string.IsNullOrEmpty(instanceId) || string.IsNullOrEmpty(ev)) return;
+        if (callback == null)
+            _clickInteractLuaBindings.Remove((instanceId, ev));
+        else
+            _clickInteractLuaBindings[(instanceId, ev)] = callback;
+    }
+
+    /// <summary>Hover en mundo (después de la UI). Devuelve true si algún área pide cursor de mano.</summary>
+    public bool UpdateClickInteractHover(double viewportX, double viewportY, double viewportW, double viewportH, bool isMouse, bool isTouch)
+    {
+        if (_runtime == null || !IsRunning || viewportW <= 0 || viewportH <= 0) return false;
+        ViewportToWorld(viewportX, viewportY, viewportW, viewportH, out var wx, out var wy);
+        var hit = PickTopClickInteractableAt(wx, wy, forHover: true, isMouse, isTouch);
+        var id = hit != null && _goToInstance.TryGetValue(hit, out var oi)
+            ? (string.IsNullOrEmpty(oi.InstanceId) ? hit.Name : oi.InstanceId)
+            : null;
+        if (!string.Equals(id, _clickInteractHoverInstanceId, StringComparison.Ordinal))
+        {
+            if (!string.IsNullOrEmpty(_clickInteractHoverInstanceId))
+                FireClickInteractHoverExit(_clickInteractHoverInstanceId);
+            _clickInteractHoverInstanceId = id;
+            if (!string.IsNullOrEmpty(id) && hit != null)
+                FireClickInteractHoverEnter(hit, id);
+        }
+        return hit?.GetComponent<ClickInteractableComponent>() is { HoverEffect: true };
+    }
+
+    /// <summary>Llama cuando la UI bloquea el puntero: emite salida de hover mundo y evita cursor «mano» fantasma.</summary>
+    public void ClearClickInteractWorldHover()
+    {
+        if (string.IsNullOrEmpty(_clickInteractHoverInstanceId)) return;
+        FireClickInteractHoverExit(_clickInteractHoverInstanceId);
+        _clickInteractHoverInstanceId = null;
+    }
+
+    /// <summary>Puntero abajo en mundo tras fallar UI. Devuelve true si un área clicable lo recibió.</summary>
+    public bool TryDispatchClickInteractPointerDown(double viewportX, double viewportY, double viewportW, double viewportH, bool isMouse, bool isTouch)
+    {
+        if (_runtime == null || !IsRunning || viewportW <= 0 || viewportH <= 0) return false;
+        RestoreClickInteractPressScale();
+        ViewportToWorld(viewportX, viewportY, viewportW, viewportH, out var wx, out var wy);
+        var hit = PickTopClickInteractableAt(wx, wy, forHover: false, isMouse, isTouch);
+        if (hit == null || !_goToInstance.TryGetValue(hit, out var oi)) return false;
+        var iid = string.IsNullOrEmpty(oi.InstanceId) ? hit.Name : oi.InstanceId;
+        _pointerDownClickInstanceId = iid;
+        _pointerDownClickGo = hit;
+        _pointerDownGameTime = _gameTimeSeconds;
+        var hero = NativeProtagonistController.FindProtagonist(_sceneObjects, _project, _goToInstance);
+        var player = hero != null ? CreateProxyFor(hero) : null!;
+        TryInvokeClickLuaBinding(iid, "down", player);
+        _runtime.NotifyScripts(hit, KnownEvents.OnWorldPointerDown, player);
+        var cc = hit.GetComponent<ClickInteractableComponent>();
+        if (cc != null && cc.OnPressScaleMul > 0f && cc.OnPressScaleMul < 1f)
+            ApplyClickInteractPressScale(hit, cc);
+        return true;
+    }
+
+    /// <summary>Puntero arriba: dispara <c>up</c> y, si el soltar sigue sobre el mismo objeto, <c>pointerclick</c> + <c>onWorldClick</c>.</summary>
+    public bool TryDispatchClickInteractPointerUp(double viewportX, double viewportY, double viewportW, double viewportH, bool isMouse, bool isTouch)
+    {
+        if (_runtime == null || !IsRunning || viewportW <= 0 || viewportH <= 0) return false;
+        RestoreClickInteractPressScale();
+        var downId = _pointerDownClickInstanceId;
+        var downGo = _pointerDownClickGo;
+        _pointerDownClickInstanceId = null;
+        _pointerDownClickGo = null;
+        if (string.IsNullOrEmpty(downId) || downGo == null) return false;
+
+        var hero = NativeProtagonistController.FindProtagonist(_sceneObjects, _project, _goToInstance);
+        var player = hero != null ? CreateProxyFor(hero) : null!;
+        TryInvokeClickLuaBinding(downId, "up", player);
+        _runtime.NotifyScripts(downGo, KnownEvents.OnWorldPointerUp, player);
+
+        ViewportToWorld(viewportX, viewportY, viewportW, viewportH, out var wx, out var wy);
+        var releaseHit = PickTopClickInteractableAt(wx, wy, forHover: false, isMouse, isTouch);
+        string? releaseId = releaseHit != null && _goToInstance.TryGetValue(releaseHit, out var roi)
+            ? (string.IsNullOrEmpty(roi.InstanceId) ? releaseHit.Name : roi.InstanceId)
+            : null;
+        if (!string.IsNullOrEmpty(releaseId) && string.Equals(downId, releaseId, StringComparison.Ordinal))
+            FireClickInteractPointerClick(downGo, downId, player);
+        return true;
+    }
+
+    private void FireClickInteractPointerClick(GameObject hit, string instanceId, object? playerProxy)
+    {
+        TryInvokeClickLuaBinding(instanceId, "pointerclick", playerProxy);
+        TryInvokeClickLuaBinding(instanceId, "click", playerProxy);
+        if (playerProxy != null)
+        {
+            _runtime?.NotifyScripts(hit, KnownEvents.OnWorldPointerClick, playerProxy);
+            _runtime?.NotifyScripts(hit, KnownEvents.OnWorldClick, playerProxy);
+        }
+        else
+        {
+            _runtime?.NotifyScripts(hit, KnownEvents.OnWorldPointerClick);
+            _runtime?.NotifyScripts(hit, KnownEvents.OnWorldClick);
+        }
+    }
+
+    private void ApplyClickInteractPressScale(GameObject go, ClickInteractableComponent c)
+    {
+        if (go.Transform == null) return;
+        _clickPressScaledGo = go;
+        _clickPressOrigScaleX = go.Transform.ScaleX;
+        _clickPressOrigScaleY = go.Transform.ScaleY;
+        go.Transform.ScaleX *= c.OnPressScaleMul;
+        go.Transform.ScaleY *= c.OnPressScaleMul;
+    }
+
+    private void RestoreClickInteractPressScale()
+    {
+        if (_clickPressScaledGo?.Transform == null)
+        {
+            _clickPressScaledGo = null;
+            return;
+        }
+        _clickPressScaledGo.Transform.ScaleX = _clickPressOrigScaleX;
+        _clickPressScaledGo.Transform.ScaleY = _clickPressOrigScaleY;
+        _clickPressScaledGo = null;
+    }
+
+    private void MaybeRestoreStaleClickInteractPress()
+    {
+        if (_clickPressScaledGo == null) return;
+        if (_gameTimeSeconds - _pointerDownGameTime < 0.45) return;
+        RestoreClickInteractPressScale();
+        _pointerDownClickInstanceId = null;
+        _pointerDownClickGo = null;
+    }
+
+    private void ViewportToWorld(double vx, double vy, double vw, double vh, out double wx, out double wy)
+    {
+        if (!TryGetCameraCenterOverride(out var cx, out var cy))
+        {
+            cx = _cameraWorldX;
+            cy = _cameraWorldY;
+        }
+        GameViewportMath.GetPlayEmbeddedViewportTransform(_project, vw, vh, cx, cy, out var ts, out var sc, out var ox, out var oy);
+        GameViewportMath.ViewportPixelsToWorldTile(vx, vy, ts, sc, ox, oy, out wx, out wy);
+    }
+
+    private GameObject? PickTopClickInteractableAt(double worldX, double worldY, bool forHover, bool isMouse, bool isTouch)
+    {
+        var hero = NativeProtagonistController.FindProtagonist(_sceneObjects, _project, _goToInstance);
+        GameObject? best = null;
+        var bestZ = int.MinValue;
+        var bestRo = int.MinValue;
+        foreach (var go in _sceneObjects)
+        {
+            if (go.PendingDestroy || !go.RuntimeActive) continue;
+            var c = go.GetComponent<ClickInteractableComponent>();
+            if (c == null || !c.InteractEnabled) continue;
+            if (forHover)
+            {
+                if (c.InputFilter == ClickInteractableInputKind.Touch) continue;
+            }
+            else if (!ClickInputDeviceAllowed(c.InputFilter, isMouse, isTouch))
+                continue;
+
+            if (!_goToInstance.TryGetValue(go, out var oi)) continue;
+            var def = _activeLayer?.GetDefinition(oi.DefinitionId);
+            bool geom;
+            if (c.Shape == ClickInteractableShapeKind.PixelPerfect)
+            {
+                if (def == null || _nativeAnimTextureProbe == null)
+                    continue;
+                geom = ClickInteractPixelSampler.TryHitOpaque(go, def, oi, _nativeAnimTextureProbe, worldX, worldY);
+            }
+            else
+                geom = ClickInteractableHitTesting.ContainsWorldPoint(go, c, worldX, worldY);
+            if (!geom) continue;
+            if (!PassesClickMaxDistance(c, worldX, worldY, hero)) continue;
+            if (!PassesClickLineOfSight(c, worldX, worldY, hero)) continue;
+
+            int z = c.ClickZPriority;
+            int ro = go.RenderOrder;
+            if (z > bestZ || (z == bestZ && ro >= bestRo))
+            {
+                bestZ = z;
+                bestRo = ro;
+                best = go;
+            }
+        }
+        return best;
+    }
+
+    private bool PassesClickLineOfSight(ClickInteractableComponent c, double targetWx, double targetWy, GameObject? hero)
+    {
+        if (!c.RequireLineOfSight) return true;
+        if (hero?.Transform == null || _playTileMap == null) return true;
+        double ox = hero.Transform.X, oy = hero.Transform.Y;
+        double dx = targetWx - ox, dy = targetWy - oy;
+        double dist = Math.Sqrt(dx * dx + dy * dy);
+        if (dist < 1e-4) return true;
+        var ray = TileMapRaycast.Raycast(_playTileMap, ox, oy, dx, dy, dist + 0.03);
+        return !ray.Hit || ray.Distance >= dist - 0.08;
+    }
+
+    private static bool ClickInputDeviceAllowed(ClickInteractableInputKind k, bool isMouse, bool isTouch) =>
+        k switch
+        {
+            ClickInteractableInputKind.Mouse => isMouse,
+            ClickInteractableInputKind.Touch => isTouch,
+            _ => true
+        };
+
+    private static bool PassesClickMaxDistance(ClickInteractableComponent c, double wx, double wy, GameObject? hero)
+    {
+        if (c.MaxDistanceFromPlayerTiles <= 0) return true;
+        if (hero?.Transform == null) return true;
+        double dx = wx - hero.Transform.X;
+        double dy = wy - hero.Transform.Y;
+        return Math.Sqrt(dx * dx + dy * dy) <= c.MaxDistanceFromPlayerTiles;
+    }
+
+    private void TryInvokeClickLuaBinding(string instanceId, string eventKey, object? playerProxy)
+    {
+        if (!_clickInteractLuaBindings.TryGetValue((instanceId, eventKey), out var cb)) return;
+        try
+        {
+            if (cb is LuaFunction fn)
+                fn.Call(playerProxy);
+        }
+        catch (Exception ex)
+        {
+            EditorLog.Warning($"clickInteract.{eventKey}: {ex.Message}", "Lua");
+        }
+    }
+
+    private void FireClickInteractHoverEnter(GameObject hit, string instanceId)
+    {
+        var hero = NativeProtagonistController.FindProtagonist(_sceneObjects, _project, _goToInstance);
+        var player = hero != null ? CreateProxyFor(hero) : null!;
+        TryInvokeClickLuaBinding(instanceId, "enter", player);
+        _runtime?.NotifyScripts(hit, KnownEvents.OnWorldPointerEnter, player);
+    }
+
+    private void FireClickInteractHoverExit(string instanceId)
+    {
+        GameObject? go = null;
+        foreach (var kv in _goToInstance)
+        {
+            var id = string.IsNullOrEmpty(kv.Value.InstanceId) ? kv.Key.Name : kv.Value.InstanceId;
+            if (string.Equals(id, instanceId, StringComparison.Ordinal))
+            {
+                go = kv.Key;
+                break;
+            }
+        }
+        if (go == null) return;
+        var hero = NativeProtagonistController.FindProtagonist(_sceneObjects, _project, _goToInstance);
+        var player = hero != null ? CreateProxyFor(hero) : null!;
+        TryInvokeClickLuaBinding(instanceId, "exit", player);
+        _runtime?.NotifyScripts(go, KnownEvents.OnWorldPointerExit, player);
     }
 
     private void AppendColliderDebugOverlay()

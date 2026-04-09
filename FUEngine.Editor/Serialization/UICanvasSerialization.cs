@@ -3,11 +3,16 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using FUEngine.Core;
+using JsonException = System.Text.Json.JsonException;
 
 namespace FUEngine.Editor;
 
-/// <summary>Persistencia de un UICanvas en un archivo JSON (Scene/UI/CanvasId.json).</summary>
-public static class UICanvasSerialization
+    /// <summary>Persistencia de un UICanvas en un archivo JSON (Scene/UI/CanvasId.json).</summary>
+    /// <remarks>
+    /// Nuevos campos en <see cref="UIElementDto"/> deben ser opcionales/nullable; <see cref="ElementFromDto"/> aplica valores de fábrica.
+    /// <see cref="SerializationDefaults.Options"/> ignora propiedades JSON desconocidas.
+    /// </remarks>
+    public static class UICanvasSerialization
 {
     public static void Save(UICanvas canvas, string path)
     {
@@ -23,9 +28,18 @@ public static class UICanvasSerialization
     {
         if (!File.Exists(path))
             return new UICanvas();
-        var json = File.ReadAllText(path);
-        var dto = JsonSerializer.Deserialize<UICanvasDto>(json, SerializationDefaults.Options);
-        return dto != null ? FromDto(dto) : new UICanvas();
+        try
+        {
+            var json = File.ReadAllText(path);
+            var dto = JsonSerializer.Deserialize<UICanvasDto>(json, SerializationDefaults.Options);
+            return dto != null ? FromDto(dto) : new UICanvas();
+        }
+        catch (JsonException ex)
+        {
+            var msg = $"JSON de UI canvas inválido o corrupto ({path}): {ex.Message}";
+            EditorJsonLoadDiagnostics.ReportJsonError?.Invoke(msg, "UI Canvas", path);
+            return new UICanvas();
+        }
     }
 
     public static UICanvasDto ToDto(UICanvas canvas)
@@ -87,6 +101,15 @@ public static class UICanvasSerialization
 
     private static UIElement ElementFromDto(UIElementDto d)
     {
+        var style = d.TextStyle != null ? CloneTextStyle(d.TextStyle) : null;
+        if (style != null)
+        {
+            if (style.ShadowBlur < 0) style.ShadowBlur = 0;
+            if (style.OutlineThickness < 0) style.OutlineThickness = 0;
+            if (style.Opacity < 0) style.Opacity = 0;
+            if (style.Opacity > 1) style.Opacity = 1;
+        }
+
         var e = new UIElement
         {
             Id = d.Id ?? "",
@@ -103,7 +126,7 @@ public static class UICanvasSerialization
         };
         if (d.PropertyOverrides != null)
             e.PropertyOverrides = new Dictionary<string, string>(d.PropertyOverrides);
-        e.TextStyle = d.TextStyle != null ? CloneTextStyle(d.TextStyle) : null;
+        e.TextStyle = style;
         e.TextLayout = d.TextLayout != null ? CloneTextLayout(d.TextLayout) : null;
         e.Typewriter = d.Typewriter != null ? CloneTypewriter(d.Typewriter) : null;
         e.TextAnchor = d.TextAnchor != null ? CloneTextAnchor(d.TextAnchor) : null;
@@ -129,6 +152,7 @@ public static class UICanvasSerialization
         public List<UIElementDto>? Children { get; set; }
     }
 
+    /// <summary>Contrato hacia atrás: propiedades nuevas como nullable + defaults en <see cref="ElementFromDto"/>.</summary>
     public class UIElementDto
     {
         public string? Id { get; set; }
