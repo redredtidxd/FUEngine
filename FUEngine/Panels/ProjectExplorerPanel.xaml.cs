@@ -24,6 +24,7 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
     private ExplorerMetadataService? _metadataService;
     private HashSet<string>? _sceneUsedPaths;
     private int _sceneFilterMode; // 0=Todos, 1=Usados en escena, 2=No usados
+    private int _referenceTileSize = 16;
 
     /// <summary>Modo compacto (Small Explorer bajo Jerarquía) vs completo (Large Explorer tab).</summary>
     public bool IsCompactMode { get; set; }
@@ -52,6 +53,10 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
 
     /// <summary>Tras reescalar o guardar copia de una imagen desde el menú contextual (invalidar caché de texturas en Play, repintar mapa).</summary>
     public event EventHandler<string>? ExplorerImageFileChanged;
+    /// <summary>Ruta absoluta a PNG/JPEG para abrir en el Editor de Tiles.</summary>
+    public event EventHandler<string>? RequestOpenImageInTileEditor;
+    /// <summary>Ruta absoluta a imagen raster para abrir en el Editor de Pintura.</summary>
+    public event EventHandler<string>? RequestOpenImageInPaintEditor;
 
     /// <summary>Crear desde menú contextual del explorador: triggers, etc. (objetos: solo desde la jerarquía del mapa).</summary>
     public event EventHandler? RequestCreateTriggerZone;
@@ -79,6 +84,9 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
         RefreshTree();
         ApplyCompactMode();
     }
+
+    /// <summary>Tamaño de tile del proyecto (para sugerir «Editar Tile» en PNG compatibles).</summary>
+    public void SetReferenceTileSize(int tileSizePixels) => _referenceTileSize = Math.Max(1, tileSizePixels);
 
     public void ApplyCompactMode()
     {
@@ -1240,6 +1248,24 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
                         RequestOpenInCollisionsEditor?.Invoke(this, item);
                     };
                     menu.Items.Add(miCollisions);
+                    if (TryGetRasterDimensions(item.FullPath, out var iw, out var ih) &&
+                        IsLikelySingleTileTexture(iw, ih, _referenceTileSize))
+                    {
+                        var miTile = new MenuItem { Header = "Editar Tile…" };
+                        miTile.Click += (_, _) =>
+                        {
+                            if (!string.IsNullOrEmpty(item.FullPath)) _metadataService?.RecordRecent(item.FullPath);
+                            RequestOpenImageInTileEditor?.Invoke(this, item.FullPath);
+                        };
+                        menu.Items.Add(miTile);
+                    }
+                    var miPaint = new MenuItem { Header = "Editor de Pintura…" };
+                    miPaint.Click += (_, _) =>
+                    {
+                        if (!string.IsNullOrEmpty(item.FullPath)) _metadataService?.RecordRecent(item.FullPath);
+                        RequestOpenImageInPaintEditor?.Invoke(this, item.FullPath);
+                    };
+                    menu.Items.Add(miPaint);
                     if (IsStaticRasterImageExtension(item.FullPath))
                     {
                         var miResize = new MenuItem { Header = "Reescalar imagen…" };
@@ -1986,5 +2012,34 @@ public partial class ProjectExplorerPanel : System.Windows.Controls.UserControl
             System.Windows.MessageBox.Show(ex.Message, "Error al importar", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         e.Handled = true;
+    }
+
+    private static bool TryGetRasterDimensions(string path, out int w, out int h)
+    {
+        w = h = 0;
+        try
+        {
+            var full = Path.GetFullPath(path);
+            if (!File.Exists(full)) return false;
+            var b = new BitmapImage();
+            b.BeginInit();
+            b.UriSource = new Uri(full, UriKind.Absolute);
+            b.CacheOption = BitmapCacheOption.OnLoad;
+            b.EndInit();
+            w = b.PixelWidth;
+            h = b.PixelHeight;
+            return w > 0 && h > 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Imagen cuadrada, no enorme, y múltiplo del tamaño de tile del proyecto (p. ej. 16×16 o 32×32 con grid 16).</summary>
+    private static bool IsLikelySingleTileTexture(int w, int h, int tileSize)
+    {
+        if (w != h || w > 512 || w < tileSize) return false;
+        return w % tileSize == 0 && h % tileSize == 0;
     }
 }

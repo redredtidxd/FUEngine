@@ -15,12 +15,34 @@ public partial class PaintEditorTabContent : System.Windows.Controls.UserControl
         InitializeComponent();
         Loaded += (_, _) =>
         {
-            if (DrawingCanvas != null)
+            try
             {
-                DrawingCanvas.IsDirtyChanged += (_, __) => DirtyChanged?.Invoke(this, DrawingCanvas.IsDirty);
-                DrawingCanvas.LayersChanged += (_, __) => RefreshLayersList();
+                if (DrawingCanvas != null)
+                {
+                    DrawingCanvas.IsDirtyChanged += (_, __) => DirtyChanged?.Invoke(this, DrawingCanvas.IsDirty);
+                    DrawingCanvas.LayersChanged += (_, __) => RefreshLayersList();
+                    if (DrawingCanvas.LayerCount == 0)
+                        CreateCanvas(1920, 1080);
+                }
+                RefreshLayersList();
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"No se pudo inicializar el editor de pintura: {ex.Message}", "Editor de Pintura", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         };
+    }
+
+    private void CreateCanvas(int width, int height)
+    {
+        DrawingCanvas?.CreateCanvas(width, height);
+        if (DrawingCanvas != null)
+        {
+            DrawingCanvas.Mode = DrawingCanvasControl.DrawingMode.Paint;
+            DrawingCanvas.Tool = DrawingCanvasControl.DrawingCanvasTool.Pencil;
+            DrawingCanvas.BrushSize = int.TryParse(TxtBrushSize?.Text, out var bs) ? Math.Clamp(bs, 1, 64) : 4;
+            DrawingCanvas.BrushOpacity = SliderOpacity?.Value ?? 1.0;
+        }
     }
 
     public event EventHandler<bool>? DirtyChanged;
@@ -32,6 +54,8 @@ public partial class PaintEditorTabContent : System.Windows.Controls.UserControl
 
     /// <summary>Fired when the user chooses to use the current paint as project icon. Argument is the relative path to the PNG.</summary>
     public event EventHandler<string>? RequestSetProjectIcon;
+    /// <summary>Convertir lienzo actual en asset de tile y abrir Editor de Tiles.</summary>
+    public event EventHandler? RequestConvertToTile;
 
     public void SetProjectDirectory(string projectDirectory) => _projectDirectory = projectDirectory ?? "";
 
@@ -158,5 +182,39 @@ public partial class PaintEditorTabContent : System.Windows.Controls.UserControl
         else
             rel = Path.GetFileName(_currentAssetPath);
         RequestSetProjectIcon?.Invoke(this, rel);
+    }
+
+    private void BtnTransformToTile_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (System.Windows.MessageBox.Show(
+                "Esto transformará la imagen en un asset de Tile y abrirá el Editor de Tiles. ¿Continuar?",
+                "Transformar en Tile",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+        RequestConvertToTile?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Exporta el lienzo a PNG bajo Assets/Sprites para abrirlo como tile.</summary>
+    public string? ExportBitmapToProjectSpritesForTile()
+    {
+        if (DrawingCanvas == null || string.IsNullOrEmpty(_projectDirectory)) return null;
+        var bmp = DrawingCanvas.GetBitmap();
+        if (bmp == null) return null;
+        try
+        {
+            var dir = Path.Combine(_projectDirectory, "Assets", "Sprites");
+            Directory.CreateDirectory(dir);
+            var path = Path.Combine(dir, $"from_paint_tile_{DateTime.UtcNow:yyyyMMdd_HHmmss}.png");
+            using var stream = File.Create(path);
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(bmp));
+            encoder.Save(stream);
+            return path;
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

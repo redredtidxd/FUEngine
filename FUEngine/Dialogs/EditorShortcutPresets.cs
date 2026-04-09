@@ -28,7 +28,6 @@ public static class EditorShortcutPresets
         [EditorShortcutBindings.Tool3] = "E",
         [EditorShortcutBindings.Tool4] = "R",
         [EditorShortcutBindings.Tool5] = "T",
-        [EditorShortcutBindings.Tool6] = "Y",
     };
 
     /// <summary>Atajos inspirados en Photoshop; el pan con mano pasa a H (Espacio libre para texto en otros contextos).</summary>
@@ -40,7 +39,6 @@ public static class EditorShortcutPresets
         [EditorShortcutBindings.Tool3] = "J",
         [EditorShortcutBindings.Tool4] = "M",
         [EditorShortcutBindings.Tool5] = "I",
-        [EditorShortcutBindings.Tool6] = "Y",
     };
 
     public static IReadOnlyDictionary<string, string> GetOverrides(string presetId)

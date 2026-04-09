@@ -19,7 +19,6 @@ public static class EditorShortcutBindings
     public const string Tool3 = "Tool3";
     public const string Tool4 = "Tool4";
     public const string Tool5 = "Tool5";
-    public const string Tool6 = "Tool6";
     public const string Play = "Play";
     public const string PausePlay = "PausePlay";
     public const string ToggleGrid = "ToggleGrid";
@@ -41,10 +40,9 @@ public static class EditorShortcutBindings
         new Definition(RotateObject, "Objetos", "Rotar objeto", "R", true),
         new Definition(Tool1, "Herramientas", "Herramienta 1 (Pincel)", "1", true),
         new Definition(Tool2, "Herramientas", "Herramienta 2 (Seleccionar)", "2", true),
-        new Definition(Tool3, "Herramientas", "Herramienta 3 (Colocar)", "3", true),
-        new Definition(Tool4, "Herramientas", "Herramienta 4 (Zona)", "4", true),
-        new Definition(Tool5, "Herramientas", "Herramienta 5 (Medir)", "5", true),
-        new Definition(Tool6, "Herramientas", "Herramienta 6 (Pixel)", "6", true),
+        new Definition(Tool3, "Herramientas", "Herramienta 3 (Zona)", "3", true),
+        new Definition(Tool4, "Herramientas", "Herramienta 4 (Medir)", "4", true),
+        new Definition(Tool5, "Herramientas", "Herramienta 5 (Pixel)", "5", true),
         new Definition(Play, "Juego", "Ejecutar proyecto (play)", "F5", true),
         new Definition(PausePlay, "Juego", "Pausar / reanudar play", "F6", true),
         new Definition(ToggleGrid, "Vista", "Mostrar u ocultar grid", "G", true),

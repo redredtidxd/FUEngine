@@ -7,7 +7,8 @@ public static class GameViewportMath
 {
     /// <summary>
     /// Si <see cref="ProjectInfo.GameResolutionWidth"/> y Height son &gt; 0, son la resolución fija (redondeada a múltiplos de <see cref="ProjectInfo.TileSize"/> para alinear al grid).
-    /// Si alguno es 0 («Auto»), se deriva: con viewport del editor (px del área de scroll / zoom) se usa ese tamaño en casillas; sin eso, mínimos ~12×10 casillas.
+    /// Si ambos son 0 («Auto»), la resolución lógica sale de <see cref="ProjectInfo.CameraSizeWidth"/> / <see cref="ProjectInfo.CameraSizeHeight"/> (por defecto 320×180), no del tamaño del panel WPF — así el marco de cámara y el render no crecen con Full HD.
+    /// Los parámetros de viewport del editor se conservan en la firma por compatibilidad con llamadas existentes; en Auto ya no determinan el tamaño lógico.
     /// </summary>
     public static void GetEffectiveResolutionPixels(ProjectInfo p, out int pixelWidth, out int pixelHeight,
         double editorViewportW = 0, double editorViewportH = 0, double editorZoom = 1)
@@ -20,26 +21,10 @@ public static class GameViewportMath
             return;
         }
 
-        double z = editorZoom > 0 ? editorZoom : 1.0;
-        double visW = editorViewportW > 0 ? editorViewportW / z : 0;
-        double visH = editorViewportH > 0 ? editorViewportH / z : 0;
-        int tilesW;
-        int tilesH;
-        if (visW > 0 && visH > 0)
-        {
-            tilesW = Math.Max(4, (int)Math.Floor(visW / ts));
-            tilesH = Math.Max(4, (int)Math.Floor(visH / ts));
-        }
-        else
-        {
-            tilesW = Math.Max(12, p.GameResolutionWidth / ts);
-            tilesH = Math.Max(10, p.GameResolutionHeight / ts);
-            if (tilesW == 0) tilesW = 12;
-            if (tilesH == 0) tilesH = 10;
-        }
-
-        pixelWidth = tilesW * ts;
-        pixelHeight = tilesH * ts;
+        int baseW = p.CameraSizeWidth > 0 ? p.CameraSizeWidth : 320;
+        int baseH = p.CameraSizeHeight > 0 ? p.CameraSizeHeight : 180;
+        pixelWidth = Math.Max(ts, (baseW / ts) * ts);
+        pixelHeight = Math.Max(ts, (baseH / ts) * ts);
     }
 
     /// <summary>Extensión del marco visible en casillas de mundo (coincide con píxeles / tile size cuando la resolución está alineada a tiles).</summary>

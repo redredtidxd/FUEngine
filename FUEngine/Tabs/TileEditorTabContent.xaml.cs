@@ -23,19 +23,42 @@ public partial class TileEditorTabContent : System.Windows.Controls.UserControl
     private int _previewFrameIndex;
     private bool _isPreviewPlaying;
 
+    private int _defaultGridSize = 16;
+
     public TileEditorTabContent()
     {
         InitializeComponent();
         Loaded += (_, _) =>
         {
-            RefreshPalettePanel();
-            if (DrawingCanvas != null)
+            try
             {
-                DrawingCanvas.IsDirtyChanged += (_, __) => DirtyChanged?.Invoke(this, DrawingCanvas.IsDirty);
-                DrawingCanvas.LayersChanged += (_, __) => RefreshLayersList();
+                InitDefaultPalette();
+                if (DrawingCanvas != null)
+                {
+                    DrawingCanvas.IsDirtyChanged += (_, __) => DirtyChanged?.Invoke(this, DrawingCanvas.IsDirty);
+                    DrawingCanvas.LayersChanged += (_, __) => RefreshLayersList();
+                    EnsureBlankTileDocument();
+                }
+                RefreshPalettePanel();
+                RefreshLayersList();
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"No se pudo inicializar el editor de tiles: {ex.Message}", "Editor de Tiles", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         };
         Unloaded += (_, _) => StopPreviewTimer();
+    }
+
+    private void EnsureBlankTileDocument()
+    {
+        if (DrawingCanvas == null) return;
+        if (DrawingCanvas.LayerCount > 0) return;
+        int g = Math.Clamp(_defaultGridSize, 1, 512);
+        DrawingCanvas.CreateCanvas(g, g);
+        DrawingCanvas.Mode = DrawingCanvasControl.DrawingMode.Tile;
+        DrawingCanvas.GridSize = g;
+        DrawingCanvas.Tool = DrawingCanvasControl.DrawingCanvasTool.Pencil;
     }
 
     public event EventHandler<bool>? DirtyChanged;
@@ -143,7 +166,11 @@ public partial class TileEditorTabContent : System.Windows.Controls.UserControl
         RefreshLayersList();
     }
 
-    public void SetProjectDirectory(string projectDirectory) => _projectDirectory = projectDirectory ?? "";
+    public void SetProjectDirectory(string projectDirectory, int defaultTileGridSize = 16)
+    {
+        _projectDirectory = projectDirectory ?? "";
+        _defaultGridSize = Math.Clamp(defaultTileGridSize, 1, 512);
+    }
 
     private void InitDefaultPalette()
     {
@@ -187,9 +214,9 @@ public partial class TileEditorTabContent : System.Windows.Controls.UserControl
         if (PalettePanel.Children.Count > 0 && _selectedPaletteBorder == null)
         {
             _selectedPaletteBorder = PalettePanel.Children[0] as Border;
-            if (_selectedPaletteBorder?.Tag is System.Windows.Media.Color first)
+            if (_selectedPaletteBorder?.Tag is System.Windows.Media.Color first && DrawingCanvas != null)
             {
-                DrawingCanvas!.PrimaryColor = first;
+                DrawingCanvas.PrimaryColor = first;
                 _selectedPaletteBorder.BorderThickness = new Thickness(2);
             }
         }

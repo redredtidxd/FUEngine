@@ -55,7 +55,7 @@ public partial class EditorWindow : Window
     private int _zoneStartTx, _zoneStartTy;
     private ZoneClipboard? _zoneClipboard;
     private int _pasteOriginTx = 0, _pasteOriginTy = 0;
-    private enum ToolMode { Pintar, Rectangulo, Relleno, Goma, Stamp, Seleccionar, Colocar, Zona, Medir, PixelEdit }
+    private enum ToolMode { Pintar, Rectangulo, Relleno, Goma, Stamp, Seleccionar, Zona, Medir, PixelEdit }
     private ToolMode _toolMode = ToolMode.Seleccionar;
 
     /// <summary>Active tool mode. Setter updates ToolController so no need to call UpdateCurrentTool() manually.</summary>
@@ -65,7 +65,15 @@ public partial class EditorWindow : Window
         set
         {
             if (_toolMode == value) return;
+            bool leavingZona = _toolMode == ToolMode.Zona && value != ToolMode.Zona;
             _toolMode = value;
+            if (leavingZona)
+            {
+                _zoneMinTx = _zoneMinTy = _zoneMaxTx = _zoneMaxTy = null;
+                _zoneDragging = false;
+                UpdateZoneMenuState();
+                DrawMap();
+            }
             UpdateCurrentTool();
         }
     }
@@ -104,10 +112,8 @@ public partial class EditorWindow : Window
         { "Juego", "Juego (Play embebido)" },
         { "Debug", "Debug" },
         { "Audio", "Audio" },
-        { "TileCreator", "Tile Creator" },
-        { "TileEditor", "Tile Editor" },
-        { "PaintCreator", "Paint Creator" },
-        { "PaintEditor", "Paint Editor" },
+        { "TileEditor", "Editor de Tiles" },
+        { "PaintEditor", "Editor de Pintura" },
         { "CollisionsEditor", "Editor de colisiones" },
         { "ScriptableTile", "Tile por script" },
         { "Localization", "Localización (i18n)" }
@@ -126,9 +132,7 @@ public partial class EditorWindow : Window
         { "Audio", "\uD83C\uDFA4" },
         { "Juego", "\u25B6" },
         { "Debug", "\uD83D\uDC1E" },
-        { "TileCreator", "\uD83E\uDDF1" },
         { "TileEditor", "\uD83E\uDDF1" },
-        { "PaintCreator", "\uD83D\uDD8C" },
         { "PaintEditor", "\uD83D\uDD8C" },
         { "CollisionsEditor", "\uD83D\uDD12" },
         { "ScriptableTile", "\uD83D\uDDA8" },
@@ -147,9 +151,7 @@ public partial class EditorWindow : Window
         { "Consola", "Debug" },
         { "Juego", "Debug" },
         { "Debug", "Debug" },
-        { "TileCreator", "Contenido" },
         { "TileEditor", "Contenido" },
-        { "PaintCreator", "Contenido" },
         { "PaintEditor", "Contenido" },
         { "CollisionsEditor", "Contenido" },
         { "ScriptableTile", "Contenido" },
@@ -157,7 +159,12 @@ public partial class EditorWindow : Window
     };
 
     /// <summary>Orden de kinds opcionales para el menú (por categoría y luego orden fijo).</summary>
-    private static readonly string[] OptionalTabKindsOrder = { "Scripts", "Explorador", "Localization", "Tiles", "Animaciones", "Seeds", "TileCreator", "TileEditor", "PaintCreator", "PaintEditor", "CollisionsEditor", "ScriptableTile", "Audio", "Consola", "Juego", "Debug" };
+    private static readonly string[] OptionalTabKindsOrder = { "Scripts", "Explorador", "Localization", "Tiles", "Animaciones", "Seeds", "TileEditor", "PaintEditor", "CollisionsEditor", "ScriptableTile", "Audio", "Consola", "Juego", "Debug" };
+
+    private static string NormalizeOptionalTabKind(string kind) =>
+        string.Equals(kind, "TileCreator", StringComparison.Ordinal) ? "TileEditor"
+        : string.Equals(kind, "PaintCreator", StringComparison.Ordinal) ? "PaintEditor"
+        : kind;
     private bool _gridVisible = true;
     private bool _snapToGrid = true;
     private System.Windows.Media.Color _gridColor = System.Windows.Media.Color.FromRgb(0x30, 0x36, 0x3d);
@@ -193,6 +200,8 @@ public partial class EditorWindow : Window
     private ObjectInspectorPanel? _cachedObjectPanel;
     private UIElementInspectorPanel? _cachedUIElementPanel;
     private MultiObjectInspectorPanel? _cachedMultiPanel;
+    /// <summary>Ancla para Mayús+clic en jerarquía (rango de objetos).</summary>
+    private ObjectInstance? _hierarchyObjectAnchor;
     private DefaultInspectorPanel? _cachedOverviewPanel;
     private MapPropertiesInspectorPanel? _cachedMapPropertiesPanel;
     private TileInspectorPanel? _cachedTileInspectorPanel;
@@ -342,6 +351,7 @@ public partial class EditorWindow : Window
             RefreshMapHierarchy();
             MapHierarchy.SetTriggerData(_triggerZones, () => TriggerZoneSerialization.Save(_triggerZones, _project.TriggerZonesPath));
             MapHierarchy.ObjectSelected += MapHierarchy_OnObjectSelected;
+            MapHierarchy.ObjectInstancePickWithKeys += MapHierarchy_OnObjectInstancePickWithKeys;
             MapHierarchy.LayerVisibilityToggled += MapHierarchy_OnLayerVisibilityToggled;
             MapHierarchy.TriggerSelected += MapHierarchy_OnTriggerSelected;
             MapHierarchy.RequestCreateObject += MapHierarchy_OnRequestCreateObject;
@@ -365,6 +375,7 @@ public partial class EditorWindow : Window
         if (ProjectExplorer != null)
         {
             ProjectExplorer.SetProject(_project.ProjectDirectory ?? "", _project.Nombre ?? "Proyecto");
+            ProjectExplorer.SetReferenceTileSize(_project.TileSize > 0 ? _project.TileSize : 16);
             ProjectExplorer.HideDataFolderInExplorer = EngineSettings.Load().HideDataFolderInExplorer;
             ProjectExplorer.SetMetadataService(_explorerMetadataService);
             ProjectExplorer.IsCompactMode = true;
@@ -378,6 +389,8 @@ public partial class EditorWindow : Window
             ProjectExplorer.ScriptsRegistryChanged += ProjectExplorer_OnScriptsRegistryChanged;
             ProjectExplorer.RequestExportObjectAsSeed += ProjectExplorer_OnRequestExportObjectAsSeed;
             ProjectExplorer.ExplorerImageFileChanged += ProjectExplorer_OnExplorerImageFileChanged;
+            ProjectExplorer.RequestOpenImageInTileEditor += ProjectExplorer_OnRequestOpenImageInTileEditor;
+            ProjectExplorer.RequestOpenImageInPaintEditor += ProjectExplorer_OnRequestOpenImageInPaintEditor;
             _explorerPanel = ProjectExplorer;
         }
         InitializeFixedTabs();
@@ -431,9 +444,7 @@ public partial class EditorWindow : Window
             { "Debug", _ => CreateDebugTabContent() },
             { "Audio", _ => CreateAudioTabContent() },
             // Creative Suite
-            { "TileCreator", _ => new TileCreatorTabContent() },
             { "TileEditor", _ => new TileEditorTabContent() },
-            { "PaintCreator", _ => new PaintCreatorTabContent() },
             { "PaintEditor", _ => new PaintEditorTabContent() },
             { "CollisionsEditor", _ => new CollisionsEditorTabContent() },
             { "ScriptableTile", _ => new ScriptableTileTabContent() },
@@ -465,7 +476,9 @@ public partial class EditorWindow : Window
             if (state == null || MainTabs == null) return;
             if (!string.IsNullOrEmpty(state.SelectedTabKind))
             {
-                var t = GetTabByKind(state.SelectedTabKind);
+                var sk = state.SelectedTabKind == "Objetos" ? "Seeds" : state.SelectedTabKind;
+                sk = NormalizeOptionalTabKind(sk);
+                var t = GetTabByKind(sk);
                 if (t != null) { t.IsSelected = true; return; }
             }
             var idx = state.SelectedTabIndex;
@@ -528,12 +541,14 @@ public partial class EditorWindow : Window
                 if (string.IsNullOrEmpty(kind)) continue;
                 if (kind == "Mapa" || kind == "Consola" || kind == "Juego") continue;
                 var kindToAdd = kind == "Objetos" ? "Seeds" : kind;
+                kindToAdd = NormalizeOptionalTabKind(kindToAdd);
                 if (!HasTabWithKind(kindToAdd))
                     AddOrSelectTab(kindToAdd);
             }
 
             var selectedTabKind = layout.SelectedTab == "Objetos" ? "Seeds" : layout.SelectedTab;
             if (string.IsNullOrEmpty(selectedTabKind)) selectedTabKind = "Mapa";
+            else selectedTabKind = NormalizeOptionalTabKind(selectedTabKind);
             if (!HasTabWithKind(selectedTabKind))
                 AddOrSelectTab(selectedTabKind);
             var tab = GetTabByKind(selectedTabKind);
@@ -627,9 +642,50 @@ public partial class EditorWindow : Window
 
     private void MapHierarchy_OnObjectSelected(object? sender, ObjectInstance? instance)
     {
+        _hierarchyObjectAnchor = instance;
         _selection.SetObjectSelection(instance);
         RefreshInspector();
         DrawMap();
+    }
+
+    private void MapHierarchy_OnObjectInstancePickWithKeys(object? sender, ObjectHierarchyPickEventArgs e)
+    {
+        var order = MapHierarchy.GetObjectInstancesInDisplayOrder().ToList();
+        if (e.Control)
+        {
+            _selection.ToggleObjectInSelection(e.Instance);
+            _hierarchyObjectAnchor = e.Instance;
+            RefreshInspector();
+            DrawMap();
+            return;
+        }
+        if (e.Shift)
+        {
+            int ib = order.FindIndex(o => o.InstanceId == e.Instance.InstanceId);
+            if (ib < 0) return;
+            var anchor = _hierarchyObjectAnchor ?? _selection.SelectedObject;
+            int ia = -1;
+            if (anchor != null)
+            {
+                for (var i = 0; i < order.Count; i++)
+                {
+                    if (order[i].InstanceId == anchor.InstanceId) { ia = i; break; }
+                }
+            }
+            if (ia < 0)
+            {
+                _selection.SetObjectSelection(e.Instance);
+                _hierarchyObjectAnchor = e.Instance;
+            }
+            else
+            {
+                var lo = Math.Min(ia, ib);
+                var hi = Math.Max(ia, ib);
+                _selection.SetObjectSelection(order.Skip(lo).Take(hi - lo + 1));
+            }
+            RefreshInspector();
+            DrawMap();
+        }
     }
 
     private void MapHierarchy_OnUICanvasSelected(object? sender, UICanvas? canvas)
@@ -1627,6 +1683,15 @@ public partial class EditorWindow : Window
         if (TxtStatusBar != null) TxtStatusBar.Text = text;
     }
 
+    private void ShowNoTileSelectedForPaintDialog()
+    {
+        System.Windows.MessageBox.Show(this,
+            "No hay ningún tile seleccionado para pintar. Por favor, selecciona un tile del panel Tileset (pestaña inferior «Tiles»).",
+            "Pincel",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
     private void ApplyGameTabPausePolicy(TabItem? selected)
     {
         if (MainTabs?.Items == null) return;
@@ -1953,7 +2018,6 @@ public partial class EditorWindow : Window
         if (_toolMode == ToolMode.Medir) { HandleMeasureClick(pos); return; }
         if (_toolMode == ToolMode.Zona) { HandleZoneToolClick(pos); return; }
         if (_toolMode == ToolMode.Seleccionar) { HandleSelectToolClick(pos, ctrl); return; }
-        if (_toolMode == ToolMode.Colocar) { HandlePlaceObjectClick(pos); return; }
 
         var (tx2, ty2) = GetTileAt(pos);
         if (_toolMode == ToolMode.Rectangulo) { HandleRectToolClick(tx2, ty2); return; }
@@ -2021,7 +2085,7 @@ public partial class EditorWindow : Window
             var batch = new PaintTileBatchCommand(_tileMap, layerIdx);
             if (!TryGetPaintTile(out var rectTemplate))
             {
-                UpdateStatusBar("Rectángulo: elige un tile en la pestaña «Tiles» o usa una capa sin tileset.");
+                ShowNoTileSelectedForPaintDialog();
                 _rectDragging = false;
                 return;
             }
@@ -2086,14 +2150,20 @@ public partial class EditorWindow : Window
     private void HandleMeasureClick(System.Windows.Point pos)
     {
         var (tx, ty) = GetTileAt(pos);
-        if (_measureStart == null)
+        if (!_project.Infinite)
+            GameViewportMath.ClampWorldTileToFiniteMapBounds(_project, ref tx, ref ty);
+
+        if (_measureStart == null || (_measureStart.HasValue && _measureEnd.HasValue))
         {
             _measureStart = (tx, ty);
             _measureEnd = null;
-            UpdateStatusBar($"Medir: origen ({tx}, {ty}) — clic en destino");
+            UpdateStatusBar($"Medir: origen ({tx}, {ty}) — segundo clic izquierdo = destino (otro clic reinicia)");
         }
         else
+        {
             _measureEnd = (tx, ty);
+            UpdateStatusBar($"Medir: destino ({tx}, {ty})");
+        }
         DrawMap();
     }
 
@@ -2140,24 +2210,6 @@ public partial class EditorWindow : Window
         RefreshInspector();
         DrawMap();
         UpdateTileSelectionToolbarVisibility();
-    }
-
-    private void HandlePlaceObjectClick(System.Windows.Point pos)
-    {
-        var defId = (CmbObjectDef.SelectedValue as string) ?? _objectLayer.Definitions.Values.FirstOrDefault()?.Id;
-        if (string.IsNullOrEmpty(defId)) return;
-        var (tx, ty) = GetTileAt(pos);
-        var inst = new ObjectInstance
-        {
-            DefinitionId = defId,
-            X = tx,
-            Y = ty,
-            Nombre = _objectLayer.GetDefinition(defId)?.Nombre ?? "Objeto"
-        };
-        _history.Push(new AddObjectCommand(_objectLayer, inst));
-        ProjectExplorer.SetModified(GetCurrentSceneObjectsPath(), true);
-        RefreshMapHierarchy();
-        DrawMap();
     }
 
     private void HandleRectToolClick(int tx, int ty)
@@ -2239,7 +2291,7 @@ public partial class EditorWindow : Window
         if (IsActiveLayerLocked()) return;
         if (!TryGetPaintTile(out var paintTemplate))
         {
-            UpdateStatusBar("Relleno: asigna un tileset a la capa y elige un tile en la pestaña «Tiles».");
+            ShowNoTileSelectedForPaintDialog();
             return;
         }
         var layerIdx = GetActiveLayerIndex();
@@ -2428,7 +2480,7 @@ public partial class EditorWindow : Window
         var (mx, my) = GetTileAt(pos);
         if (!_project.Infinite && !GameViewportMath.IsWorldTileInsideFiniteMapBounds(_project, mx, my))
         {
-            var toolShort = _toolMode switch { ToolMode.Pintar => "Pincel", ToolMode.Rectangulo => "Rect", ToolMode.Relleno => "Relleno", ToolMode.Goma => "Goma", ToolMode.Stamp => "Sello", ToolMode.Seleccionar => "Seleccionar", ToolMode.Colocar => "Colocar", ToolMode.Zona => "Zona", ToolMode.Medir => "Medir", ToolMode.PixelEdit => "Pixel", _ => "" };
+            var toolShort = _toolMode switch { ToolMode.Pintar => "Pincel", ToolMode.Rectangulo => "Rect", ToolMode.Relleno => "Relleno", ToolMode.Goma => "Goma", ToolMode.Stamp => "Sello", ToolMode.Seleccionar => "Seleccionar", ToolMode.Zona => "Zona", ToolMode.Medir => "Medir", ToolMode.PixelEdit => "Pixel", _ => "" };
             var capaShort = GetActiveLayerDisplayName();
             UpdateStatusBar($"Fuera del área del mapa  |  {toolShort}  |  Capa: {capaShort}");
             return;
@@ -2481,7 +2533,7 @@ public partial class EditorWindow : Window
             else
                 xyPart = $"X: {mx}  Y: {my}";
         }
-        var toolName = _toolMode switch { ToolMode.Pintar => "Pincel", ToolMode.Rectangulo => "Rectángulo relleno", ToolMode.Relleno => "Relleno", ToolMode.Goma => "Goma", ToolMode.Stamp => "Sello", ToolMode.Seleccionar => "Seleccionar", ToolMode.Colocar => "Colocar", ToolMode.Zona => "Zona", ToolMode.Medir => "Medir", ToolMode.PixelEdit => "Pixel", _ => "" };
+        var toolName = _toolMode switch { ToolMode.Pintar => "Pincel", ToolMode.Rectangulo => "Rectángulo relleno", ToolMode.Relleno => "Relleno", ToolMode.Goma => "Goma", ToolMode.Stamp => "Sello", ToolMode.Seleccionar => "Seleccionar", ToolMode.Zona => "Zona", ToolMode.Medir => "Medir", ToolMode.PixelEdit => "Pixel", _ => "" };
         var tileName = _toolMode == ToolMode.Pintar && ActiveLayerUsesTilesetCatalog() && _selectedCatalogTileId is int cid
             ? $"#{cid}"
             : "";
@@ -2593,18 +2645,14 @@ public partial class EditorWindow : Window
                 CurrentToolMode = ToolMode.Seleccionar;
                 return true;
             case EditorShortcutBindings.Tool3:
-                if (ToolColocar != null) ToolColocar.IsChecked = true;
-                CurrentToolMode = ToolMode.Colocar;
-                return true;
-            case EditorShortcutBindings.Tool4:
                 if (ToolZona != null) ToolZona.IsChecked = true;
                 CurrentToolMode = ToolMode.Zona;
                 return true;
-            case EditorShortcutBindings.Tool5:
+            case EditorShortcutBindings.Tool4:
                 if (ToolMedir != null) ToolMedir.IsChecked = true;
                 CurrentToolMode = ToolMode.Medir;
                 return true;
-            case EditorShortcutBindings.Tool6:
+            case EditorShortcutBindings.Tool5:
                 if (ToolPixelEdit != null) ToolPixelEdit.IsChecked = true;
                 CurrentToolMode = ToolMode.PixelEdit;
                 return true;
@@ -4185,6 +4233,8 @@ public partial class EditorWindow : Window
             return new List<string>();
         return def.DefaultTabKinds
             .Where(k => k != "Mapa" && k != "Consola" && k != "Juego")
+            .Select(k => k == "Objetos" ? "Seeds" : NormalizeOptionalTabKind(k))
+            .Distinct()
             .ToList();
     }
 
@@ -4220,6 +4270,7 @@ public partial class EditorWindow : Window
 
     private void AddOrSelectTab(string kind)
     {
+        kind = NormalizeOptionalTabKind(kind);
         foreach (TabItem tab in MainTabs.Items)
         {
             if (tab.Tag is string k && k == kind)
@@ -4327,21 +4378,10 @@ public partial class EditorWindow : Window
                 RefreshInspector();
             };
         }
-        if (kind == "TileCreator" && content is TileCreatorTabContent tileCreatorContent)
-        {
-            tileCreatorContent.SetProjectDirectory(_project.ProjectDirectory ?? "");
-            tileCreatorContent.DirtyChanged += (_, isDirty) => UpdateTabHeaderDirty(tabItem, kind, isDirty);
-        }
         if (kind == "TileEditor" && content is TileEditorTabContent tileEditorContent)
         {
-            tileEditorContent.SetProjectDirectory(_project.ProjectDirectory ?? "");
+            tileEditorContent.SetProjectDirectory(_project.ProjectDirectory ?? "", _project.TileSize > 0 ? _project.TileSize : 16);
             tileEditorContent.DirtyChanged += (_, isDirty) => UpdateTabHeaderDirty(tabItem, kind, isDirty);
-        }
-        if (kind == "PaintCreator" && content is PaintCreatorTabContent paintCreatorContent)
-        {
-            paintCreatorContent.SetProjectDirectory(_project.ProjectDirectory ?? "");
-            paintCreatorContent.DirtyChanged += (_, isDirty) => UpdateTabHeaderDirty(tabItem, kind, isDirty);
-            paintCreatorContent.RequestSetProjectIcon += (_, relPath) => SetProjectIconPath(relPath);
         }
         if (kind == "PaintEditor" && content is PaintEditorTabContent paintEditorContent)
         {
@@ -4349,6 +4389,7 @@ public partial class EditorWindow : Window
             paintEditorContent.PaintSaved += (_, path) => DrawMap();
             paintEditorContent.DirtyChanged += (_, isDirty) => UpdateTabHeaderDirty(tabItem, kind, isDirty);
             paintEditorContent.RequestSetProjectIcon += (_, relPath) => SetProjectIconPath(relPath);
+            paintEditorContent.RequestConvertToTile += PaintEditor_RequestConvertToTile;
         }
         if (kind == "CollisionsEditor" && content is CollisionsEditorTabContent collisionsEditorContent)
         {
@@ -4380,6 +4421,50 @@ public partial class EditorWindow : Window
         }
     }
 
+    private void PaintEditor_RequestConvertToTile(object? sender, EventArgs e)
+    {
+        if (sender is not PaintEditorTabContent paint) return;
+        var path = paint.ExportBitmapToProjectSpritesForTile();
+        if (string.IsNullOrEmpty(path))
+        {
+            System.Windows.MessageBox.Show(
+                "No se pudo exportar el lienzo como PNG (comprueba que el proyecto esté abierto y el lienzo tenga contenido).",
+                "Transformar en Tile",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+        ProjectExplorer?.RefreshTree();
+        AddOrSelectTab("TileEditor");
+        if (GetTabByKind("TileEditor")?.Content is TileEditorTabContent tileEditor)
+        {
+            tileEditor.SetProjectDirectory(_project.ProjectDirectory ?? "", _project.TileSize > 0 ? _project.TileSize : 16);
+            tileEditor.LoadAsset(path);
+        }
+    }
+
+    private void ProjectExplorer_OnRequestOpenImageInTileEditor(object? sender, string path)
+    {
+        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
+        AddOrSelectTab("TileEditor");
+        if (GetTabByKind("TileEditor")?.Content is TileEditorTabContent tileEditor)
+        {
+            tileEditor.SetProjectDirectory(_project.ProjectDirectory ?? "", _project.TileSize > 0 ? _project.TileSize : 16);
+            tileEditor.LoadAsset(path);
+        }
+    }
+
+    private void ProjectExplorer_OnRequestOpenImageInPaintEditor(object? sender, string path)
+    {
+        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
+        AddOrSelectTab("PaintEditor");
+        if (GetTabByKind("PaintEditor")?.Content is PaintEditorTabContent paintEditor)
+        {
+            paintEditor.SetProjectDirectory(_project.ProjectDirectory ?? "");
+            paintEditor.LoadAsset(path);
+        }
+    }
+
     private PlayModeRunner? GetCurrentDebugRunner()
     {
         if (_playModeRunner != null && _playModeRunner.IsRunning)
@@ -4408,6 +4493,7 @@ public partial class EditorWindow : Window
         var content = new ExplorerTabContent();
         _explorerPanel = content.GetExplorerPanel();
         _explorerPanel.SetProject(_project.ProjectDirectory, _project.Nombre);
+        _explorerPanel.SetReferenceTileSize(_project.TileSize > 0 ? _project.TileSize : 16);
         _explorerPanel.HideDataFolderInExplorer = EngineSettings.Load().HideDataFolderInExplorer;
         _explorerPanel.SetMetadataService(_explorerMetadataService);
         _explorerPanel.IsCompactMode = false;
@@ -4420,6 +4506,9 @@ public partial class EditorWindow : Window
         _explorerPanel.LuaScriptRegistered += ProjectExplorer_OnLuaScriptRegistered;
         _explorerPanel.ScriptsRegistryChanged += ProjectExplorer_OnScriptsRegistryChanged;
         _explorerPanel.RequestExportObjectAsSeed += ProjectExplorer_OnRequestExportObjectAsSeed;
+        _explorerPanel.ExplorerImageFileChanged += ProjectExplorer_OnExplorerImageFileChanged;
+        _explorerPanel.RequestOpenImageInTileEditor += ProjectExplorer_OnRequestOpenImageInTileEditor;
+        _explorerPanel.RequestOpenImageInPaintEditor += ProjectExplorer_OnRequestOpenImageInPaintEditor;
         return content;
     }
 
@@ -5452,7 +5541,7 @@ public partial class EditorWindow : Window
         if (IsActiveLayerLocked()) return;
         if (!TryGetPaintTile(out var fillTemplate))
         {
-            UpdateStatusBar("Rellenar selección: elige un tile en la pestaña «Tiles» o capa sin tileset.");
+            ShowNoTileSelectedForPaintDialog();
             return;
         }
         var layerIdx = GetActiveLayerIndex();
@@ -5655,18 +5744,18 @@ public partial class EditorWindow : Window
         var idx = GetActiveLayerIndex();
         if (_tileMap == null || idx < 0 || idx >= _tileMap.Layers.Count)
         {
-            ToolbarMapTileHint.Text = "Pincel: asigna un tileset a la capa y elige un tile en «Tiles» (abajo).";
+            ToolbarMapTileHint.Text = "Tiles: catálogo en el panel inferior.";
             return;
         }
         if (string.IsNullOrWhiteSpace(_tileMap.Layers[idx].TilesetAssetPath))
         {
-            ToolbarMapTileHint.Text = "Pincel: la capa activa no tiene tileset. Asígnalo en el Inspector de capa (JSON).";
+            ToolbarMapTileHint.Text = $"Capa: {_tileMap.Layers[idx].Name ?? "?"}" + " · asigna tileset en la capa (Inspector).";
             return;
         }
         if (_selectedCatalogTileId is int cid)
-            ToolbarMapTileHint.Text = $"Pincel: tile #{cid} · {_tileMap.Layers[idx].TilesetAssetPath}";
+            ToolbarMapTileHint.Text = $"Tile activo #{cid} · {_tileMap.Layers[idx].TilesetAssetPath}";
         else
-            ToolbarMapTileHint.Text = "Pincel: elige un tile en la pestaña «Tiles» (panel inferior).";
+            ToolbarMapTileHint.Text = "Tiles: elige una celda del catálogo abajo para pintar.";
     }
 
     private void ShowCatalogTileCollisionEditor(int tileId)
@@ -6132,6 +6221,8 @@ public partial class EditorWindow : Window
 
         public void BeginMapPaintCapture() => _w.BeginMapPaintCaptureForTool();
         public void EndMapPaintCapture() => _w.EndMapPaintCaptureForTool();
+
+        public void NotifyNoTileSelectedForPaint() => _w.ShowNoTileSelectedForPaintDialog();
     }
 }
 

@@ -10,7 +10,7 @@
         </Grid.RowDefinitions>
         <Border Grid.Row="0" Background="#21262d" Padding="8,6" BorderBrush="#30363d" BorderThickness="0,0,0,1">
             <StackPanel Orientation="Horizontal">
-                <TextBlock x:Name="TxtPath" Text="Paint Editor — Sin archivo" VerticalAlignment="Center" Foreground="#8b949e" Margin="0,0,16,0"/>
+                <TextBlock x:Name="TxtPath" Text="Editor de Pintura — Sin archivo" VerticalAlignment="Center" Foreground="#8b949e" Margin="0,0,16,0"/>
                 <RadioButton x:Name="RbPencil" Content="✏" ToolTip="Lápiz" FontSize="15" GroupName="Tool" IsChecked="True" Foreground="#e6edf3" VerticalAlignment="Center" Margin="0,0,8,0" Checked="Tool_Checked"/>
                 <RadioButton x:Name="RbEraser" Content="⌫" ToolTip="Goma" FontSize="15" GroupName="Tool" Foreground="#e6edf3" VerticalAlignment="Center" Margin="0,0,8,0" Checked="Tool_Checked"/>
                 <RadioButton x:Name="RbFill" Content="▦" ToolTip="Relleno" FontSize="15" GroupName="Tool" Foreground="#e6edf3" VerticalAlignment="Center" Margin="0,0,12,0" Checked="Tool_Checked"/>
@@ -21,6 +21,7 @@
                 <Slider x:Name="SliderOpacity" Minimum="0.1" Maximum="1" Value="1" Width="80" VerticalAlignment="Center" Margin="0,0,16,0" ValueChanged="SliderOpacity_ValueChanged"/>
                 <Button x:Name="BtnSave" Content="Guardar" Padding="10,4" Margin="0,0,8,0" Click="BtnSave_OnClick" Background="#238636" Foreground="White" BorderThickness="0"/>
                 <Button x:Name="BtnUseAsIcon" Content="Usar como icono" Padding="10,4" Click="BtnUseAsIcon_OnClick" Background="#21262d" Foreground="#58a6ff" BorderBrush="#30363d"/>
+                <Button x:Name="BtnTransformToTile" Content="Transformar en Tile…" Padding="10,4" Margin="8,0,0,0" Click="BtnTransformToTile_OnClick" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" ToolTip="Guarda el PNG y abre el Editor de Tiles con esta imagen"/>
             </StackPanel>
         </Border>
         <Grid Grid.Row="1">

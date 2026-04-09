@@ -68,6 +68,8 @@ public class MapHierarchyItem : System.ComponentModel.INotifyPropertyChanged
 public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
 {
     public event EventHandler<ObjectInstance?>? ObjectSelected;
+    /// <summary>Ctrl/Mayús sobre instancias de objeto: selección múltiple o rango.</summary>
+    public event EventHandler<ObjectHierarchyPickEventArgs>? ObjectInstancePickWithKeys;
     public event EventHandler<TriggerZone?>? TriggerSelected;
     /// <summary>Crear objeto «Click trigger» en la capa de objetos (definición interna + área clicable).</summary>
     public event EventHandler? RequestCreateClickTrigger;
@@ -456,7 +458,9 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
     {
         AddMenuItem(menu, "Crear", null!, false);
         AddSubMenuItem(menu, "Crear", "Nuevo Objeto", (s, _) => OnRequestCreateObject());
-        AddSubMenuItem(menu, "Crear", "Nuevo Trigger Zone", (s, _) => OnRequestCreateTrigger());
+        AddSubMenuItem(menu, "Crear", "Triggers", null!, false);
+        AddSubSubMenuItem(menu, "Crear", "Triggers", "Zone trigger", (s, _) => OnRequestCreateTrigger());
+        AddSubSubMenuItem(menu, "Crear", "Triggers", "Click trigger", (s, _) => OnRequestCreateClickTrigger());
         AddSubMenuItem(menu, "Crear", "Nuevo Grupo de pixeles/tiles", (s, _) => OnRequestAddPixelGroup());
         AddSubMenuItem(menu, "Crear", "Nuevo Mapa", (s, _) => OnRequestNewMap());
         AddSubMenuItem(menu, "Crear", "UI", null!, false);
@@ -519,8 +523,10 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
                 AddMenuItem(menu, "Propiedades", (s, _) => OnRequestProperties(item));
                 break;
             case MapHierarchyNodeKind.TriggersFolder:
-                AddMenuItem(menu, "Nuevo Trigger Zone", (s, _) => OnRequestCreateTrigger());
-                AddMenuItem(menu, "Nuevo Click Trigger", (s, _) => OnRequestCreateClickTrigger());
+                AddMenuItem(menu, "Crear", null!, false);
+                AddSubMenuItem(menu, "Crear", "Triggers", null!, false);
+                AddSubSubMenuItem(menu, "Crear", "Triggers", "Zone trigger", (s, _) => OnRequestCreateTrigger());
+                AddSubSubMenuItem(menu, "Crear", "Triggers", "Click trigger", (s, _) => OnRequestCreateClickTrigger());
                 break;
             case MapHierarchyNodeKind.TriggerZone:
                 AddMenuItem(menu, "Duplicar", (s, _) => OnRequestDuplicateTrigger(item));
@@ -768,11 +774,39 @@ public partial class MapHierarchyPanel : System.Windows.Controls.UserControl
     public event EventHandler<(int layerIndex, bool visible)>? LayerVisibilityToggled;
     public event EventHandler<(int fromIndex, int toIndex)>? RequestReorderLayers;
 
+    /// <summary>Orden visual en el árbol: instancias de objeto (profundidad primero).</summary>
+    public IReadOnlyList<ObjectInstance> GetObjectInstancesInDisplayOrder()
+    {
+        var list = new List<ObjectInstance>();
+        if (HierarchyTree == null || HierarchyTree.Items.Count == 0 || HierarchyTree.Items[0] is not MapHierarchyItem root)
+            return list;
+        void Walk(MapHierarchyItem n)
+        {
+            if (n.ObjectInstance != null) list.Add(n.ObjectInstance);
+            foreach (var c in n.Children) Walk(c);
+        }
+        Walk(root);
+        return list;
+    }
+
     private void HierarchyTree_OnPreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         var tree = sender as System.Windows.Controls.TreeView;
         if (tree == null) return;
-        _dragStartPoint = e.GetPosition(tree);
+        var posEarly = e.GetPosition(tree);
+        var hiEarly = GetHierarchyItemAtPosition(tree, posEarly);
+        if (hiEarly?.ObjectInstance != null)
+        {
+            var ctrl = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
+            var shift = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
+            if (ctrl || shift)
+            {
+                ObjectInstancePickWithKeys?.Invoke(this, new ObjectHierarchyPickEventArgs(hiEarly.ObjectInstance, ctrl, shift));
+                e.Handled = true;
+                return;
+            }
+        }
+        _dragStartPoint = posEarly;
         var hi = GetHierarchyItemAtPosition(tree, _dragStartPoint.Value);
         _dragObjectItem = hi?.NodeKind == MapHierarchyNodeKind.ObjectInstance && hi.ObjectInstance != null ? hi : null;
         _dragStartLayerItem = hi;

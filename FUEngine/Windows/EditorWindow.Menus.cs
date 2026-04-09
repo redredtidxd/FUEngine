@@ -64,7 +64,6 @@ public partial class EditorWindow
         else if (ToolGoma?.IsChecked == true) CurrentToolMode = ToolMode.Goma;
         else if (ToolStamp?.IsChecked == true) CurrentToolMode = ToolMode.Stamp;
         else if (ToolSeleccionar?.IsChecked == true) CurrentToolMode = ToolMode.Seleccionar;
-        else if (ToolColocar?.IsChecked == true) CurrentToolMode = ToolMode.Colocar;
         else if (ToolZona?.IsChecked == true) CurrentToolMode = ToolMode.Zona;
         else if (ToolMedir?.IsChecked == true) CurrentToolMode = ToolMode.Medir;
         else if (ToolPixelEdit?.IsChecked == true) CurrentToolMode = ToolMode.PixelEdit;
@@ -75,7 +74,9 @@ public partial class EditorWindow
         RefreshInspector();
     }
 
-    private void BtnVisual_OnClick(object sender, RoutedEventArgs e)
+    private void BtnMapSettings_OnClick(object sender, RoutedEventArgs e) => ShowMapSceneSettingsInInspector();
+
+    private void BtnBrushAndView_OnClick(object sender, RoutedEventArgs e)
     {
         if (PopupVisual != null) PopupVisual.IsOpen = !PopupVisual.IsOpen;
     }
@@ -705,7 +706,6 @@ public partial class EditorWindow
             else if (tag == "Relleno") { ToolRelleno.IsChecked = true; CurrentToolMode = ToolMode.Relleno; }
             else if (tag == "Goma") { ToolGoma.IsChecked = true; CurrentToolMode = ToolMode.Goma; }
             else if (tag == "Stamp") { ToolStamp.IsChecked = true; CurrentToolMode = ToolMode.Stamp; }
-            else if (tag == "Colocar") { ToolColocar.IsChecked = true; CurrentToolMode = ToolMode.Colocar; }
             else if (tag == "Seleccionar") { ToolSeleccionar.IsChecked = true; CurrentToolMode = ToolMode.Seleccionar; }
             else if (tag == "Zona") { ToolZona.IsChecked = true; CurrentToolMode = ToolMode.Zona; }
             else if (tag == "Medir") { ToolMedir.IsChecked = true; CurrentToolMode = ToolMode.Medir; }

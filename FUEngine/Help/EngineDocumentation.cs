@@ -293,8 +293,8 @@ end"),
             },
             bullets: new[]
             {
-                "Herramientas (barra del mapa): iconos con nombre en la descripción emergente — Pincel, rectángulo relleno, cubeta, goma, sello (pegar zona); selección por marco, colocar objeto, zona, medir, píxeles. Clic medio en el mapa muestrea el tipo de tile (sustituye al cuentagotas).",
-                "Visual → área visible: marco azul = rectángulo de la cámara/render (px y casillas mostrados en el propio marco). Alt+arrastrar mueve la cámara. Botones Centro mapa / Mundo 0,0 en la barra; scripts en Play usan el mismo rectángulo de vista que el visor (tamaño del canvas del tab Juego). Fuera del área jugable: celdas «+ chunk» en la frontera del conjunto de chunks. Al expandir con «+ chunk», la vista se mantiene alineada al mundo (sin saltar el marco por el solo hecho de crecer el mapa). Proyecto → Avanzado: color del lienzo y fondo de escena.",
+                "Herramientas (barra del mapa): iconos con nombre en la descripción emergente — Pincel, rectángulo relleno, cubeta, goma, sello (pegar zona); selección por marco, zona, medir, píxeles. Clic medio en el mapa muestrea el tipo de tile (sustituye al cuentagotas).",
+                "Visual → área visible: marco azul = rectángulo de la cámara/render (px y casillas en la etiqueta). Con resolución «Auto» en proyecto, ese tamaño lógico sigue el ancho/alto de cámara del proyecto (no el panel del editor). Alt+arrastrar mueve la cámara. Botones Centro mapa / Mundo 0,0 en la barra; scripts en Play usan el mismo rectángulo de vista que el visor (tamaño del canvas del tab Juego). Fuera del área jugable: celdas «+ chunk» en la frontera del conjunto de chunks. Al expandir con «+ chunk», la vista se mantiene alineada al mundo (sin saltar el marco por el solo hecho de crecer el mapa). Proyecto → Avanzado: color del lienzo y fondo de escena.",
                 "Visual → Play activo también en pestaña Mapa: el sandbox del tab Juego no se pausa al volver al mapa (edición y play a la vez).",
                 "Inspector de capa (`LayerInspectorPanel`): al final del bloque de propiedades, «Añadir componente…» abre el catálogo (script Lua de capa y entradas reservadas)."
             }),
@@ -354,7 +354,7 @@ end"),
             paragraphs: new[]
             {
                 "GameObject tiene Transform, nombre, tags, hijos/padre, orden de render y componentes (Sprite, Collider, Script, Light, Rigidbody, Health, ProximitySensor, CameraTarget, AudioSource, ParticleEmitter, ClickInteractable, …).",
-                "Colocar objeto en el mapa crea una instancia con posición; puedes convertir a seed desde acciones del inspector y, si la instancia procede de un seed, aplicar cambios de vuelta al archivo .seed.",
+                "Añadir objetos al mapa (jerarquía, arrastrar un .seed, menú contextual) crea una instancia con posición; puedes convertir a seed desde acciones del inspector y, si la instancia procede de un seed, aplicar cambios de vuelta al archivo .seed.",
                 "Los componentes se gestionan en datos del proyecto; en Lua, `self:getComponent(\"NombreTipo\")` devuelve un proxy con `invoke()` (nombre CLR del componente, p. ej. `ClickInteractableComponent`). `self.components[\"ClickInteractable\"]` añade el sufijo `Component` si falta.",
                 "`self:addComponent(...)` añade en Play tipos admitidos por alias (`SpriteRenderer`, `BoxCollider`, `CircleCollider`, `Rigidbody`, `Health`, `AudioSource`, `ClickInteractable`, `ProximitySensor`, `CameraTarget`, `PointLight`, `ParticleEmitter`, …) si el objeto aún no tiene ese componente. **No** añade scripts Lua (`ScriptComponent`) desde código.",
                 "Cada instancia de objeto guarda en objetos.json los campos del inspector avanzado (tinte, flip, animación por defecto, forma de collider, rigidbody, luz, cámara, proximidad, salud, audio, clickInteractable*, partículas). No es un array JSON de componentes arbitrarios: son propiedades tipadas de la instancia que el motor interpreta al crear GameObjects en Play.",
@@ -938,7 +938,8 @@ end"),
             porQueImporta: "Evita round-trip constante con Photoshop para tareas simples.",
             paragraphs: new[]
             {
-                "Incluye TileCreator, TileEditor, PaintCreator, PaintEditor, CollisionsEditor y ScriptableTile según el menú del proyecto.",
+                "Incluye las pestañas unificadas Editor de Tiles (TileEditor) y Editor de Pintura (PaintEditor), CollisionsEditor y ScriptableTile según el menú del proyecto (los flujos antiguos TileCreator/PaintCreator están fusionados en esas dos pestañas).",
+                "Desde el explorador, en imágenes raster: Editar Tile… si el tamaño encaja con la rejilla del proyecto, o Editor de Pintura…; en el editor de pintura, «Transformar en Tile» exporta un PNG y abre el Editor de Tiles.",
                 "Se integran con rutas de assets y catálogos de tiles; guarda desde cada herramienta antes de volver al mapa.",
                 "Para audio complejo o música usa editores externos; el motor usa NAudio para escucha en editor, no un DAW integrado."
             }),

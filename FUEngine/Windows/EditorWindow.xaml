@@ -167,10 +167,13 @@
                 <MenuItem Header="Goma" Click="MenuHerramienta_OnClick" Tag="Goma"/>
                 <MenuItem Header="Sello (pegar zona)" Click="MenuHerramienta_OnClick" Tag="Stamp"/>
                 <MenuItem Header="Seleccionar" Click="MenuHerramienta_OnClick" Tag="Seleccionar"/>
-                <MenuItem Header="Colocar objeto" Click="MenuHerramienta_OnClick" Tag="Colocar"/>
                 <MenuItem Header="Zona (copiar/pegar)" Click="MenuHerramienta_OnClick" Tag="Zona"/>
                     <MenuItem Header="Medir" Click="MenuHerramienta_OnClick" Tag="Medir"/>
                     <MenuItem Header="Pixel (edición píxel a píxel)" Click="MenuHerramienta_OnClick" Tag="PixelEdit"/>
+            </MenuItem>
+            <MenuItem Header="Ajustes" Foreground="#e6edf3">
+                <MenuItem Header="Configuración del motor…" Click="MenuConfiguracion_OnClick" ToolTip="Preferencias globales, rutas y tipografía"/>
+                <MenuItem Header="Configuración del proyecto…" Click="MenuEditorProyectoAvanzado_OnClick" ToolTip="Chunks, escenas, resolución y opciones avanzadas"/>
             </MenuItem>
             <MenuItem Header="Ayuda" Foreground="#e6edf3">
                 <MenuItem Header="Manual rápido" Click="MenuDocumentacion_OnClick" ToolTip="Primeros pasos con el proyecto abierto: mapa, escenas, Play"/>
@@ -228,16 +231,12 @@
                                  ToolTip="Selección (marco) — objetos o rectángulo de tiles en el mapa; Supr borra la selección.">
                         <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Text="&#xE762;" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </RadioButton>
-                    <RadioButton x:Name="ToolColocar" Style="{StaticResource MapToolRadioStyle}" GroupName="Tool" Checked="Tool_OnChecked" Margin="0,0,1,0"
-                                 ToolTip="Colocar objeto — usa la definición activa (Inspector / resumen del mapa).">
-                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Text="&#xE81D;" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                    </RadioButton>
                     <RadioButton x:Name="ToolZona" Style="{StaticResource MapToolRadioStyle}" GroupName="Tool" Checked="Tool_OnChecked" Margin="0,0,1,0"
                                  ToolTip="Zona — triggers, copiar y pegar región de tiles.">
                         <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Text="&#xE81E;" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </RadioButton>
                     <RadioButton x:Name="ToolMedir" Style="{StaticResource MapToolRadioStyle}" GroupName="Tool" Checked="Tool_OnChecked" Margin="0,0,1,0"
-                                 ToolTip="Medir — dos clics para distancia en casillas.">
+                                 ToolTip="Medir — dos clics izquierdos (origen y destino); el tercer clic reinicia la medición.">
                         <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Text="&#xECC6;" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </RadioButton>
                     <RadioButton x:Name="ToolPixelEdit" Style="{StaticResource MapToolRadioStyle}" GroupName="Tool" Checked="Tool_OnChecked" Margin="0,0,6,0"
@@ -245,14 +244,16 @@
                         <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Text="&#xEA80;" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </RadioButton>
                     <Separator/>
-                    <!-- Vista / máscaras / brocha -->
-                    <Button x:Name="BtnVisual" Width="28" Height="26" Padding="0" ToolTip="Vista, máscaras y tamaño del pincel" Click="BtnVisual_OnClick" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d">
-                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="15" Text="&#xE890;" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#e6edf3"/>
+                    <Button x:Name="BtnMapSettings" Width="28" Height="26" Padding="0" ToolTip="Ajustes del mapa actual (tamaño, chunks, fondo…)" Click="BtnMapSettings_OnClick" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="15" Text="&#xE713;" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#e6edf3"/>
                     </Button>
-                    <Popup x:Name="PopupVisual" PlacementTarget="{Binding ElementName=BtnVisual}" Placement="Bottom" StaysOpen="False">
+                    <Button x:Name="BtnBrushAndView" Width="28" Height="26" Padding="0" ToolTip="Brocha, máscaras y vista del lienzo" Click="BtnBrushAndView_OnClick" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="15" Text="&#xEC88;" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#e6edf3"/>
+                    </Button>
+                    <Popup x:Name="PopupVisual" PlacementTarget="{Binding ElementName=BtnBrushAndView}" Placement="Bottom" StaysOpen="False">
                         <Border Background="#161b22" BorderBrush="#30363d" BorderThickness="1" Padding="10,8">
                             <StackPanel MinWidth="200">
-                                <TextBlock Text="Pincel (brocha)" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="11" Margin="0,0,0,6"/>
+                                <TextBlock Text="Brocha y vista del mapa" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="11" Margin="0,0,0,6"/>
                                 <TextBlock Text="Tamaño" Foreground="#8b949e" FontSize="10" Margin="0,0,0,4"/>
                                 <ComboBox x:Name="CmbBrushSize" Width="100" SelectedIndex="0" SelectionChanged="CmbBrushSize_OnSelectionChanged"
                                           Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d" Margin="0,0,0,8">
@@ -290,7 +291,7 @@
                         </Border>
                     </Popup>
                     <Separator/>
-                    <TextBlock x:Name="ToolbarMapTileHint" Text="Pincel: elige el tile en la pestaña «Tiles» (panel inferior)." VerticalAlignment="Center" Foreground="#8b949e" FontSize="10" Margin="0,0,8,0" MaxWidth="280" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="ToolbarMapTileHint" Text="Tiles: elige celda en el panel inferior para pintar." VerticalAlignment="Center" Foreground="#8b949e" FontSize="10" Margin="0,0,8,0" MaxWidth="280" TextWrapping="Wrap"/>
                     <Separator/>
                     <!-- Zoom -->
                     <Button x:Name="BtnZoomOut" Width="26" Height="22" Padding="0" Click="BtnZoom_OnClick" Tag="-" ToolTip="Alejar (también Ctrl+rueda del ratón)" Background="#21262d" BorderBrush="#30363d">
@@ -497,9 +498,16 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TabPanel x:Name="HeaderPanel" Grid.Column="0" IsItemsHost="True" Margin="2,4,2,4"/>
-                                    <Button x:Name="BtnAddTab" Grid.Column="1" Style="{StaticResource TabAddButtonStyle}"
+                                    <Menu Grid.Column="1" Background="Transparent" VerticalAlignment="Center" Margin="0,2,4,2">
+                                        <MenuItem Header="Ajustes" Foreground="#e6edf3" Padding="8,4">
+                                            <MenuItem Header="Configuración del motor…" Click="MenuConfiguracion_OnClick"/>
+                                            <MenuItem Header="Configuración del proyecto…" Click="MenuEditorProyectoAvanzado_OnClick"/>
+                                        </MenuItem>
+                                    </Menu>
+                                    <Button x:Name="BtnAddTab" Grid.Column="2" Style="{StaticResource TabAddButtonStyle}"
                                             Content="+" Width="36" Height="28" Margin="4,4,8,4" FontSize="18" FontWeight="Bold"
                                             Click="BtnAddTab_OnClick" ToolTip="Nueva pestaña (contextual según área activa)"
                                             Cursor="Hand"/>
@@ -596,7 +604,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock x:Name="TxtStatusBar" Text="X: 0  Y: 0  Chunk: (0,0)  |  Seleccionar" Foreground="#8b949e" FontSize="11" VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="1" Text="Atajos: 1-6 herramientas · Ctrl+Z/Y · Del · Rueda=zoom · Clic medio en mapa=muestrear tile · Clic central=pan marco · WASD=desplazar" Foreground="#6e7681" FontSize="10" VerticalAlignment="Center" Margin="16,0,0,0"/>
+                    <TextBlock Grid.Column="1" Text="Atajos: 1-5 herramientas · Ctrl+Z/Y · Del · Rueda=zoom · Clic medio en mapa=muestrear tile · Clic central=pan marco · WASD=desplazar" Foreground="#6e7681" FontSize="10" VerticalAlignment="Center" Margin="16,0,0,0"/>
                 </Grid>
                 <Border Grid.Row="1" x:Name="LogBar" Background="#0d1117" Padding="6,3" Margin="0,4,0,0" BorderBrush="#30363d" BorderThickness="0,1,0,0" Visibility="Collapsed"
                         MouseLeftButtonDown="LogBar_MouseLeftButtonDown" Cursor="Hand">
@@ -648,7 +656,7 @@
                 <ContentControl x:Name="NewProjectWizardHost"/>
             </Border>
         </Grid>
-        <!-- Definición de objeto para «Colocar objeto» (sin duplicar la UI en la barra) -->
+        <!-- Combo de definición de objeto (Inspector / resumen del mapa); no hay herramienta «colocar» en la barra. -->
         <StackPanel Visibility="Collapsed" Width="0" Height="0" IsHitTestVisible="False">
             <Border x:Name="ObjectPreview" Width="1" Height="1">
                 <TextBlock x:Name="ObjectPreviewText" Text="?" FontSize="1" Foreground="#8b949e"/>

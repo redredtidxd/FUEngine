@@ -202,7 +202,7 @@ public sealed class MapRenderer
         GameViewportMath.GetCameraViewportRectInEditorCanvasPixels(ctx.Project, camX, camY, ctx.CanvasMinWx, ctx.CanvasMinWy,
             out double leftRaw, out double topRaw, out int gwPx, out int ghPx,
             ctx.EditorViewportWidth, ctx.EditorViewportHeight, ctx.EditorZoom);
-        // Marco = resolución interna del juego (cámara/render); en Auto usa el viewport del scroll del editor.
+        // Marco = resolución lógica del juego (cámara/render). En Auto: CameraSize del proyecto, no el panel WPF.
         double left = leftRaw;
         double top = topRaw;
         double widthCanvas = Math.Max(1, gwPx);
