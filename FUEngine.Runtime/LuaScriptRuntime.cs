@@ -40,6 +40,7 @@ public sealed class LuaScriptRuntime
     private Func<GameObject, string, bool>? _playAnimationClip;
     private Action<GameObject>? _stopAnimation;
     private readonly LuaLogApi _logApi;
+    private readonly NativeApi _nativeApi = new();
     private Action<string, string> _logSink;
     private bool _disposed;
 
@@ -177,7 +178,7 @@ public sealed class LuaScriptRuntime
         var source = _loader.LoadSource(scriptPath);
         var env = _environment.CreateInstanceEnvironment();
         var selfProxy = CreateProxy(gameObject, instanceId, tag);
-        ScriptBindings.PopulateEnvironment(env, selfProxy, _worldApi, _inputApi, _timeApi, _audioApi, _uiApi, _gameApi, _debugDraw, _physicsApi, _adsApi, _logApi, _clickInteractApi);
+        ScriptBindings.PopulateEnvironment(env, selfProxy, _worldApi, _inputApi, _timeApi, _audioApi, _uiApi, _gameApi, _debugDraw, _physicsApi, _adsApi, _logApi, _clickInteractApi, _nativeApi);
         LuaRequireSupport.InjectRequire(_environment.State, env, _loader, _requireModuleCache);
 
         _environment.State["__scriptSource"] = source;
@@ -250,7 +251,7 @@ public sealed class LuaScriptRuntime
         var source = _loader.LoadSource(scriptPath);
         var env = _environment.CreateInstanceEnvironment();
         var layerProxy = new LayerProxy(layerDescriptor, layerIndex);
-        ScriptBindings.PopulateLayerEnvironment(env, layerProxy, _worldApi, _inputApi, _timeApi, _audioApi, _uiApi, _gameApi, _debugDraw, _physicsApi, _adsApi, _logApi, _clickInteractApi);
+        ScriptBindings.PopulateLayerEnvironment(env, layerProxy, _worldApi, _inputApi, _timeApi, _audioApi, _uiApi, _gameApi, _debugDraw, _physicsApi, _adsApi, _logApi, _clickInteractApi, _nativeApi);
         LuaRequireSupport.InjectRequire(_environment.State, env, _loader, _requireModuleCache);
 
         _environment.State["__scriptSource"] = source;

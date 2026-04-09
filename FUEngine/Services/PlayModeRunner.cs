@@ -198,6 +198,24 @@ public sealed class PlayModeRunner
             else
                 EditorLog.Info(m, "Lua");
         });
+        NativeBridge.DiagnosticSink = (severity, message, ex) =>
+        {
+            var text = message ?? "";
+            if (ex != null)
+                text = $"{text} ({ex.Message})";
+            switch (severity)
+            {
+                case NativeBridge.DiagnosticSeverity.Warning:
+                    EditorLog.Warning(text, "Native");
+                    break;
+                case NativeBridge.DiagnosticSeverity.Error:
+                    EditorLog.Error(text, "Native");
+                    break;
+                default:
+                    EditorLog.Info(text, "Native");
+                    break;
+            }
+        };
         _worldContext = new WorldContextFromList { DeferDestroy = true };
         _runtimeSeeds = TryLoadSeedsForPlay();
         _mapTriggerZones = TryLoadMapTriggerZones();
@@ -1162,6 +1180,7 @@ public sealed class PlayModeRunner
             _runtime.Dispose();
             _runtime = null;
         }
+        NativeBridge.DiagnosticSink = null;
         _playAudioEngine?.Dispose();
         _playAudioEngine = null;
         _playTileMap = null;

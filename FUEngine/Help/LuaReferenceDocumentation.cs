@@ -26,7 +26,7 @@ internal static class LuaReferenceDocumentation
                     "El mini-IDE de la pestaña Scripts valida sintaxis al escribir: si falla la compilación del chunk (p. ej. falta un end), la línea se marca en rojo en el editor además del mensaje en consola al ejecutar. Ctrl+Espacio fuerza autocompletado; el resaltado usa Lua.xshd (LuaFUE).",
                     "Ciclo de vida: al iniciar Play el runtime carga el chunk; los local del nivel superior persisten entre frames hasta hot reload o destruir el contexto. Eso no es guardado en disco: memoria salvo APIs de juego/proyecto.",
                     "Hooks habituales en objetos: onStart, onUpdate(dt), onDestroy; colisiones y triggers según el proyecto. Scripts de capa usan layer.* y onLayerUpdate(dt). Los hooks deben ser funciones globales del chunk con esos nombres.",
-                    "Tablas inyectadas (resumen): self, world, input, time, game, audio, physics, ui, ads, … Firmas completas: manual general «Scripting Lua — referencia completa de APIs».",
+                    "Tablas inyectadas (resumen): self, world, input, time, game, audio, physics, ui, ads, native (opcional, DLL externa), … Firmas completas: manual general «Scripting Lua — referencia completa de APIs».",
                     "Sintaxis con dos puntos: self:move(dx, dy) equivale a self.move(self, dx, dy). Fallos «attempt to index a nil value» suelen ser proxy nil o mezcla incorrecta de . y :.",
                     "Errores en Play van a la consola del editor (categoría Lua). pcall / xpcall protegen trozos experimentales en onUpdate. print redirige a la misma consola.",
                     "Rendimiento: evita tablas nuevas cada frame en bucles calientes; pairs sobre mapas enormes tiene coste. Un while largo en un solo frame congela el juego.",
@@ -445,6 +445,13 @@ end"),
                 "Para depuración usa print (consola del editor en Play).",
                 "La carpeta Autoguardados/ y los JSON del proyecto los gestiona el editor al guardar; no es el guardado de partida del jugador.",
                 "Si necesitas persistencia de partida, usa APIs de juego o proyecto documentadas en el manual general cuando existan; no rutas mágicas fuera del proyecto."),
+
+            Guide("interop-native", "Tabla native (DLL opcional FUECoreNative)",
+                "Expone llamadas a código nativo (C/C++) a través de C#; Lua nunca carga la DLL directamente (no uses ffi.load ni equivalentes).",
+                "Coloca `FUECoreNative.dll` junto al ejecutable del motor (o en la ruta de búsqueda del proceso). Si falta, Play sigue: `native.isAvailable()` será false y métodos como `native.fastMathSum` devuelven valores seguros (p. ej. 0); verás un aviso en consola una vez.",
+                "Métodos típicos: `native.isAvailable()`, `native.fastMathSum(a, b)` (números → int en nativo), `native.versionString()` (cadena ANSI marshalled en C#).",
+                "Errores en la nativa se capturan en C# y se registran en la consola (categoría Native en Play); no deberían tumbar el proceso.",
+                "Contrato de exports y arquitectura: ver Apéndice M en la documentación interna del repo (`docs/AI-ONBOARDING.md`) y el manual general «Scripting Lua»."),
         };
     }
 

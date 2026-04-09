@@ -6,7 +6,7 @@ using NLua;
 namespace FUEngine.Runtime;
 
 /// <summary>
-/// Registra en el entorno Lua las tablas globales: self, world, input, time, audio, physics, ui, game, ads.
+/// Registra en el entorno Lua las tablas globales: self, world, input, time, audio, physics, ui, game, ads, native.
 /// </summary>
 public static class ScriptBindings
 {
@@ -74,8 +74,13 @@ public static class ScriptBindings
         env["log"] = api;
     }
 
+    public static void SetNative(LuaTable env, NativeApi api)
+    {
+        env["native"] = api;
+    }
+
     /// <summary>Rellena el entorno con todas las APIs (stubs donde no haya implementación).</summary>
-    public static void PopulateEnvironment(LuaTable env, SelfProxy selfProxy, WorldApi? world = null, InputApi? input = null, TimeApi? time = null, AudioApi? audio = null, UiApi? ui = null, GameApi? game = null, DebugDrawApi? debug = null, PhysicsApi? physics = null, AdsApi? ads = null, LuaLogApi? log = null, ClickInteractApi? clickInteract = null)
+    public static void PopulateEnvironment(LuaTable env, SelfProxy selfProxy, WorldApi? world = null, InputApi? input = null, TimeApi? time = null, AudioApi? audio = null, UiApi? ui = null, GameApi? game = null, DebugDrawApi? debug = null, PhysicsApi? physics = null, AdsApi? ads = null, LuaLogApi? log = null, ClickInteractApi? clickInteract = null, NativeApi? native = null)
     {
         SetSelf(env, selfProxy);
         SetWorld(env, world ?? new WorldApi());
@@ -91,11 +96,12 @@ public static class ScriptBindings
             SetDebug(env, debug);
         if (log != null)
             SetLog(env, log);
+        SetNative(env, native ?? new NativeApi());
         SetInputConstants(env);
     }
 
     /// <summary>Entorno para scripts de capa: <c>layer</c> + mismas APIs globales que un script de objeto (sin <c>self</c>).</summary>
-    public static void PopulateLayerEnvironment(LuaTable env, LayerProxy layer, WorldApi? world = null, InputApi? input = null, TimeApi? time = null, AudioApi? audio = null, UiApi? ui = null, GameApi? game = null, DebugDrawApi? debug = null, PhysicsApi? physics = null, AdsApi? ads = null, LuaLogApi? log = null, ClickInteractApi? clickInteract = null)
+    public static void PopulateLayerEnvironment(LuaTable env, LayerProxy layer, WorldApi? world = null, InputApi? input = null, TimeApi? time = null, AudioApi? audio = null, UiApi? ui = null, GameApi? game = null, DebugDrawApi? debug = null, PhysicsApi? physics = null, AdsApi? ads = null, LuaLogApi? log = null, ClickInteractApi? clickInteract = null, NativeApi? native = null)
     {
         env["layer"] = layer;
         SetWorld(env, world ?? new WorldApi());
@@ -111,6 +117,7 @@ public static class ScriptBindings
             SetDebug(env, debug);
         if (log != null)
             SetLog(env, log);
+        SetNative(env, native ?? new NativeApi());
         SetInputConstants(env);
     }
 }

@@ -15,7 +15,7 @@ public static class LuaEditorCompletionCatalog
     /// <summary>Tablas globales típicas (coinciden con <see cref="FUEngine.Runtime.ScriptBindings"/>).</summary>
     public static readonly string[] Globals =
     {
-        "self", "layer", "world", "input", "time", "audio", "physics", "ui", "game", "log", "Debug", "Key", "Mouse", "ads"
+        "self", "layer", "world", "input", "time", "audio", "physics", "ui", "game", "log", "Debug", "Key", "Mouse", "ads", "native", "clickInteract"
     };
 
     /// <summary>Misma lista que <see cref="LuaLanguageKeywords.Entries"/> (23 reservadas, manual Lua 5.5 §3.1).</summary>
