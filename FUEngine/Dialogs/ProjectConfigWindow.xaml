@@ -179,6 +179,16 @@
                                 </Border>
                             </Popup>
                         </Grid>
+                        <TextBlock x:Name="TxtResolutionHelp" Foreground="#8b949e" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"
+                                   ToolTip="Auto usa el tamaño de cámara del proyecto (Avanzado), no el panel del editor. Resolución fija: buffer lógico estable; la ventana escala con bandas."/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <TextBlock Text="Ancho (px)" Foreground="#8b949e" VerticalAlignment="Center" Margin="0,0,8,0" Width="72"/>
+                            <TextBox x:Name="TxtGameResW" Width="88" Padding="6,4" Margin="0,0,12,0" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                     ToolTip="Con resolución fija: ancho lógico del juego (múltiplos del tile). Con Auto: referencia del tamaño de cámara (solo lectura)."/>
+                            <TextBlock Text="Alto (px)" Foreground="#8b949e" VerticalAlignment="Center" Margin="0,0,8,0" Width="72"/>
+                            <TextBox x:Name="TxtGameResH" Width="88" Padding="6,4" Background="#21262d" Foreground="#e6edf3" BorderBrush="#30363d"
+                                     ToolTip="Con resolución fija: alto lógico. Con Auto: referencia de cámara (solo lectura)."/>
+                        </StackPanel>
                         <TextBlock Text="FPS del juego" Foreground="#e6edf3" Margin="0,0,0,4"
                                    ToolTip="Fotogramas por segundo lógicos del bucle principal del juego."/>
                         <Grid HorizontalAlignment="Left" Margin="0,0,0,4">

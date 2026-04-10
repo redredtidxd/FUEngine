@@ -10,6 +10,9 @@
             <Border Background="#21262d" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
                 <StackPanel>
                     <TextBlock Text="Resolución lógica (marco azul / juego)" FontWeight="SemiBold" Foreground="#e6edf3" FontSize="12" Margin="0,0,0,6"/>
+                    <CheckBox x:Name="ChkGameResolutionAuto" Content="Auto (0×0: tamaño lógico = Tamaño de cámara en Configuración → Avanzado)" Foreground="#c9d1d9" Margin="0,0,0,8"
+                              Checked="ChkGameResolutionAuto_OnChanged" Unchecked="ChkGameResolutionAuto_OnChanged"
+                              ToolTip="Si está marcado, GameResolutionWidth/Height se guardan en 0 y el viewport usa CameraSizeWidth×Height (ver GameViewportMath)."/>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                         <TextBlock Text="Ancho" Foreground="#8b949e" Width="88" VerticalAlignment="Center"/>
                         <TextBox x:Name="TxtGameW" MinWidth="72" Padding="6,4" Background="#0d1117" Foreground="#e6edf3" BorderBrush="#30363d"/>

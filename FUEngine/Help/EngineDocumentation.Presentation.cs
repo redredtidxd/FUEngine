@@ -52,7 +52,7 @@ public static partial class EngineDocumentation
             "ui-canvas-runtime" or "lua-gui-canvas-play" => "UI",
             "iluminacion-audio-ui" or "naudio-audio-proyecto" => "Audio / render",
 
-            "archivos-json" or "proyecto-json-avanzado" or "biblioteca-global-assets" or "integridad-proyecto"
+            "archivos-json" or "proyecto-json-avanzado" or "proyecto-resolucion-logica" or "biblioteca-global-assets" or "integridad-proyecto"
                 => "Proyecto / datos",
 
             "exportacion-build" or "exportacion-build" or "exportacion-build" or "animaciones-export" or "exportacion-build"
@@ -175,6 +175,9 @@ public static partial class EngineDocumentation
         ["animaciones-export"] = (
             "Animaciones y pipeline de exportación",
             "Las rutas y formatos son los que serializa FUEngine.Editor; la exportación build no es un export genérico de Unity."),
+        ["proyecto-resolucion-logica"] = (
+            "GameResolution, Auto y tamaño de cámara",
+            "Configuración del proyecto → Juego: fijar píxeles lógicos o Auto (0×0). Auto usa CameraSize del manifiesto, no el tamaño de la ventana. `GameViewportMath` define el marco azul y el render."),
         ["archivos-json"] = (
             "JSON del proyecto y convenciones",
             "Los nombres de campos siguen camelCase del proyecto; no edites a mano sin conocer el esquema descrito en este manual."),

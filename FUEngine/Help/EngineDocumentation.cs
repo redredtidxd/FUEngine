@@ -72,6 +72,7 @@ public static partial class EngineDocumentation
             bullets: new[]
             {
                 "Ayuda: Manual del motor | Lua — sintaxis y librería | Ejemplos de scripts. Menú Ayuda: manual rápido, API Lua, logs.",
+                "Resolución del juego: Proyecto → Configuración → Juego (preset fijo o Auto). Auto usa el tamaño de cámara del manifiesto, no el panel del editor; tema «Resolución lógica del juego».",
                 "Explorador = disco. Jerarquía = escena (mapa, objetos, triggers, UI).",
                 "Si falta algo en Play: capa visible, pestaña correcta, script **asignado** en Inspector, escena guardada; si metiste un `.lua` solo copiando al disco **fuera** del flujo del editor, revisa que aparezca en la lista de la pestaña **Scripts**.",
                 "Temas útiles: Depuración, Hot reload, Escenas, Triggers, Exportación, FAQ, tipos de capa.",
@@ -561,6 +562,26 @@ end"),
             {
                 "Pestaña Animaciones y AnimationInspector editan datos de animación del proyecto.",
                 "Proyecto → Exportar build del juego genera ejecutable y carpeta de datos para distribución (según ProjectBuildService / export helpers). En Data/ se escribe ads_export.json según AdsExportProvider del proyecto (simulado vs Google Mobile Ads planificado)."
+            }),
+
+        new(
+            id: "proyecto-resolucion-logica",
+            title: "Resolución lógica del juego (Manual, Auto y cámara)",
+            paraQue: "Saber qué tamaño tiene realmente el viewport al diseñar mapa, UI y clics, sin confundir ventana del editor con buffer lógico.",
+            porQueImporta: "Si asumes píxeles de ventana cuando el motor usa otra resolución interna, los márgenes, el marco azul y los scripts no coinciden.",
+            paragraphs: new[]
+            {
+                "**Dónde:** Proyecto → Configuración del proyecto → pestaña **Juego** (preset o **Auto**) y campos Ancho/Alto cuando no es Auto; o Inspector del manifiesto (.FUE) con casilla Auto. **Avanzado → Tamaño de cámara** define `CameraSizeWidth` × `CameraSizeHeight`.",
+                "**Manual (fija):** `GameResolutionWidth` y `GameResolutionHeight` son mayores que cero. Ese es el tamaño lógico del buffer (el motor lo alinea a múltiplos del **tile size**). La ventana del jugador o del panel **Juego** escala el contenido con **letterbox** (barras); no se estira de forma distinta en ancho y alto.",
+                "**Auto:** ambos valores de resolución de juego en **0**. El tamaño lógico efectivo lo calcula `GameViewportMath.GetEffectiveResolutionPixels` usando **solo** `CameraSizeWidth` × `CameraSizeHeight` (por defecto 320×180 si no los cambias). **No** es «lo que mide el panel WPF del editor».",
+                "**Marco azul en Mapa:** representa el mismo rectángulo de vista que usa el cálculo anterior; sirve de referencia para colocar tiles y ver cuántas casillas caben.",
+                "**Recomendación para minijuegos por rejilla:** conviene una resolución **fija** conocida (p. ej. 1280×720) para que coordenadas y pruebas sean repetibles entre PCs; **Auto** es útil si quieres un «viewport de diseño» gobernado solo por el tamaño de cámara en datos."
+            },
+            bullets: new[]
+            {
+                "Persistencia: campos en `ProjectInfo` / `project.json`; serialización en `ProjectSerialization` + `ProjectDto`.",
+                "UI en canvas: coordenadas de diseño del `.json` de UI; el escalado a pantalla sigue las reglas del runtime UI.",
+                "Si editas solo el manifiesto en Inspector: la casilla Auto guarda 0×0; sin Auto, ancho y alto deben ser enteros positivos."
             }),
 
         new(

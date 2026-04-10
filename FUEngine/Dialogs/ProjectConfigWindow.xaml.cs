@@ -111,6 +111,8 @@ public partial class ProjectConfigWindow : Window
         if (TxtNamingSeeds != null) TxtNamingSeeds.Text = _project.NamingRuleSeeds ?? "libre";
         if (TxtCameraW != null) TxtCameraW.Text = _project.CameraSizeWidth.ToString();
         if (TxtCameraH != null) TxtCameraH.Text = _project.CameraSizeHeight.ToString();
+        SyncResolutionManualBoxesFromProject();
+        UpdateGameResolutionManualUi();
         if (TxtCameraLimits != null) TxtCameraLimits.Text = _project.CameraLimits ?? "";
         if (TxtCameraEffects != null) TxtCameraEffects.Text = _project.CameraEffects ?? "";
         if (TxtProjectPlugins != null) TxtProjectPlugins.Text = _project.ProjectEnabledPlugins != null ? string.Join(", ", _project.ProjectEnabledPlugins) : "";
@@ -410,7 +412,67 @@ public partial class ProjectConfigWindow : Window
     }
     private void ListResolution_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
-        if (ListResolution.SelectedItem is DropItem d) { TxtResolutionDisplay.Text = d.Display; PopupResolution.IsOpen = false; }
+        if (ListResolution.SelectedItem is DropItem d)
+        {
+            TxtResolutionDisplay.Text = d.Display;
+            PopupResolution.IsOpen = false;
+            if (d.Value is string rv && !rv.Equals("Auto", StringComparison.OrdinalIgnoreCase))
+            {
+                var parts = rv.Split('×', 'x', 'X');
+                if (parts.Length >= 2 && int.TryParse(parts[0].Trim(), out var gw) && int.TryParse(parts[1].Trim(), out var gh))
+                {
+                    if (TxtGameResW != null) TxtGameResW.Text = gw.ToString();
+                    if (TxtGameResH != null) TxtGameResH.Text = gh.ToString();
+                }
+            }
+            else
+                SyncResolutionManualBoxesFromProject();
+            UpdateGameResolutionManualUi();
+        }
+    }
+
+    private void SyncResolutionManualBoxesFromProject()
+    {
+        if (TxtGameResW == null || TxtGameResH == null) return;
+        if (_project.GameResolutionWidth > 0 && _project.GameResolutionHeight > 0)
+        {
+            TxtGameResW.Text = _project.GameResolutionWidth.ToString();
+            TxtGameResH.Text = _project.GameResolutionHeight.ToString();
+        }
+        else
+        {
+            int cw = _project.CameraSizeWidth > 0 ? _project.CameraSizeWidth : 320;
+            int ch = _project.CameraSizeHeight > 0 ? _project.CameraSizeHeight : 180;
+            TxtGameResW.Text = cw.ToString();
+            TxtGameResH.Text = ch.ToString();
+        }
+    }
+
+    private bool IsResolutionSelectionAuto()
+    {
+        if (ListResolution?.SelectedItem is DropItem d && d.Value is string s)
+            return s.Equals("Auto", StringComparison.OrdinalIgnoreCase);
+        return _project.GameResolutionWidth <= 0 || _project.GameResolutionHeight <= 0;
+    }
+
+    private void UpdateGameResolutionManualUi()
+    {
+        bool auto = IsResolutionSelectionAuto();
+        if (TxtGameResW != null) TxtGameResW.IsEnabled = !auto;
+        if (TxtGameResH != null) TxtGameResH.IsEnabled = !auto;
+        if (TxtResolutionHelp == null) return;
+        if (auto)
+        {
+            int cw = _project.CameraSizeWidth > 0 ? _project.CameraSizeWidth : 320;
+            int ch = _project.CameraSizeHeight > 0 ? _project.CameraSizeHeight : 180;
+            TxtResolutionHelp.Text =
+                $"Auto: el tamaño lógico del viewport sigue «Tamaño de cámara» ({cw}×{ch} px en proyecto; pestaña Avanzado). No es el tamaño del panel del editor. El marco azul del mapa usa esa referencia.";
+        }
+        else
+        {
+            TxtResolutionHelp.Text =
+                "Resolución fija: el buffer lógico tiene el ancho×alto indicado (ajustado a múltiplos del tile). La ventana grande escala con bandas (letterbox). Para minijuegos por rejilla (p. ej. tres en raya), conviene un valor fijo conocido (p. ej. 1280×720).";
+        }
     }
     private void ListFps_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
@@ -549,11 +611,21 @@ public partial class ProjectConfigWindow : Window
         }
         else
         {
-            var parts = resText.Split('×', 'x', 'X');
-            if (parts.Length >= 2 && int.TryParse(parts[0].Trim(), out var gw) && int.TryParse(parts[1].Trim(), out var gh) && gw > 0 && gh > 0)
+            if (TxtGameResW != null && TxtGameResH != null
+                && int.TryParse(TxtGameResW.Text?.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var gwBox) && gwBox > 0
+                && int.TryParse(TxtGameResH.Text?.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var ghBox) && ghBox > 0)
             {
-                _project.GameResolutionWidth = gw;
-                _project.GameResolutionHeight = gh;
+                _project.GameResolutionWidth = gwBox;
+                _project.GameResolutionHeight = ghBox;
+            }
+            else
+            {
+                var parts = resText.Split('×', 'x', 'X');
+                if (parts.Length >= 2 && int.TryParse(parts[0].Trim(), out var gw) && int.TryParse(parts[1].Trim(), out var gh) && gw > 0 && gh > 0)
+                {
+                    _project.GameResolutionWidth = gw;
+                    _project.GameResolutionHeight = gh;
+                }
             }
         }
         if (ListFps.SelectedItem is DropItem fd && fd.Value is int fpsVal && fpsVal >= 1 && fpsVal <= 240)
