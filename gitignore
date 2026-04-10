@@ -1,6 +1,9 @@
 # Build y salidas locales (el motor se compila de nuevo con dotnet build)
 bin/
 obj/
+# Staging de publish del instalador (regenerable; no debe persistir ni accidentalmente añadirse)
+obj/engine_publish_stage/
+obj/installer_publish_stage/
 .vs/
 publish/
 

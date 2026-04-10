@@ -34,6 +34,7 @@ $dotnetPublishArgs = @(
     "-o", $publishDir
     "-p:DebugType=none"
     "-p:DebugSymbols=false"
+    "-p:SkipEngineStageCleanup=true"
 )
 & dotnet @dotnetPublishArgs
 if ($LASTEXITCODE -ne 0) {
@@ -82,6 +83,11 @@ if (Test-Path $legacyFolder) {
 # Limpieza: no dejar publish duplicado dentro del repo (solo interesa el .exe final en la raíz).
 if (Test-Path $publishDir) {
     Remove-Item $publishDir -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+# Misma idea que en BundleMotor (csproj): el motor ya va embebido en fue_motor.pack / InstalarFUEngine.exe.
+if (Test-Path $engineStage) {
+    Remove-Item $engineStage -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 # Por si dotnet/otros scripts re-crearan la carpeta antigua, elimínala al final también.

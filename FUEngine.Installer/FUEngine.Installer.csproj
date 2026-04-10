@@ -7,7 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>fuengine.ico</ApplicationIcon>
+    <ApplicationIcon>..\FUEngine\Resources\fuengine.ico</ApplicationIcon>
     <RootNamespace>FUEngine.Installer</RootNamespace>
     <AssemblyName>InstalarFUEngine</AssemblyName>
     <Description>Instalador de FUEngine</Description>
@@ -44,8 +44,16 @@
   </Target>
 
   <ItemGroup>
-    <EmbeddedResource Include="mando_logo_de_fuengine.png" />
+    <EmbeddedResource Include="..\FUEngine\Resources\mando_logo_de_fuengine.png" Link="mando_logo_de_fuengine.png" />
   </ItemGroup>
+
+  <!-- Limpieza del staging del motor (obj/engine_publish_stage). build-installer.ps1 usa -p:SkipEngineStageCleanup=true para el smoke test y borra la carpeta al final. -->
+  <Target Name="CleanupEnginePublishStage" AfterTargets="Build" Condition="'$(BundleMotor)'=='true' AND '$(SkipEngineStageCleanup)'!='true'">
+    <PropertyGroup>
+      <_EngineStageCleanup>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\obj\engine_publish_stage'))</_EngineStageCleanup>
+    </PropertyGroup>
+    <Exec Command="if exist &quot;$(_EngineStageCleanup)&quot; rd /s /q &quot;$(_EngineStageCleanup)&quot;" IgnoreExitCode="true" />
+  </Target>
 
   <Target Name="DeleteIntermediateMotorPackFile" AfterTargets="CoreCompile" Condition="'$(BundleMotor)'=='true'">
     <PropertyGroup>
